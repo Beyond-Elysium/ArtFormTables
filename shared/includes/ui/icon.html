@@ -2,6 +2,7 @@
 {%- assign icon-type = include.type | default: "outline" -%}
 
 {%- assign replace-to = "icon" -%}
+{%- assign icon-attributes = include.attributes | default: '' | strip -%}
 
 {%- if include.class -%}
 {%- assign replace-to = replace-to | append: ' ' | append: include.class -%}
@@ -22,10 +23,15 @@
 {%- assign replace-to = 'class="' | append: replace-to | append: '"' -%}
 
 {%- if site.useIconfont -%}
-	<i class="icon ti ti-{{ icon-name }}{% if include.color %} {{ include.color }}{% endif %}{% if include.class %} {{ include.class }}{% endif %}"></i>
+	<i{% if icon-attributes %} {{ icon-attributes }}{% endif %} class="icon ti ti-{{ icon-name }}{% if include.color %} {{ include.color }}{% endif %}{% if include.class %} {{ include.class }}{% endif %}"></i>
 {%- elsif icons[icon-name] -%}
 	<!-- Download SVG icon from http://tabler.io/icons/icon/{{ icon-name }} -->
 	{% assign svg-icon = icons[icon-name].svg[icon-type] | default: '' -%}
 	{%- assign svg-icon = svg-icon | replace: '<path stroke="none" d="M0 0h24v24H0z" fill="none"/>', '' -%}
-	{{ svg-icon | replace_regex: 'class=\"[^"]+\"', replace-to | replace: 'class="', 'aria-hidden="true" focusable="false" class="' }}
+	{%- assign svg-attributes = 'aria-hidden="true" focusable="false"' -%}
+	{%- if icon-attributes -%}
+	{%- assign svg-attributes = svg-attributes | append: ' ' | append: icon-attributes -%}
+	{%- endif -%}
+	{%- assign svg-attributes = svg-attributes | append: ' class="' -%}
+	{{ svg-icon | replace_regex: 'class=\"[^"]+\"', replace-to | replace: 'class="', svg-attributes }}
 {%- endif -%}

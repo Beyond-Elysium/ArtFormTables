@@ -1,4 +1,4 @@
-import { Tab } from './bootstrap'
+import { Tab } from 'bootstrap'
 
 export const EnableActivationTabsFromLocationHash = (): void => {
   const locationHash: string = window.location.hash

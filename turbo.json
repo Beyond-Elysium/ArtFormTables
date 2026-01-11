@@ -37,6 +37,12 @@
         "^type-check"
       ],
       "cache": true
+    },
+    "test": {
+      "outputs": [
+        "coverage/**"
+      ],
+      "cache": true
     }
   }
 }

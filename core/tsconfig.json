@@ -15,7 +15,11 @@
     "declaration": false,
     "declarationMap": false,
     "sourceMap": true,
-    "allowJs": true
+    "allowJs": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["js/src/*"]
+    }
   },
   "include": [
     "js/**/*"

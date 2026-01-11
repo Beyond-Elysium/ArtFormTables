@@ -108,7 +108,7 @@
 <script>
 	/*
 	This script handles the theme settings offcanvas functionality
-	It saves the selected settings to localStorage and applies them to the document
+	It uses the Tabler API to save the selected settings and apply them to the document
 	It also updates the URL with the selected settings as query parameters
 	It also has a reset button to clear all settings and revert to default
 
@@ -127,9 +127,22 @@
 		var form = document.getElementById("offcanvas-settings")
 		var resetButton = document.getElementById("reset-changes")
 
+		// Wait for Tabler to be available
+		var waitForTabler = function (callback) {
+			if (window.Tabler) {
+				callback()
+			} else {
+				setTimeout(function () {
+					waitForTabler(callback)
+				}, 50)
+			}
+		}
+
 		var checkItems = function () {
+			var config = window.Tabler ? window.Tabler.getConfig() : themeConfig
+
 			for (var key in themeConfig) {
-				var value = window.localStorage["tabler-" + key] || themeConfig[key]
+				var value = config[key] || themeConfig[key]
 
 				if (!!value) {
 					var radios = form.querySelectorAll(`[name="${key}"]`)
@@ -143,36 +156,35 @@
 			}
 		}
 
-		form.addEventListener("change", function (event) {
-			var target = event.target,
-				name = target.name,
-				value = target.value
+		waitForTabler(function () {
+			form.addEventListener("change", function (event) {
+				var target = event.target,
+					name = target.name,
+					value = target.value
 
-			for (var key in themeConfig) {
-				if (name === key) {
-					document.documentElement.setAttribute("data-bs-" + key, value)
-					window.localStorage.setItem("tabler-" + key, value)
-					url.searchParams.set(key, value)
+				if (name === "theme") {
+					window.Tabler.setTheme(value)
+				} else if (name === "theme-primary") {
+					window.Tabler.setPrimary(value)
+				} else if (name === "theme-base") {
+					window.Tabler.setBase(value)
+				} else if (name === "theme-font") {
+					window.Tabler.setFont(value)
+				} else if (name === "theme-radius") {
+					window.Tabler.setRadius(value)
 				}
-			}
 
-			window.history.pushState({}, "", url)
-		})
+				url.searchParams.set(name, value)
+				window.history.pushState({}, "", url)
+			})
 
-		resetButton.addEventListener("click", function () {
-			for (var key in themeConfig) {
-				var value = themeConfig[key]
-				document.documentElement.removeAttribute("data-bs-" + key)
-				window.localStorage.removeItem("tabler-" + key)
-				url.searchParams.delete(key)
-			}
+			resetButton.addEventListener("click", function () {
+				window.Tabler.reset()
+				checkItems()
+			})
 
 			checkItems()
-
-			window.history.pushState({}, "", url)
 		})
-
-		checkItems()
 	})
 </script>
 {% endcapture_script %}

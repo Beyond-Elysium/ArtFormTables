@@ -1,19 +1,16 @@
 ---
 title: Countup
 summary: A countup element is used to display numerical data in an interesting way and make the interface more interactive.
-docs-libs: countup
 description: Display numbers dynamically with countups.
 ---
 
-The countup component is used to display numbers dynamically. It is a great way to make the interface more interactive and engaging. The countup component is a simple and easy way to animate numbers in your application.
-
-To be able to use the countup in your application you will need to install the countup.js dependency with `npm install countup.js`.
+The countup component is built into Tabler and works similar to Bootstrap components. It animates numbers dynamically, making the interface more interactive and engaging.
 
 For more advanced features of countups, see the demo on the [countUp.js website](https://inorganik.github.io/countUp.js/).
 
 ## Basic usage
 
-To create a countup, add `data-countup` to any HTML text tag and specify the number which is to be reached. The animation will be triggered as soon as the number enters the viewport.
+The easiest way to use countup is through the Data API. Add the `data-countup` attribute to any HTML text element and specify the number which is to be reached. The animation will be triggered as soon as the number enters the viewport.
 
 ```html
 <h1 data-countup>30000</h1>
@@ -120,3 +117,64 @@ Set the countup suffix using `suffix` and specifying the suffix you want to add,
 <h1 data-countup='{"suffix":"‰"}'>300</h1>
 {%- endcapture %}
 {% include "docs/example.html" html=html vertical separated %}
+
+## Usage
+
+### Via data attributes
+
+Add `data-countup` to any HTML text element to automatically initialize countup. You can pass options as JSON:
+
+```html
+<h1 data-countup>30000</h1>
+<h1 data-countup='{"duration":4,"prefix":"$"}'>30000</h1>
+```
+
+### Via JavaScript
+
+Initialize countup programmatically using the `Countup` class:
+
+```javascript
+import { Countup } from '@tabler/core'
+
+// Get or create instance
+const element = document.querySelector('[data-countup]')
+const countup = Countup.getOrCreateInstance(element)
+countup.init()
+```
+
+### Methods
+
+| Method | Description |
+| --- | --- |
+| `init()` | Initialize countup on the element. |
+| `update()` | Update countup when the target value changes programmatically. |
+| `dispose()` | Destroy countup instance. |
+| `getInstance(element)` | *Static* method which allows you to get the countup instance associated with a DOM element. |
+| `getOrCreateInstance(element)` | *Static* method which allows you to get the countup instance associated with a DOM element, or create a new one in case it wasn't initialized. |
+
+#### Example: Update after value change
+
+```javascript
+import { Countup } from '@tabler/core'
+
+const element = document.querySelector('[data-countup]')
+const countup = Countup.getOrCreateInstance(element)
+countup.init()
+
+// Later, when the target value changes programmatically
+element.innerHTML = '50000'
+countup.update()
+```
+
+#### Example: Get existing instance
+
+```javascript
+import { Countup } from '@tabler/core'
+
+const element = document.querySelector('[data-countup]')
+const countup = Countup.getInstance(element)
+
+if (countup) {
+  countup.update()
+}
+```

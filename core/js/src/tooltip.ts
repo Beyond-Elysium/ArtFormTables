@@ -1,4 +1,4 @@
-import { Tooltip } from './bootstrap'
+import { Tooltip } from 'bootstrap'
 
 const tooltipTriggerList: HTMLElement[] = [].slice.call(document.querySelectorAll<HTMLElement>('[data-bs-toggle="tooltip"]'))
 tooltipTriggerList.map(function (tooltipTriggerEl: HTMLElement) {

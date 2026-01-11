@@ -1,4 +1,4 @@
-name: Test
+name: Build
 
 on:
   pull_request: null
@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  test:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Clone repository
@@ -38,5 +38,5 @@ jobs:
       - name: Install pnpm dependencies
         run: pnpm install
 
-      - name: Run tests
-        run: pnpm run test
+      - name: Build
+        run: pnpm run build
