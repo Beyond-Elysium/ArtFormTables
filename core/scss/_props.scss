@@ -1,6 +1,7 @@
 @use 'sass:map';
 @import 'config';
 
+@layer root {
 :root,
 :host {
   /** Fonts */
@@ -89,4 +90,5 @@
   }
   --#{$prefix}backdrop-blur: #{$backdrop-blur};
   --#{$prefix}backdrop-filter: blur(var(--#{$prefix}backdrop-blur));
+}
 }

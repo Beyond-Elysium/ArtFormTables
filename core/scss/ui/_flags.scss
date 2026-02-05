@@ -1,6 +1,7 @@
 @use 'sass:map';
 @use '../config';
 
+@layer components {
 .flag {
   position: relative;
   display: inline-block;
@@ -31,4 +32,5 @@
       border-radius: map.get($size, border-radius);
     }
   }
+}
 }

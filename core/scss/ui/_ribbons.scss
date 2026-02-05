@@ -1,5 +1,6 @@
 // stylelint-disable declaration-no-important
 
+@layer components {
 .ribbon {
   --#{$prefix}ribbon-margin: #{$card-ribbon-margin};
   --#{$prefix}ribbon-border-radius: #{$card-ribbon-border-radius};
@@ -153,4 +154,6 @@
       border-bottom-width: 0.5rem;
     }
   }
+}
+
 }

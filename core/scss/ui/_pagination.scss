@@ -1,3 +1,4 @@
+@layer components {
 .pagination {
   margin: 0;
   --#{$prefix}pagination-gap: 0.25rem;
@@ -72,4 +73,6 @@
 
 .pagination-circle {
   --#{$prefix}pagination-border-radius: var(--tblr-border-radius-pill);
+}
+
 }

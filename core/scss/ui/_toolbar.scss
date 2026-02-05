@@ -1,3 +1,4 @@
+@layer components {
 .toolbar {
   display: flex;
   flex-wrap: nowrap;
@@ -11,4 +12,6 @@
   @include media-print {
     display: none;
   }
+}
+
 }

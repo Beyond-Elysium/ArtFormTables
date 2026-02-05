@@ -1,3 +1,4 @@
+@layer forms {
 /**
 Bootstrap color input
  */
@@ -25,4 +26,5 @@ Form control dark theme fix
   &:hover:not(:disabled):not([readonly])::file-selector-button {
     background-color: var(--#{$prefix}btn-color, #{$form-file-button-hover-bg});
   }
+}
 }

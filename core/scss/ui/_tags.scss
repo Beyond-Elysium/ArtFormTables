@@ -1,3 +1,4 @@
+@layer components {
 .tag {
   --#{$prefix}tag-height: 1.5rem;
   border: $border-width solid var(--#{$prefix}border-color);
@@ -33,6 +34,8 @@
 .tag-icon,
 .tag-check {
   margin-inline-start: -0.25rem;
+}
+
 }
 
 .tag-icon {

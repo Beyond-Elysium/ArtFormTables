@@ -1,6 +1,7 @@
 //
 // Icon component
 //
+@layer components {
 .icon {
   --#{$prefix}icon-size: #{$font-size-base * $line-height-base};
   width: var(--#{$prefix}icon-size);
@@ -69,4 +70,6 @@
   transition: all 0.15s ease 0s;
   animation: rotate-360 3s linear infinite;
   animation-fill-mode: both;
+}
+
 }

@@ -1,3 +1,4 @@
+@layer root {
 :root,
 :host {
   font-size: 16px;
@@ -59,4 +60,5 @@
   @include media-breakpoint-down($cards-grid-breakpoint) {
     --#{$prefix}page-padding: #{$page-padding-sm};
   }
+}
 }

@@ -1,3 +1,4 @@
+@layer components {
 .switch-icon {
   display: inline-block;
   line-height: 1;
@@ -60,6 +61,8 @@
   .switch-icon-b {
     @include transition(opacity 0.5s);
   }
+}
+
 }
 
 // Scale variant

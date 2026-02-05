@@ -1,6 +1,7 @@
 //
 // Timeline
 //
+@layer components {
 .timeline {
   --#{$prefix}timeline-icon-size: #{$avatar-size};
   position: relative;
@@ -28,6 +29,8 @@
       border-radius: var(--#{$prefix}border-radius);
     }
   }
+}
+
 }
 
 .timeline-event-icon {

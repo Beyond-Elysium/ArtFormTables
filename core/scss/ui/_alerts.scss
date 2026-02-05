@@ -1,3 +1,4 @@
+@layer components {
 .alert {
   --#{$prefix}alert-variant-color: var(--#{$prefix}body-color);
   --#{$prefix}alert-color: var(--#{$prefix}alert-variant-color);
@@ -98,4 +99,5 @@
   .alert-#{$name} {
     --#{$prefix}alert-variant-color: var(--#{$prefix}#{$name});
   }
+}
 }

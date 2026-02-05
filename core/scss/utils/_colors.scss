@@ -1,5 +1,6 @@
 @use 'sass:map';
 
+@layer utilities {
 // All colors
 @each $color,
   $value
@@ -107,4 +108,5 @@
 
 .bg-surface-backdrop {
   background-color: color-transparent($modal-backdrop-bg, $modal-backdrop-opacity) !important;
+}
 }

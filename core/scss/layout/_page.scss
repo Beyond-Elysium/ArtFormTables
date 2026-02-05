@@ -1,3 +1,4 @@
+@layer layout {
 .page {
   display: flex;
   flex-direction: column;
@@ -166,4 +167,5 @@
   + .page-body-card {
     margin-top: 0;
   }
+}
 }

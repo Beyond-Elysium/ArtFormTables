@@ -1,3 +1,4 @@
+@layer components {
 @keyframes progress-indeterminate {
   0% {
     inset-inline-end: 100%;
@@ -36,6 +37,8 @@ Progress
     background-color: var(--#{$prefix}primary);
     border: none;
   }
+}
+
 }
 
 .progress-sm {

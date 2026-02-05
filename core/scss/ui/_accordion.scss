@@ -1,3 +1,4 @@
+@layer components {
 .accordion {
   --#{$prefix}accordion-color: var(--#{$prefix}body-color);
   --#{$prefix}accordion-border-color: var(--#{$prefix}border-color);
@@ -174,4 +175,5 @@
     order: -1;
     margin-inline-start: 0;
   }
+}
 }

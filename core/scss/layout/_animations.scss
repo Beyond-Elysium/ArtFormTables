@@ -1,3 +1,4 @@
+@layer layout {
 @keyframes pulse {
   0% {
     transform: scale(1);
@@ -95,4 +96,5 @@
   to {
     transform: scaleX(1);
   }
+}
 }

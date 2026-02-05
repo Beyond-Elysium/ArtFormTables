@@ -1,0 +1,3 @@
+// Canonical CSS Cascade Layers order.
+// Keep in sync with `.cursor/rules/scss-layers.mdc`.
+@layer colors, theme, config, root, reboot, layout, content, forms, components, helpers, custom, utilities;

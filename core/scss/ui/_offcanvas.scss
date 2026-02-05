@@ -1,3 +1,4 @@
+@layer components {
 .offcanvas {
   @include media-print {
     display: none;
@@ -20,4 +21,6 @@
 
 .offcanvas-narrow {
   width: 20rem;
+}
+
 }

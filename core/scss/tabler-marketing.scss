@@ -1,3 +1,5 @@
+@use 'layers';
+
 @import 'config';
 @import 'variables';
 @import 'utilities-marketing';
@@ -10,4 +12,6 @@
 @import 'marketing/pricing';
 @import 'marketing/shape';
 
-@import 'bootstrap/scss/utilities/api';
+@layer utilities {
+  @import 'bootstrap/scss/utilities/api';
+}

@@ -1,3 +1,4 @@
+@layer forms {
 %validation-lite {
   border-color: var(--#{$prefix}border-color) !important;
 }
@@ -10,4 +11,5 @@
   .form-select.is-#{$state}-lite {
     @extend %validation-lite;
   }
+}
 }

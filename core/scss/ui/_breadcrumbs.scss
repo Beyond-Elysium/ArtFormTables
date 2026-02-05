@@ -1,3 +1,4 @@
+@layer components {
 .breadcrumb {
   --#{$prefix}breadcrumb-padding-x: #{$breadcrumb-padding-x};
   --#{$prefix}breadcrumb-padding-y: #{$breadcrumb-padding-y};
@@ -78,4 +79,5 @@
   .breadcrumb-#{$name} {
     --#{$prefix}breadcrumb-divider: '#{quote($symbol)}';
   }
+}
 }

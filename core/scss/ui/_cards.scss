@@ -1,5 +1,6 @@
 @use 'sass:map';
 
+@layer components {
 @property --tblr-card-gradient-direction {
   syntax: '<angle>';
   inherits: true;
@@ -734,4 +735,5 @@ Card gradient
 
 .card-gradient-start {
   --#{$prefix}card-gradient-direction: 90deg;
+}
 }

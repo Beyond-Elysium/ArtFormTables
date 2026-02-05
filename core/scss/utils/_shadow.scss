@@ -1,3 +1,4 @@
+@layer utilities {
 // stylelint-disable declaration-no-important
 
 .hover-shadow-sm:hover {
@@ -14,4 +15,5 @@
 
 .hover-shadow-none:hover {
   box-shadow: none !important;
+}
 }

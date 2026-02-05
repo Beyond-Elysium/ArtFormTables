@@ -2,6 +2,7 @@
 
 // stylelint-disable declaration-no-important
 
+@layer layout {
 @if $enable-dark-mode {
   :root {
     &:not(.theme-dark):not([data-bs-theme='dark']) {
@@ -66,4 +67,5 @@
   body[data-bs-theme='dark'] [data-bs-theme='light'] {
     @extend [data-bs-theme='dark'];
   }
+}
 }

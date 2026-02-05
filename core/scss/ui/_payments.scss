@@ -1,6 +1,7 @@
 @use 'sass:map';
 @use '../config';
 
+@layer components {
 .payment {
   height: config.$avatar-size;
   aspect-ratio: 1.66666;
@@ -26,4 +27,5 @@
   .payment-#{$payment-size} {
     height: map.get($size, size);
   }
+}
 }

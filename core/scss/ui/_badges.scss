@@ -1,3 +1,4 @@
+@layer components {
 .badge {
   --#{$prefix}badge-padding-x: #{$badge-padding-x};
   --#{$prefix}badge-padding-y: #{$badge-padding-y};
@@ -110,4 +111,5 @@
 //
 .badge-icononly {
   --#{$prefix}badge-padding-x: 0;
+}
 }

@@ -1,3 +1,4 @@
+@layer components {
 .carousel {
 }
 
@@ -64,4 +65,5 @@
   bottom: 0;
   height: 90%;
   background: linear-gradient(0deg, rgba($dark, 0.9), rgba($dark, 0));
+}
 }

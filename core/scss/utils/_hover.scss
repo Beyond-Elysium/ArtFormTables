@@ -1,3 +1,4 @@
+@layer utilities {
 %hover-animation {
   transition: transform 0.3s ease;
 
@@ -44,4 +45,5 @@
   &:hover {
     transform: rotate(-4deg);
   }
+}
 }

@@ -1,3 +1,4 @@
+@layer forms {
 /*
 Color Input
  */
@@ -51,4 +52,5 @@ Color Input
       background-image: escape-svg($form-check-input-checked-bg-image-dark);
     }
   }
+}
 }

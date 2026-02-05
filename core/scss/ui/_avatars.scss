@@ -1,5 +1,6 @@
 @use 'sass:map';
 
+@layer components {
 .avatar {
   --#{$prefix}avatar-size: var(--#{$prefix}avatar-list-size, #{$avatar-size});
   --#{$prefix}avatar-status-size: #{$avatar-status-size};
@@ -161,4 +162,5 @@
   background: var(--#{$prefix}bg-surface);
   border-radius: var(--#{$prefix}border-radius);
   border: 1px solid var(--#{$prefix}border-color);
+}
 }

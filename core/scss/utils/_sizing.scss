@@ -1,3 +1,4 @@
+@layer utilities {
 // stylelint-disable declaration-no-important
 
 @each $size-name, $size in map_merge($spacers, $size-spacers) {
@@ -7,4 +8,5 @@
   .h-#{$size-name} {
     height: $size !important;
   }
+}
 }

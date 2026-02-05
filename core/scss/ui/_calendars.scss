@@ -1,3 +1,4 @@
+@layer components {
 .calendar {
   display: block;
   font-size: $font-size-sm;
@@ -101,4 +102,5 @@
   &.range-end:before {
     inset-inline-end: 50%;
   }
+}
 }

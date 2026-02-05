@@ -1,3 +1,4 @@
+@layer components {
 @import 'typo/hr';
 
 .lead {
@@ -79,6 +80,8 @@ strong,
 .strong,
 b {
   font-weight: $headings-font-weight;
+}
+
 }
 
 blockquote {

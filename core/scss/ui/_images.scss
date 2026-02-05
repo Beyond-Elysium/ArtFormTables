@@ -1,5 +1,6 @@
 @use 'sass:math';
 
+@layer components {
 .img-responsive {
   --#{$prefix}img-responsive-ratio: #{math.percentage(0.75)};
   background: no-repeat center/cover;
@@ -18,4 +19,5 @@
 
 .img-bg {
   background: no-repeat center/cover;
+}
 }

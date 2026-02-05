@@ -1,5 +1,6 @@
 @use 'sass:map';
 
+@layer components {
 .row > * {
   min-width: 0;
 }
@@ -130,4 +131,5 @@
     justify-content: center;
     flex-direction: column;
   }
+}
 }

@@ -1,6 +1,7 @@
 @use 'sass:map';
 @use '../config';
 
+@layer components {
 .social {
   position: relative;
   display: inline-block;
@@ -24,4 +25,5 @@
   .social-#{$flag-size} {
     height: map.get($size, size);
   }
+}
 }

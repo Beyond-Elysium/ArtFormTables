@@ -1,3 +1,4 @@
+@layer components {
 .loader {
   position: relative;
   display: block;
@@ -68,4 +69,6 @@ Dimmer
     content: '...';
     animation: animated-dots 1.2s steps(4, jump-none) infinite;
   }
+}
+
 }

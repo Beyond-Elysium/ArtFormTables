@@ -1,3 +1,4 @@
+@layer components {
 .table {
   font: inherit;
 
@@ -40,6 +41,8 @@
   > :not(caption) > * > * {
     vertical-align: middle;
   }
+}
+
 }
 
 .table-center {

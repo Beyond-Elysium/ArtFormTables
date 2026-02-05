@@ -1,0 +1,140 @@
+---
+alwaysApply: false
+---
+
+## SCSS Cascade Layers Guidelines
+
+Use CSS Cascade Layers (`@layer`) to make the cascade predictable across modules (reboot/layout/forms/components/helpers/utilities), without relying on import order or widespread `!important`.
+
+### 0. Inventory: SCSS entrypoints → CSS bundles → consumers
+
+This repo produces multiple CSS bundles from multiple SCSS entrypoints. Before moving rules into layers, keep this mapping handy so you can reason about bundle-level ordering and who consumes what.
+
+#### `@tabler/core` (published bundles)
+
+- **Build tool**: Sass CLI (not Vite) compiles `core/scss/` → `core/dist/css/` via `sass scss/:dist/css/`
+- **Entrypoints (non-partials)**:
+  - `core/scss/tabler.scss` → `core/dist/css/tabler.css` (+ `tabler.min.css`, `tabler.rtl.css`, `tabler.rtl.min.css`)
+    - **Consumers**:
+      - `shared/includes/layout/css.html` (preview pages, mandatory styles)
+      - `shared/layouts/docs/default.html` (docs site)
+      - `core/package.json` exposes it via `style: dist/css/tabler.css` and `sass: scss/tabler.scss`
+  - `core/scss/tabler-flags.scss` → `core/dist/css/tabler-flags.css` (+ `.min`, `.rtl`, `.rtl.min`)
+  - `core/scss/tabler-socials.scss` → `core/dist/css/tabler-socials.css` (+ `.min`, `.rtl`, `.rtl.min`)
+  - `core/scss/tabler-payments.scss` → `core/dist/css/tabler-payments.css` (+ `.min`, `.rtl`, `.rtl.min`)
+  - `core/scss/tabler-vendors.scss` → `core/dist/css/tabler-vendors.css` (+ `.min`, `.rtl`, `.rtl.min`)
+  - `core/scss/tabler-marketing.scss` → `core/dist/css/tabler-marketing.css` (+ `.min`, `.rtl`, `.rtl.min`)
+  - `core/scss/tabler-themes.scss` → `core/dist/css/tabler-themes.css` (+ `.min`, `.rtl`, `.rtl.min`)
+  - `core/scss/tabler-props.scss` → `core/dist/css/tabler-props.css` (+ `.min`, `.rtl`, `.rtl.min`)
+    - **Note**: currently not included by default layouts (it exists as a separate bundle and is covered by SRI generation).
+- **Plugin consumers**:
+  - Preview pages: `shared/includes/layout/css.html` loads `tabler-{{ plugin }}` for each plugin in `shared/data/site.json` (`cssPlugins`).
+  - Docs site: `shared/layouts/docs/default.html` loads the same plugin list.
+- **Copying into static sites**:
+  - `preview/eleventy.config.mjs` and `docs/eleventy.config.mjs` both `addPassthroughCopy({ "node_modules/@tabler/core/dist": "dist" })`, so core bundles are available at `/dist/css/...` in those sites.
+
+#### `@tabler/preview` (preview-only bundle)
+
+- **Build tool**: Sass CLI compiles `preview/scss/` → `preview/dist/preview/css/` via `sass scss/:dist/preview/css/`
+- **Entrypoints**:
+  - `preview/scss/demo.scss` → `preview/dist/preview/css/demo.css` (+ `.min`)
+    - **Consumer**: `shared/includes/layout/css.html` loads it as `/preview/css/demo...`
+
+#### `@tabler/docs` (docs-only bundle)
+
+- **Build tool**: Sass CLI compiles `docs/scss/` → `docs/dist/css/` via `sass scss/:dist/css/`
+- **Entrypoints**:
+  - `docs/scss/docs.scss` → `docs/dist/css/docs.css` (+ `.min`)
+    - **Consumer**: `shared/layouts/docs/default.html` loads it as `/css/docs...`
+
+### 1. Canonical layer order (single source of truth)
+
+- Define the layer order exactly once in the main entrypoint (e.g. the file that builds the final CSS bundle).
+- Do not redefine the global ordering in multiple places.
+- Keep the names stable (typos create new layers and break the intended cascade).
+
+**Recommended order (based on Bootstrap v6 CSS layers work):**
+
+```scss
+@layer colors, theme, config, root, reboot, layout, content, forms, components, helpers, custom, utilities;
+```
+
+### 2. Naming rules
+
+- Use lowercase, ASCII names.
+- Use the canonical names only:
+  - `colors`, `theme`, `config`, `root`, `reboot`, `layout`, `content`, `forms`, `components`, `helpers`, `custom`, `utilities`
+- Never introduce new layer names without updating the canonical ordering and documenting the reasoning.
+- Treat any misspelling (e.g. `componenents`) as a **blocker**: it creates a separate layer and changes cascade behavior.
+
+### 3. File-to-layer mapping (convention)
+
+Use one layer per partial whenever the file outputs CSS rules.
+
+- **Reboot/reset**: `scss/content/_reboot.scss` → `@layer reboot`
+- **Content styles**: `scss/content/*` → `@layer content`
+- **Form styles**: `scss/forms/*` → `@layer forms`
+- **Helpers**: `scss/helpers/*` → `@layer helpers`
+- **Layout**: `scss/layout/*` → `@layer layout`
+- **Components**: component partials (e.g. `scss/_buttons.scss`, `scss/_modal.scss`) → `@layer components`
+- **Utilities**: utility output → `@layer utilities` (should be last/highest layer)
+- **Project overrides/adapters**: local overrides → `@layer custom`
+
+### 4. How to refactor a partial
+
+- Wrap the file’s CSS output in a single `@layer <name> { ... }` block.
+- Keep Sass-only constructs (e.g. `@use`, variables, functions, mixins) outside the layer when it improves clarity.
+- Keep `@keyframes` inside the same layer as the rules that use them.
+
+**Good example**
+
+```scss
+@use "mixins/foo" as *;
+
+@layer components {
+  .component {
+    display: block;
+  }
+
+  @keyframes component-spin {
+    to { transform: rotate(360deg); }
+  }
+}
+```
+
+**Bad example (creates an unintended layer due to typo)**
+
+```scss
+@layer componenents {
+  .component { display: block; }
+}
+```
+
+### 5. Strategy for `:root` and CSS variables
+
+Choose one strategy and apply it consistently:
+
+- **Layered root (recommended for predictability)**: put `:root { ... }` in `@layer root { ... }`.
+- **Unlayered root (explicit exception)**: keep `:root` outside layers and document why (it will participate in the unlayered cascade).
+
+Do not mix both approaches within the same codebase.
+
+### 6. Utilities and `!important`
+
+- Prefer putting utility output in the `utilities` layer (highest) instead of adding `!important`.
+- If `!important` is still needed, keep it limited and document the exception (utilities are expected to win via layer order).
+
+### 7. Review checklist (must-pass)
+
+- **Layer order** is declared once and uses the canonical names.
+- **No typos** in layer names (any unknown layer name is a blocker).
+- Each refactored partial that emits CSS rules is wrapped in the correct `@layer`.
+- No accidental unlayered rules were introduced (unless explicitly documented as an exception).
+- Bundle size budgets are updated if `@layer` increases output size (e.g. bundlewatch thresholds).
+
+### 8. Anti-patterns
+
+- Mixing multiple layers inside one partial without a clear need.
+- Adding new layer names ad-hoc.
+- Relying on import order to “fix” layer behavior.
+- Adding `!important` broadly instead of using the `utilities` layer strategy.

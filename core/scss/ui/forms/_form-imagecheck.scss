@@ -1,3 +1,4 @@
+@layer forms {
 /**
 Image check
  */
@@ -102,4 +103,5 @@ Image check
   .form-imagecheck-input:checked ~ .form-imagecheck-figure & {
     color: var(--#{$prefix}body-color);
   }
+}
 }

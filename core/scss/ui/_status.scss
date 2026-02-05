@@ -1,5 +1,6 @@
 @use 'sass:map';
 
+@layer components {
 @keyframes status-pulsate-main {
   40% {
     transform: scale(1.25, 1.25);
@@ -162,4 +163,5 @@
       animation: 2s linear 1s infinite backwards status-pulsate-tertiary;
     }
   }
+}
 }

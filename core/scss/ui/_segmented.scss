@@ -1,3 +1,4 @@
+@layer components {
 .nav-segmented {
   --#{$prefix}nav-bg: var(--#{$prefix}bg-surface-tertiary);
   --#{$prefix}nav-padding: 2px;
@@ -73,6 +74,8 @@
     margin: 0 -0.25rem;
     color: inherit;
   }
+}
+
 }
 
 .nav-segmented-vertical {

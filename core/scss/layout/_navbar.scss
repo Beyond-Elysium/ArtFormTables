@@ -76,6 +76,7 @@
   }
 }
 
+@layer layout {
 /**
 Navbar
  */
@@ -390,4 +391,5 @@ Navbar vertical
     z-index: -1;
     box-shadow: inherit;
   }
+}
 }
