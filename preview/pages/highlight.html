@@ -1,0 +1,91 @@
+---
+title: Highlight
+page-header: Highlight
+page-menu: base.highlight
+permalink: highlight.html
+layout: default
+---
+
+{% capture example_html -%}
+<div class="card">
+  <div class="card-body">
+    <h3 class="card-title">Hello, Tabler!</h3>
+    <p class="text-secondary">This is a simple card example.</p>
+  </div>
+</div>
+{%- endcapture %}
+
+{% capture example_js -%}
+const greet = (name) => {
+  console.log(`Hello, ${name}!`)
+}
+
+greet('Tabler')
+{%- endcapture %}
+
+{% capture example_json -%}
+{
+  "name": "tabler",
+  "version": "1.4.0",
+  "private": false
+}
+{%- endcapture %}
+
+{% capture example_scss -%}
+$highlight-colors: (
+  "primary": $primary,
+  "secondary": $secondary
+);
+
+.highlight-demo {
+  color: map-get($highlight-colors, "primary");
+}
+{%- endcapture %}
+
+{% capture example_shell -%}
+pnpm install
+pnpm -C core build
+{%- endcapture %}
+
+<div class="row row-cols-1 row-cols-lg-2 g-3">
+	<div class="col">
+		<div class="card">
+			<div class="card-body">
+				<h3 class="card-title">HTML</h3>
+				{% include "ui/highlight.html" lang="html" code=example_html %}
+			</div>
+		</div>
+	</div>
+	<div class="col">
+		<div class="card">
+			<div class="card-body">
+				<h3 class="card-title">JavaScript</h3>
+				{% include "ui/highlight.html" lang="js" code=example_js %}
+			</div>
+		</div>
+	</div>
+	<div class="col">
+		<div class="card">
+			<div class="card-body">
+				<h3 class="card-title">JSON</h3>
+				{% include "ui/highlight.html" lang="json" code=example_json %}
+			</div>
+		</div>
+	</div>
+	<div class="col">
+		<div class="card">
+			<div class="card-body">
+				<h3 class="card-title">SCSS</h3>
+				{% include "ui/highlight.html" lang="scss" code=example_scss %}
+			</div>
+		</div>
+	</div>
+	<div class="col">
+		<div class="card">
+			<div class="card-body">
+				<h3 class="card-title">Shell</h3>
+				{% include "ui/highlight.html" lang="shell" code=example_shell %}
+			</div>
+		</div>
+	</div>
+</div>

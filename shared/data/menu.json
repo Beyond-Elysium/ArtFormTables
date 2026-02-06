@@ -161,6 +161,11 @@
         "title": "Prose",
         "url": "prose.html"
       },
+      "highlight": {
+        "title": "Highlight",
+        "url": "highlight.html",
+        "badge": "New"
+      },
       "navigation": {
         "url": "navigation.html",
         "title": "Navigation"

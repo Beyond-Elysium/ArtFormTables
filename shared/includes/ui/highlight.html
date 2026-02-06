@@ -1,0 +1,4 @@
+{% assign language = include.lang | default: 'text' %}
+{% assign class = include.class | default: '' %}
+{% assign code = include.code | default: '' %}
+<pre{% if class != '' %} class="{{ class }}"{% endif %}><code class="language-{{ language }}">{{ code | escape }}</code></pre>

@@ -12,3 +12,12 @@ interface Window {
   Sortable?: new (element: HTMLElement, options?: any) => any
 }
 
+declare module 'shiki/bundle/web' {
+  export const createHighlighter: (options: {
+    langs: string[]
+    themes: string[]
+  }) => Promise<{
+    codeToHtml: (code: string, options: { lang: string; theme: string }) => string
+  }>
+}
+

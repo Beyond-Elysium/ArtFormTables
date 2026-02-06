@@ -160,6 +160,12 @@
       "index.global.min.js"
     ]
   },
+  "shiki": {
+    "npm": "shiki",
+    "js": [
+      "dist/bundle-web.mjs"
+    ]
+  },
   "turbo": {
     "npm": "@hotwired/turbo",
     "js": [
