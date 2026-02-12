@@ -35,6 +35,14 @@ export function appFilters(eleventyConfig) {
 			.replace(/[\r\n]/g, '&#13;');
 	});
 
+	eleventyConfig.addFilter("strip_trailing_slash", (text) => {
+		return text?.replace(/\/$/, '');
+	});
+
+	eleventyConfig.addFilter("strip_leading_slash", (text) => {
+		return text?.replace(/^\//, '');
+	});
+
 	eleventyConfig.addFilter("contains", (items, item) => {
 		return items && Array.isArray(items) && items.includes(item);
 	});
@@ -142,6 +150,11 @@ export function appFilters(eleventyConfig) {
 		}
 
 		return 0;
+	})
+
+	eleventyConfig.addFilter("debug", function (elem) {
+		console.log(elem);
+		return elem;
 	})
 
 	eleventyConfig.addFilter("first", function (elem) {
