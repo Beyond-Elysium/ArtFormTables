@@ -45,7 +45,7 @@
 
   /** Gray colors */
   @each $name, $color in $gray-colors {
-    --#{$prefix}#{$name}-fg: #{if(contrast-ratio($color, white) > $min-contrast-ratio, var(--#{$prefix}white), var(--#{$prefix}body-color))};
+    --#{$prefix}#{$name}-fg: var(--#{$prefix}#{$name});
   }
 
   /** Spacers */
