@@ -1,0 +1,195 @@
+@import "../config";
+
+@include describe("str-replace function") {
+  @include it("replaces single occurrence") {
+    $result: str-replace("hello world", "world", "there");
+    @include assert-equal($result, "hello there", "Should replace substring");
+  }
+
+  @include it("replaces multiple occurrences") {
+    $result: str-replace("foo bar foo", "foo", "baz");
+    @include assert-equal($result, "baz bar baz", "Should replace all occurrences");
+  }
+
+  @include it("returns original string when search not found") {
+    $result: str-replace("hello", "x", "y");
+    @include assert-equal($result, "hello", "Should return unchanged string");
+  }
+
+  @include it("replaces with empty string") {
+    $result: str-replace("hello", "l", "");
+    @include assert-equal($result, "heo", "Should remove characters");
+  }
+}
+
+@include describe("to-percentage function") {
+  @include it("converts unitless number to percentage") {
+    $result: to-percentage(0.5);
+    @include assert-equal($result, 50%, "Should convert 0.5 to 50%");
+  }
+
+  @include it("returns value with unit as-is") {
+    $result: to-percentage(1rem);
+    @include assert-equal($result, 1rem, "Should return value unchanged when not unitless");
+  }
+}
+
+@include describe("theme-color-lighter function") {
+  @include it("mixes color with white by default") {
+    $result: theme-color-lighter(#000);
+    $r: round(red($result));
+    $g: round(green($result));
+    $b: round(blue($result));
+    @include assert-equal(($r, $g, $b), (230, 230, 230), "Should return lighter version of black (10% color, 90% white)");
+  }
+}
+
+@include describe("theme-color-darker function") {
+  @include it("darkens color with shade-color") {
+    $result: theme-color-darker(#fff);
+    $r: round(red($result));
+    $g: round(green($result));
+    $b: round(blue($result));
+    @include assert-equal(($r, $g, $b), (230, 230, 230), "Should return darker version of white");
+  }
+}
+
+@include describe("tint-color function") {
+  @include it("mixes color with white") {
+    $result: tint-color(#000, 50%);
+    $r: round(red($result));
+    $g: round(green($result));
+    $b: round(blue($result));
+    @include assert-equal(($r, $g, $b), (128, 128, 128), "Should tint black with white");
+  }
+}
+
+@include describe("shade-color function") {
+  @include it("mixes color with black") {
+    $result: shade-color(#fff, 50%);
+    $r: round(red($result));
+    $g: round(green($result));
+    $b: round(blue($result));
+    @include assert-equal(($r, $g, $b), (128, 128, 128), "Should shade white with black");
+  }
+}
+
+@include describe("shift-color function") {
+  @include it("shades when weight is positive") {
+    $result: shift-color(#808080, 25%);
+    @include assert-equal($result, #606060, "Should darken when weight > 0");
+  }
+
+  @include it("tints when weight is negative") {
+    $result: shift-color(#808080, -25%);
+    $r: round(red($result));
+    $g: round(green($result));
+    $b: round(blue($result));
+    @include assert-equal(($r, $g, $b), (160, 160, 160), "Should lighten when weight < 0");
+  }
+}
+
+@include describe("negativify-map function") {
+  @include it("creates negative variant of map") {
+    $input: (1: 1rem, 2: 2rem, 0: 0);
+    $result: negativify-map($input);
+    @include assert-equal($result, (n1: -1rem, n2: -2rem), "Should negate values and prefix keys with n, excluding 0");
+  }
+}
+
+@include describe("map-get-multiple function") {
+  @include it("gets multiple keys from map") {
+    $input: (a: 1, b: 2, c: 3, d: 4);
+    $result: map-get-multiple($input, a c);
+    @include assert-equal($result, (a: 1, c: 3), "Should return map with requested keys");
+  }
+}
+
+@include describe("map-merge-multiple function") {
+  @include it("merges multiple maps") {
+    $map1: (a: 1, b: 2);
+    $map2: (c: 3, d: 4);
+    $result: map-merge-multiple($map1, $map2);
+    @include assert-equal($result, (a: 1, b: 2, c: 3, d: 4), "Should merge all maps");
+  }
+}
+
+@include describe("to-rgb function") {
+  @include it("returns rgb channels for color") {
+    $result: to-rgb(#ff0000);
+    @include assert-equal($result, (255, 0, 0), "Should return red green blue values");
+  }
+}
+
+@include describe("add function") {
+  @include it("adds two numbers") {
+    $result: add(1rem, 2rem);
+    @include assert-equal($result, 3rem, "Should add compatible numbers");
+  }
+
+  @include it("returns calc when units incompatible") {
+    $result: add(1rem, 2px);
+    $str: #{$result};
+    @include assert-true(type-of($result) == "string" or $str != "3rem", "Should return calc for incompatible units");
+  }
+
+  @include it("returns second value when first is null") {
+    $result: add(null, 1rem);
+    @include assert-equal($result, 1rem, "Should return value2 when value1 is null");
+  }
+}
+
+@include describe("subtract function") {
+  @include it("subtracts two numbers") {
+    $result: subtract(3rem, 1rem);
+    @include assert-equal($result, 2rem, "Should subtract compatible numbers");
+  }
+
+  @include it("returns calc when units incompatible") {
+    $result: subtract(1rem, 2px);
+    $str: #{$result};
+    @include assert-true(type-of($result) == "string" or $str != "-1rem", "Should return calc for incompatible units");
+  }
+}
+
+@include describe("divide function") {
+  @include it("divides two numbers") {
+    $result: divide(10, 2);
+    @include assert-equal($result, 5, "Should divide numbers");
+  }
+
+  @include it("handles unit preservation") {
+    $result: divide(10px, 2);
+    @include assert-equal($result, 5px, "Should preserve px unit");
+  }
+
+  @include it("returns 0 when dividend is 0") {
+    $result: divide(0, 5);
+    @include assert-equal($result, 0, "Should return 0 for zero dividend");
+  }
+}
+
+@include describe("breakpoint-prev function") {
+  @include it("returns previous breakpoint") {
+    $result: breakpoint-prev(md);
+    @include assert-equal($result, sm, "Should return sm for md");
+  }
+
+  @include it("returns null for first breakpoint") {
+    $result: breakpoint-prev(xs);
+    @include assert-equal($result, null, "Should return null for xs");
+  }
+}
+
+@include describe("color-transparent function") {
+  @include it("returns color when alpha is 1") {
+    $result: color-transparent(#ff0000, 1);
+    @include assert-equal($result, #ff0000, "Should return original color when fully opaque");
+  }
+
+  @include it("returns color-mix for alpha < 1") {
+    $result: color-transparent(#ff0000, 0.5);
+    $str: #{$result};
+    @include assert-true(str-index($str, "color-mix") != null or str-index($str, "50%") != null, "Should return color-mix or percentage for transparency");
+  }
+}

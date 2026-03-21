@@ -1,0 +1,8 @@
+$color-mode-type: media-query;
+
+@import "../../tabler";
+
+@include describe("global $color-mode-type: media-query") {
+  @include it("compiles entirely Tabler CSS with media-query color mode") {
+  }
+}

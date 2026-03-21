@@ -1,0 +1,200 @@
+@import "../config";
+
+@include describe("autodark-image mixin") {
+  @include it("outputs filter for dark mode inversion") {
+    @include assert() {
+      @include output() {
+        .test {
+          @include autodark-image;
+        }
+      }
+      @include expect() {
+        .test {
+          filter: brightness(0) invert(1);
+        }
+      }
+    }
+  }
+}
+
+@include describe("elements-list mixin") {
+  @include it("outputs flex layout with default gap") {
+    @include assert() {
+      @include output() {
+        .test {
+          @include elements-list;
+        }
+      }
+      @include expect() {
+        .test {
+          --tblr-list-gap: 0.5rem;
+          display: flex;
+          flex-wrap: wrap;
+          gap: var(--tblr-list-gap);
+        }
+      }
+    }
+  }
+
+  @include it("outputs flex layout with custom gap") {
+    @include assert() {
+      @include output() {
+        .test {
+          @include elements-list(1rem);
+        }
+      }
+      @include expect() {
+        .test {
+          --tblr-list-gap: 1rem;
+          display: flex;
+          flex-wrap: wrap;
+          gap: var(--tblr-list-gap);
+        }
+      }
+    }
+  }
+}
+
+@include describe("media-print mixin") {
+  @include it("wraps content in print media query") {
+    @include assert() {
+      @include output() {
+        @include media-print {
+          .test {
+            display: none;
+          }
+        }
+      }
+      @include expect() {
+        @media print {
+          .test {
+            display: none;
+          }
+        }
+      }
+    }
+  }
+}
+
+@include describe("subheader mixin") {
+  @include it("outputs subheader styles with color and line-height by default") {
+    @include assert() {
+      @include output() {
+        .test {
+          @include subheader;
+        }
+      }
+      @include expect() {
+        .test {
+          font-size: 0.75rem;
+          font-weight: var(--tblr-font-weight-medium);
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          line-height: 1rem;
+          color: var(--tblr-secondary);
+        }
+      }
+    }
+  }
+
+  @include it("omits color when include-color is false") {
+    @include assert() {
+      @include output() {
+        .test {
+          @include subheader($include-color: false);
+        }
+      }
+      @include expect() {
+        .test {
+          font-size: 0.75rem;
+          font-weight: var(--tblr-font-weight-medium);
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          line-height: 1rem;
+        }
+      }
+    }
+  }
+
+  @include it("omits line-height when include-line-height is false") {
+    @include assert() {
+      @include output() {
+        .test {
+          @include subheader($include-line-height: false);
+        }
+      }
+      @include expect() {
+        .test {
+          font-size: 0.75rem;
+          font-weight: var(--tblr-font-weight-medium);
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          color: var(--tblr-secondary);
+        }
+      }
+    }
+  }
+}
+
+@include describe("focus-ring mixin") {
+  @include it("outputs outline and box-shadow by default") {
+    @include assert() {
+      @include output() {
+        .test {
+          @include focus-ring;
+        }
+      }
+      @include expect() {
+        .test {
+          outline: 0;
+          box-shadow: 0 0 0 0.25rem color-mix(in srgb, var(--tblr-primary) 25%, transparent);
+        }
+      }
+    }
+  }
+
+  @include it("adds border-color when show-border is true") {
+    @include assert() {
+      @include output() {
+        .test {
+          @include focus-ring($show-border: true);
+        }
+      }
+      @include expect() {
+        .test {
+          outline: 0;
+          box-shadow: 0 0 0 0.25rem color-mix(in srgb, var(--tblr-primary) 25%, transparent);
+          border-color: color-mix(in srgb, var(--tblr-primary) 25%, transparent);
+        }
+      }
+    }
+  }
+}
+
+@include describe("scrollbar mixin") {
+  @include it("outputs scrollbar-color and webkit scrollbar styles") {
+    @include assert() {
+      @include output() {
+        .test {
+          @include scrollbar;
+        }
+      }
+      @include contains() {
+        .test {
+          scrollbar-color: color-mix(in srgb, var(--tblr-scrollbar-color, var(--tblr-body-color)) 20%, transparent) transparent;
+        }
+        .test::-webkit-scrollbar {
+          width: 1rem;
+          height: 1rem;
+        }
+        .test::-webkit-scrollbar-thumb {
+          border-radius: 1rem;
+          border: 5px solid transparent;
+        }
+        .test::-webkit-scrollbar-track {
+          background: transparent;
+        }
+      }
+    }
+  }
+}
