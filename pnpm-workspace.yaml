@@ -2,4 +2,5 @@ packages:
   - core
   - preview
   - docs
+  - app
   - 'shared/*'

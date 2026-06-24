@@ -1,0 +1,43 @@
+/* App-level tweaks on top of the branded @tabler/core design system. */
+
+:root {
+  --af-pink: #e41679;
+  --af-sky: #98d7eb;
+  --af-coral: #f15e4d;
+}
+
+body {
+  background: var(--tblr-body-bg, #f6f7f9);
+}
+
+/* Swiss/International style: tight, square, confident headings. */
+.page-title,
+.h1,
+.h2,
+.h3,
+h1,
+h2,
+h3 {
+  font-family: "League Spartan", var(--tblr-font-sans-serif);
+  font-weight: 900;
+  letter-spacing: -0.01em;
+}
+
+.text-subtitle,
+.card-subtitle,
+.subheader {
+  font-family: "Fira Sans", var(--tblr-font-sans-serif);
+  font-weight: 700;
+}
+
+/* Keep corners minimal. */
+.card,
+.btn,
+.form-control,
+.form-select {
+  border-radius: 2px;
+}
+
+.mock-banner {
+  border-left: 3px solid var(--af-coral);
+}
