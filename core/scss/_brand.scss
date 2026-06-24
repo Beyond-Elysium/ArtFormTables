@@ -1,0 +1,21 @@
+// ArtForm brand overrides
+// Centralizes brand rules that can't be expressed through tokens alone.
+// Token-driven branding (colors, radii, body font) lives in _variables.scss.
+
+// Titles — League Spartan 900
+h1, h2, h3, h4, h5, h6,
+.h1, .h2, .h3, .h4, .h5, .h6,
+.page-title,
+.navbar-brand {
+  font-family: var(--#{$prefix}font-headings);
+  font-weight: 900;
+}
+
+// Subtitles — Fira Sans 700
+.subheader,
+.card-subtitle,
+.page-pretitle,
+.text-subtitle {
+  font-family: var(--#{$prefix}font-subtitle);
+  font-weight: 700;
+}

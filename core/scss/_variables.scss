@@ -23,10 +23,14 @@ $font-google-monospaced: null !default;
 $font-local: null !default;
 $font-icons: () !default;
 
-$font-family-sans-serif: unquote("#{if($font-local, "#{$font-local}, ", ' ')}#{if($font-google, "#{$font-google}, ", ' ')}") 'Inter Var', Inter, -apple-system, BlinkMacSystemFont, San Francisco, Segoe UI, Roboto, Helvetica Neue, sans-serif !default;
+$font-family-sans-serif: unquote("#{if($font-local, "#{$font-local}, ", ' ')}#{if($font-google, "#{$font-google}, ", ' ')}") 'Montserrat', -apple-system, BlinkMacSystemFont, San Francisco, Segoe UI, Roboto, Helvetica Neue, sans-serif !default;
 $font-family-monospace: unquote("#{if($font-google-monospaced, "#{$font-google-monospaced}, ", '')}") Monaco, Consolas, Liberation Mono, Courier New, monospace !default;
 $font-family-serif: "Georgia", "Times New Roman", times, serif !default;
 $font-family-comic: "Comic Sans MS", "Comic Sans", "Chalkboard SE", "Comic Neue", sans-serif, cursive !default;
+
+// ArtForm brand typography
+$font-family-headings: 'League Spartan', sans-serif !default;
+$font-family-subtitle: 'Fira Sans', sans-serif !default;
 
 //Icons
 $icon-stroke-width: 1.5 !default;
@@ -64,7 +68,8 @@ $font-weight-medium: 500 !default;
 $font-weight-bold: 600 !default;
 $font-weight-black: 700 !default;
 
-$headings-font-weight: var(--#{$prefix}font-weight-bold) !default;
+$headings-font-family: $font-family-headings !default;
+$headings-font-weight: 900 !default;
 $headings-margin-bottom: var(--#{$prefix}spacer) !default;
 
 $font-weights: (
@@ -162,7 +167,7 @@ $black: #000000 !default;
 $white: #ffffff !default;
 
 $light: $gray-50 !default;
-$dark: $gray-800 !default;
+$dark: #333333 !default;
 
 $bg-surface: var(--#{$prefix}white) !default;
 $bg-surface-secondary: var(--#{$prefix}gray-100) !default;
@@ -176,13 +181,15 @@ $body-emphasis-color: $gray-700 !default;
 $color-contrast-dark: $body-color !default;
 $color-contrast-light: $light !default;
 
-$blue: #066fd1 !default;
+$blue: #426fb6 !default;
 $azure: #4299e1 !default;
 $indigo: #4263eb !default;
 $purple: #ae3ec9 !default;
-$pink: #d6336c !default;
+$pink: #e41679 !default;
 $red: #d63939 !default;
 $orange: #f76707 !default;
+$sky: #98d7eb !default;
+$coral: #f15e4d !default;
 $yellow: #f59f00 !default;
 $lime: #74b816 !default;
 $green: #2fb344 !default;
@@ -247,6 +254,8 @@ $extra-colors: (
   "green": $green,
   "teal": $teal,
   "cyan": $cyan,
+  "sky": $sky,
+  "coral": $coral,
 ) !default;
 
 $social-colors: (
@@ -297,9 +306,9 @@ $backdrops: (
 $border-width: 1px !default;
 $border-width-wide: 2px !default;
 
-$border-radius-sm: 4px !default;
-$border-radius: 6px !default;
-$border-radius-lg: 8px !default;
+$border-radius-sm: 0 !default;
+$border-radius: 2px !default;
+$border-radius-lg: 2px !default;
 $border-radius-pill: 100rem !default;
 
 $border-radiuses: (
