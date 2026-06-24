@@ -33,11 +33,21 @@ lib/connectors/
   index.ts          ← registry + fetchClientData() fan-out
   googleAuth.ts     ← shared service-account token helper
   mock.ts           ← deterministic demo-data helpers
-  ga4.ts            ← Google Analytics 4   (service account, live)
-  searchConsole.ts  ← Google Search Console (service account, live)
-  googleAds.ts      ← Google Ads           (OAuth + developer token, live)
-  bingWebmaster.ts  ← Bing Webmaster Tools (API key, live)
+  ga4.ts            ← Google Analytics 4    (service account)
+  searchConsole.ts  ← Google Search Console (service account)
+  googleAds.ts      ← Google Ads            (OAuth + developer token)
+  bingWebmaster.ts  ← Bing Webmaster Tools  (API key)
+  metaAds.ts        ← Meta Ads (FB/IG)      (access token)
+  linkedinAds.ts    ← LinkedIn Ads          (OAuth bearer)
+  mailchimp.ts      ← Mailchimp             (API key, HTTP Basic)
+  shopify.ts        ← Shopify               (Admin API token)
+  stripe.ts         ← Stripe                (secret key)
+  plausible.ts      ← Plausible Analytics   (API key)
 ```
+
+All ten ship with a live REST path **and** a deterministic mock fallback, so the
+dashboard renders fully with no credentials and each source flips to live the
+moment its credentials + config are present.
 
 ### Adding a new API (the whole process)
 
@@ -88,6 +98,12 @@ Set credentials per provider (see `.env.example`):
 | Search Console | Same service account (user on the SC site) | `GA_SERVICE_ACCOUNT_KEY`, `siteUrl` in config |
 | Google Ads | OAuth2 + developer token | `GOOGLE_ADS_*`, `customerId` in config |
 | Bing Webmaster | API key | `BING_WEBMASTER_API_KEY`, `siteUrl` in config |
+| Meta Ads | Access token (ads_read) | `META_ACCESS_TOKEN`, `adAccountId` in config |
+| LinkedIn Ads | OAuth bearer (r_ads_reporting) | `LINKEDIN_ACCESS_TOKEN`, `accountId` in config |
+| Mailchimp | API key (`…-usNN`) | `MAILCHIMP_API_KEY` |
+| Shopify | Admin API token | `SHOPIFY_ACCESS_TOKEN`, `shop` in config |
+| Stripe | Secret / restricted key | `STRIPE_SECRET_KEY` |
+| Plausible | API key | `PLAUSIBLE_API_KEY`, `siteId` in config |
 
 GA4 and Search Console share one Google service account: enable the
 **Google Analytics Data API** and **Search Console API** in the GCP project,

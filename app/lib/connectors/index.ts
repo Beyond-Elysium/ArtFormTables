@@ -16,6 +16,12 @@ import { ga4Connector } from "./ga4";
 import { searchConsoleConnector } from "./searchConsole";
 import { googleAdsConnector } from "./googleAds";
 import { bingWebmasterConnector } from "./bingWebmaster";
+import { metaAdsConnector } from "./metaAds";
+import { linkedinAdsConnector } from "./linkedinAds";
+import { mailchimpConnector } from "./mailchimp";
+import { shopifyConnector } from "./shopify";
+import { stripeConnector } from "./stripe";
+import { plausibleConnector } from "./plausible";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const connectors: Record<string, Connector<any>> = {
@@ -23,6 +29,12 @@ export const connectors: Record<string, Connector<any>> = {
   [searchConsoleConnector.type]: searchConsoleConnector,
   [googleAdsConnector.type]: googleAdsConnector,
   [bingWebmasterConnector.type]: bingWebmasterConnector,
+  [metaAdsConnector.type]: metaAdsConnector,
+  [linkedinAdsConnector.type]: linkedinAdsConnector,
+  [mailchimpConnector.type]: mailchimpConnector,
+  [shopifyConnector.type]: shopifyConnector,
+  [stripeConnector.type]: stripeConnector,
+  [plausibleConnector.type]: plausibleConnector,
 };
 
 export function connectorFor(type: string): Connector | undefined {

@@ -49,7 +49,8 @@ export const clients: Client[] = [
       { type: "ga4", config: { propertyId: "000000001" } },
       { type: "search-console", config: { siteUrl: "https://acme.example/" } },
       { type: "google-ads", config: { customerId: "111-111-1111", currency: "USD" } },
-      { type: "bing-webmaster", config: { siteUrl: "https://acme.example/" } },
+      { type: "meta-ads", config: { adAccountId: "1234567890", currency: "USD" } },
+      { type: "mailchimp", config: {} },
     ],
   },
   {
@@ -59,6 +60,8 @@ export const clients: Client[] = [
     sources: [
       { type: "ga4", config: { propertyId: "000000002" } },
       { type: "search-console", config: { siteUrl: "https://globex.example/" } },
+      { type: "linkedin-ads", config: { accountId: "503012345", currency: "EUR" } },
+      { type: "plausible", config: { siteId: "globex.example" } },
     ],
   },
   {
@@ -68,6 +71,18 @@ export const clients: Client[] = [
     sources: [
       { type: "ga4", config: { propertyId: "000000003" } },
       { type: "google-ads", config: { customerId: "222-222-2222", currency: "GBP" } },
+      { type: "bing-webmaster", config: { siteUrl: "https://initech.example/" } },
+    ],
+  },
+  {
+    subdomain: "northwind",
+    name: "Northwind Traders",
+    brand: { primary: "#d6336c", accent: "#f59f00" },
+    sources: [
+      { type: "ga4", config: { propertyId: "000000004" } },
+      { type: "shopify", config: { shop: "northwind", currency: "USD" } },
+      { type: "stripe", config: { currency: "USD" } },
+      { type: "meta-ads", config: { adAccountId: "9876543210", currency: "USD" } },
     ],
   },
 ];
