@@ -2,32 +2,32 @@
 
 import dynamic from "next/dynamic";
 import type { ApexOptions } from "apexcharts";
-import type { NamedCount, TimeseriesPoint } from "@/lib/ga";
 
 const ReactApexChart = dynamic(() => import("react-apexcharts"), {
   ssr: false,
 });
 
-interface Branding {
+export interface Branding {
   primary: string;
   accent: string;
 }
 
-export function TrafficChart({
-  data,
+function palette(brand: Branding): string[] {
+  return [brand.primary, brand.accent, "#98d7eb", "#f15e4d", "#0ca678", "#333333"];
+}
+
+const FONT = "Montserrat, sans-serif";
+
+export function TimeseriesChart({
+  series,
   brand,
 }: {
-  data: TimeseriesPoint[];
+  series: { name: string; points: { x: string; y: number }[] }[];
   brand: Branding;
 }) {
   const options: ApexOptions = {
-    chart: {
-      type: "area",
-      fontFamily: "Montserrat, sans-serif",
-      toolbar: { show: false },
-      animations: { enabled: true },
-    },
-    colors: [brand.primary, brand.accent],
+    chart: { type: "area", fontFamily: FONT, toolbar: { show: false } },
+    colors: palette(brand),
     dataLabels: { enabled: false },
     stroke: { curve: "smooth", width: 2 },
     fill: {
@@ -37,62 +37,70 @@ export function TrafficChart({
     grid: { strokeDashArray: 4, borderColor: "#e6e7e9" },
     xaxis: {
       type: "datetime",
-      categories: data.map((d) => d.date),
-      labels: { style: { fontFamily: "Montserrat, sans-serif" } },
+      labels: { style: { fontFamily: FONT } },
       tooltip: { enabled: false },
     },
-    yaxis: { labels: { style: { fontFamily: "Montserrat, sans-serif" } } },
+    yaxis: { labels: { style: { fontFamily: FONT } } },
     legend: { fontFamily: "Fira Sans, sans-serif" },
     tooltip: { x: { format: "dd MMM" } },
   };
-
-  const series = [
-    { name: "Users", data: data.map((d) => d.users) },
-    { name: "Sessions", data: data.map((d) => d.sessions) },
-  ];
-
-  return (
-    <ReactApexChart
-      options={options}
-      series={series}
-      type="area"
-      height={300}
-    />
-  );
+  const apexSeries = series.map((s) => ({
+    name: s.name,
+    data: s.points.map((p) => ({ x: p.x, y: p.y })),
+  }));
+  return <ReactApexChart options={options} series={apexSeries} type="area" height={300} />;
 }
 
 export function DonutChart({
-  data,
+  rows,
   brand,
 }: {
-  data: NamedCount[];
+  rows: { label: string; value: number }[];
   brand: Branding;
 }) {
-  const palette = [
-    brand.primary,
-    brand.accent,
-    "#98d7eb",
-    "#f15e4d",
-    "#0ca678",
-    "#333333",
-  ];
   const options: ApexOptions = {
-    chart: { type: "donut", fontFamily: "Montserrat, sans-serif" },
-    labels: data.map((d) => d.name),
-    colors: palette,
-    legend: {
-      position: "bottom",
-      fontFamily: "Fira Sans, sans-serif",
-    },
+    chart: { type: "donut", fontFamily: FONT },
+    labels: rows.map((r) => r.label),
+    colors: palette(brand),
+    legend: { position: "bottom", fontFamily: "Fira Sans, sans-serif" },
     dataLabels: { enabled: false },
     plotOptions: { pie: { donut: { size: "70%" } } },
   };
   return (
     <ReactApexChart
       options={options}
-      series={data.map((d) => d.value)}
+      series={rows.map((r) => r.value)}
       type="donut"
-      height={280}
+      height={300}
+    />
+  );
+}
+
+export function BarChart({
+  rows,
+  brand,
+}: {
+  rows: { label: string; value: number }[];
+  brand: Branding;
+}) {
+  const options: ApexOptions = {
+    chart: { type: "bar", fontFamily: FONT, toolbar: { show: false } },
+    colors: [brand.primary],
+    plotOptions: { bar: { horizontal: true, borderRadius: 2, barHeight: "60%" } },
+    dataLabels: { enabled: false },
+    grid: { strokeDashArray: 4, borderColor: "#e6e7e9" },
+    xaxis: {
+      categories: rows.map((r) => r.label),
+      labels: { style: { fontFamily: FONT } },
+    },
+    yaxis: { labels: { style: { fontFamily: FONT } } },
+  };
+  return (
+    <ReactApexChart
+      options={options}
+      series={[{ name: "Value", data: rows.map((r) => r.value) }]}
+      type="bar"
+      height={300}
     />
   );
 }
