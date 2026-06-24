@@ -33,10 +33,10 @@ lib/connectors/
   index.ts          ← registry + fetchClientData() fan-out
   googleAuth.ts     ← shared service-account token helper
   mock.ts           ← deterministic demo-data helpers
-  ga4.ts            ← Google Analytics 4   (service account)
-  searchConsole.ts  ← Google Search Console (service account, live REST)
-  googleAds.ts      ← Google Ads           (OAuth + developer token)
-  bingWebmaster.ts  ← Bing Webmaster Tools (API key)
+  ga4.ts            ← Google Analytics 4   (service account, live)
+  searchConsole.ts  ← Google Search Console (service account, live)
+  googleAds.ts      ← Google Ads           (OAuth + developer token, live)
+  bingWebmaster.ts  ← Bing Webmaster Tools (API key, live)
 ```
 
 ### Adding a new API (the whole process)
@@ -95,6 +95,24 @@ then add the service-account email as a Viewer/user on each property/site.
 Base64-encode the key into `GA_SERVICE_ACCOUNT_KEY`. A source flips to live
 automatically once its credentials + config are present; on any live error it
 logs and falls back to demo data so the dashboard never breaks.
+
+### Google Ads specifics
+
+Google Ads doesn't use the service account. You need:
+
+1. A **developer token** (Google Ads account → API Center).
+2. An **OAuth2 client** (GCP → Credentials → OAuth client, "Desktop"/"Web").
+3. A **refresh token** for that client, generated once by an account that can
+   see the customer — e.g. the
+   [OAuth playground](https://developers.google.com/oauthplayground/) with scope
+   `https://www.googleapis.com/auth/adwords`, or a one-off script.
+
+Set `GOOGLE_ADS_DEVELOPER_TOKEN`, `GOOGLE_ADS_CLIENT_ID`,
+`GOOGLE_ADS_CLIENT_SECRET`, `GOOGLE_ADS_OAUTH_REFRESH_TOKEN`, and (if the
+customer sits under a manager account) `GOOGLE_ADS_LOGIN_CUSTOMER_ID`. Put each
+client's `customerId` in `config/clients.ts`. The connector exchanges the
+refresh token for an access token (cached until expiry) and runs GAQL via
+`googleAds:searchStream`.
 
 ## Deploy (Vercel)
 
