@@ -51,6 +51,7 @@ export const clients: Client[] = [
       { type: "google-ads", config: { customerId: "111-111-1111", currency: "USD" } },
       { type: "meta-ads", config: { adAccountId: "1234567890", currency: "USD" } },
       { type: "mailchimp", config: {} },
+      { type: "twilio", config: {} },
     ],
   },
   {
@@ -97,6 +98,9 @@ export const clients: Client[] = [
       { type: "hubspot", config: {} },
       { type: "sendgrid", config: {} },
       { type: "stripe", config: { currency: "USD" } },
+      { type: "zendesk", config: { subdomain: "umbrella", email: "ops@umbrella.example" } },
+      { type: "github", config: { owner: "umbrella", repo: "platform" } },
+      { type: "calendly", config: { organization: "https://api.calendly.com/organizations/AAAA" } },
     ],
   },
   {
@@ -109,6 +113,8 @@ export const clients: Client[] = [
       { type: "youtube", config: { channelId: "UC_x5XG1OV2P6uZZ5FSM9Ttw" } },
       { type: "tiktok-ads", config: { advertiserId: "7000000000001", currency: "USD" } },
       { type: "meta-ads", config: { adAccountId: "5555555555", currency: "USD" } },
+      { type: "pinterest-ads", config: { adAccountId: "549755813888", currency: "USD" } },
+      { type: "snapchat-ads", config: { adAccountId: "22225555-6666-7777-8888-99990000aaaa", currency: "USD" } },
     ],
   },
 ];

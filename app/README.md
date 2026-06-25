@@ -49,12 +49,19 @@ lib/connectors/
   sendgrid.ts       ← SendGrid              (API key)
   posthog.ts        ← PostHog               (personal API key)
   matomo.ts         ← Matomo Analytics      (token_auth)
+  pinterestAds.ts   ← Pinterest Ads         (OAuth bearer)
+  snapchatAds.ts    ← Snapchat Ads          (OAuth bearer)
+  twilio.ts         ← Twilio                (HTTP Basic)
+  zendesk.ts        ← Zendesk               (API token)
+  github.ts         ← GitHub                (token)
+  calendly.ts       ← Calendly              (OAuth bearer)
 ```
 
-All sixteen ship with a live REST path **and** a deterministic mock fallback, so
-the dashboard renders fully with no credentials and each source flips to live
+All twenty-two ship with a live REST path **and** a deterministic mock fallback,
+so the dashboard renders fully with no credentials and each source flips to live
 the moment its credentials + config are present. Categories span Analytics,
-Search, Advertising, Email, E-commerce, Payments, Video, CRM, and Product.
+Search, Advertising, Email, E-commerce, Payments, Video, CRM, Product,
+Messaging, Support, Developer, and Scheduling.
 
 ### Adding a new API (the whole process)
 
@@ -117,6 +124,12 @@ Set credentials per provider (see `.env.example`):
 | SendGrid | API key | `SENDGRID_API_KEY` |
 | PostHog | Personal API key | `POSTHOG_API_KEY`, `projectId` in config |
 | Matomo | token_auth | `MATOMO_BASE_URL`, `MATOMO_TOKEN`, `siteId` in config |
+| Pinterest Ads | OAuth bearer | `PINTEREST_ACCESS_TOKEN`, `adAccountId` in config |
+| Snapchat Ads | OAuth bearer | `SNAPCHAT_ACCESS_TOKEN`, `adAccountId` in config |
+| Twilio | Basic (SID + token) | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` |
+| Zendesk | API token | `ZENDESK_API_TOKEN`, `subdomain`/`email` in config |
+| GitHub | Token | `GITHUB_TOKEN`, `owner`/`repo` in config |
+| Calendly | OAuth bearer | `CALENDLY_ACCESS_TOKEN`, `organization` in config |
 
 GA4 and Search Console share one Google service account: enable the
 **Google Analytics Data API** and **Search Console API** in the GCP project,

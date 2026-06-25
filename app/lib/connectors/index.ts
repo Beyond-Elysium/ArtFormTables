@@ -28,6 +28,12 @@ import { hubspotConnector } from "./hubspot";
 import { sendgridConnector } from "./sendgrid";
 import { posthogConnector } from "./posthog";
 import { matomoConnector } from "./matomo";
+import { pinterestAdsConnector } from "./pinterestAds";
+import { snapchatAdsConnector } from "./snapchatAds";
+import { twilioConnector } from "./twilio";
+import { zendeskConnector } from "./zendesk";
+import { githubConnector } from "./github";
+import { calendlyConnector } from "./calendly";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const connectors: Record<string, Connector<any>> = {
@@ -47,6 +53,12 @@ export const connectors: Record<string, Connector<any>> = {
   [sendgridConnector.type]: sendgridConnector,
   [posthogConnector.type]: posthogConnector,
   [matomoConnector.type]: matomoConnector,
+  [pinterestAdsConnector.type]: pinterestAdsConnector,
+  [snapchatAdsConnector.type]: snapchatAdsConnector,
+  [twilioConnector.type]: twilioConnector,
+  [zendeskConnector.type]: zendeskConnector,
+  [githubConnector.type]: githubConnector,
+  [calendlyConnector.type]: calendlyConnector,
 };
 
 export function connectorFor(type: string): Connector | undefined {
