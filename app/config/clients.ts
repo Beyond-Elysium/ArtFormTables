@@ -83,7 +83,7 @@ const clientDefs = [
     brand: { primary: "#426fb6", accent: "#e41679" },
     report: { recipients: ["reports@artformagency.com"], enabled: false },
     sources: [
-      { type: "ga4", config: { propertyId: "GA4_PROPERTY_ID" } },
+      { type: "ga4", config: { propertyId: "310586485" } },
       { type: "search-console", config: { siteUrl: "https://artformagency.com/" } },
       { type: "google-ads", config: { customerId: "000-000-0000", currency: "USD" } },
       { type: "linkedin-ads", config: { accountId: "500000000", currency: "USD" } },
