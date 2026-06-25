@@ -102,6 +102,23 @@ closest one.
   (`fetchClientData`), and renders a `PanelSection` per source. Cached hourly
   via ISR. Unknown slugs render the 404 page.
 
+## Dashboard UX
+
+State lives in the URL (shareable, server-rendered), so any view is linkable:
+
+- **Date range** (`?range=`) — presets `7d`/`28d`/`90d`/`6mo`/`12mo`, or a custom
+  window via `?range=custom&from=YYYY-MM-DD&to=YYYY-MM-DD`. Resolved in
+  [`lib/range.ts`](./lib/range.ts).
+- **Comparison** (`?compare=previous|year`) — fetches a second window and merges
+  it in generically (no connector changes): each KPI gains a `vs … prior` value
+  and recomputed delta, and each chart gains a dashed "previous" overlay aligned
+  on the same axis. See `fetchClientData` in [`lib/connectors/index.ts`](./lib/connectors/index.ts).
+- **Views** — `DashboardBody` derives tabs from each source's `category`
+  (Overview + Analytics/Advertising/Payments/…); switching is instant (no refetch).
+- **A11y/QoL** — badges/nav auto-contrast against the brand color
+  ([`lib/contrast.ts`](./lib/contrast.ts)), sticky range controls, a loading
+  skeleton, and print styles.
+
 ## Local development
 
 ```sh

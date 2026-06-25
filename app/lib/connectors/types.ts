@@ -36,13 +36,15 @@ export interface StatPanel {
   /** When true, a positive delta is shown as bad (e.g. cost, avg position). */
   invertDelta?: boolean;
   currency?: string;
+  /** Comparison-period value, attached by the orchestrator when comparing. */
+  compareValue?: number;
 }
 
 /** A time series with one or more lines. */
 export interface TimeseriesPanel {
   kind: "timeseries";
   title: string;
-  series: { name: string; points: { x: string; y: number }[] }[];
+  series: { name: string; points: { x: string; y: number }[]; dashed?: boolean }[];
 }
 
 /** A ranked breakdown (sources, queries, campaigns…). */
@@ -73,8 +75,13 @@ export interface ConnectorResult {
 }
 
 export interface ConnectorContext {
-  range: DateRangePreset;
+  /** Seed/label key for the active window (preset id or a custom range key). */
+  range: string;
+  /** Number of days in the window. */
   days: number;
+  /** Inclusive window bounds (YYYY-MM-DD); available for live connectors. */
+  start?: string;
+  end?: string;
 }
 
 /**

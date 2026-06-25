@@ -41,3 +41,45 @@ h3 {
 .mock-banner {
   border-left: 3px solid var(--af-coral);
 }
+
+/* --- Contrast / accessibility -------------------------------------------- */
+/* Darken muted text so secondary copy clears WCAG AA on the light background. */
+.text-secondary,
+.text-muted {
+  color: #5a6372 !important;
+}
+
+/* --- Sticky range/compare controls --------------------------------------- */
+.sticky-controls {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--tblr-body-bg, #f6f7f9);
+  border-bottom: 1px solid var(--tblr-border-color, #e6e7e9);
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+}
+
+/* --- View tabs ----------------------------------------------------------- */
+.view-tabs .nav-link {
+  font-family: "Fira Sans", var(--tblr-font-sans-serif);
+  font-weight: 700;
+  color: #5a6372;
+}
+.view-tabs .nav-link.active {
+  color: var(--tblr-primary, #426fb6);
+  border-bottom-width: 2px;
+}
+
+/* --- Print --------------------------------------------------------------- */
+@media print {
+  body {
+    background: #fff;
+  }
+  .sticky-controls {
+    position: static;
+  }
+  .card {
+    break-inside: avoid;
+  }
+}

@@ -1,5 +1,6 @@
 import type { ConnectorResult, BreakdownPanel } from "@/lib/connectors/types";
 import { formatValue } from "@/lib/format";
+import { readableTextColor } from "@/lib/contrast";
 import { StatCard } from "@/components/StatCard";
 import { TimeseriesChart, DonutChart, BarChart, type Branding } from "@/components/Charts";
 
@@ -21,7 +22,10 @@ export function PanelSection({
     <section className="mb-4">
       <div className="d-flex align-items-center mb-2 mt-3">
         <h2 className="page-title mb-0">{result.label}</h2>
-        <span className="badge ms-2 text-uppercase" style={{ background: brand.primary }}>
+        <span
+          className="badge ms-2 text-uppercase"
+          style={{ background: brand.primary, color: readableTextColor(brand.primary) }}
+        >
           {result.category}
         </span>
         {result.isMock && (
@@ -45,6 +49,11 @@ export function PanelSection({
                 value={formatValue(p.value, p.format, p.currency)}
                 delta={p.delta}
                 invertDelta={p.invertDelta}
+                compareValue={
+                  p.compareValue != null
+                    ? formatValue(p.compareValue, p.format, p.currency)
+                    : undefined
+                }
               />
             ) : null,
           )}

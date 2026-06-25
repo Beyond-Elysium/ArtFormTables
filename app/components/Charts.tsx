@@ -22,16 +22,23 @@ export function TimeseriesChart({
   series,
   brand,
 }: {
-  series: { name: string; points: { x: string; y: number }[] }[];
+  series: { name: string; points: { x: string; y: number }[]; dashed?: boolean }[];
   brand: Branding;
 }) {
+  const hasOverlay = series.some((s) => s.dashed);
   const options: ApexOptions = {
     chart: { type: "area", fontFamily: FONT, toolbar: { show: false } },
     colors: palette(brand),
     dataLabels: { enabled: false },
-    stroke: { curve: "smooth", width: 2 },
+    stroke: {
+      curve: "smooth",
+      width: series.map((s) => (s.dashed ? 2 : 2.5)),
+      // Dashed overlay for comparison ("previous") lines.
+      dashArray: series.map((s) => (s.dashed ? 5 : 0)),
+    },
     fill: {
-      type: "gradient",
+      type: hasOverlay ? "solid" : "gradient",
+      opacity: hasOverlay ? series.map((s) => (s.dashed ? 0 : 0.12)) : undefined,
       gradient: { opacityFrom: 0.35, opacityTo: 0, stops: [0, 100] },
     },
     grid: { strokeDashArray: 4, borderColor: "#e6e7e9" },

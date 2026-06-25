@@ -7,11 +7,13 @@
 import "server-only";
 import type { Client } from "@/config/clients";
 import {
-  PRESET_DAYS,
   type Connector,
+  type ConnectorContext,
   type ConnectorResult,
-  type DateRangePreset,
+  type Panel,
 } from "./types";
+import { pct } from "./util";
+import { windowDates, type ResolvedRange, type Window } from "@/lib/range";
 import { ga4Connector } from "./ga4";
 import { searchConsoleConnector } from "./searchConsole";
 import { googleAdsConnector } from "./googleAds";
@@ -89,13 +91,15 @@ export function connectorFor(type: string): Connector | undefined {
   return connectors[type];
 }
 
-/** Fetch every configured source for a client, in parallel. */
-export async function fetchClientData(
-  client: Client,
-  range: DateRangePreset,
-): Promise<ConnectorResult[]> {
-  const ctx = { range, days: PRESET_DAYS[range] };
-  return Promise.all(
+/** Fetch every configured source for a client over one window, in parallel. */
+async function fetchWindow(client: Client, w: Window): Promise<ConnectorResult[]> {
+  const ctx: ConnectorContext = {
+    range: w.key,
+    days: w.days,
+    start: w.start,
+    end: w.end,
+  };
+  const results = await Promise.all(
     client.sources.map(async (source, i): Promise<ConnectorResult> => {
       const connector = connectors[source.type];
       if (!connector) {
@@ -116,6 +120,72 @@ export async function fetchClientData(
       };
     }),
   );
+  // Relabel mock timeseries onto the real window dates so custom/past ranges
+  // show correct axes. Live data already carries its own dates, so leave it.
+  const dates = windowDates(w);
+  for (const r of results) {
+    if (!r.isMock) continue;
+    for (const p of r.panels) {
+      if (p.kind !== "timeseries") continue;
+      for (const s of p.series) {
+        s.points = s.points.map((pt, i) => ({ x: dates[i] ?? pt.x, y: pt.y }));
+      }
+    }
+  }
+  return results;
+}
+
+/**
+ * Fetch a client's dashboard data for a resolved range. When a comparison
+ * window is requested, fetches it too and merges it in generically (no
+ * connector changes needed): stats gain a `compareValue` + recomputed delta,
+ * and time series gain a dashed "previous" overlay aligned on the same axis.
+ */
+export async function fetchClientData(
+  client: Client,
+  resolved: ResolvedRange,
+): Promise<ConnectorResult[]> {
+  const primary = await fetchWindow(client, resolved.window);
+  if (!resolved.compare) return primary;
+
+  const comparison = await fetchWindow(client, resolved.compare);
+  const primaryDates = windowDates(resolved.window);
+
+  return primary.map((result, ri) => {
+    const comp = comparison[ri];
+    if (!comp) return result;
+    return {
+      ...result,
+      panels: result.panels.map((panel, pi) =>
+        mergePanel(panel, comp.panels[pi], primaryDates),
+      ),
+    };
+  });
+}
+
+/** Merge a comparison panel into a primary panel of the same shape. */
+function mergePanel(primary: Panel, comp: Panel | undefined, axis: string[]): Panel {
+  if (!comp || comp.kind !== primary.kind) return primary;
+
+  if (primary.kind === "stat" && comp.kind === "stat") {
+    return {
+      ...primary,
+      compareValue: comp.value,
+      delta: pct(primary.value, comp.value),
+    };
+  }
+
+  if (primary.kind === "timeseries" && comp.kind === "timeseries") {
+    // Overlay each comparison line as dashed, aligned on the primary axis.
+    const overlay = comp.series.map((s) => ({
+      name: `${s.name} (prev)`,
+      dashed: true,
+      points: s.points.map((pt, i) => ({ x: axis[i] ?? pt.x, y: pt.y })),
+    }));
+    return { ...primary, series: [...primary.series, ...overlay] };
+  }
+
+  return primary;
 }
 
 export * from "./types";
