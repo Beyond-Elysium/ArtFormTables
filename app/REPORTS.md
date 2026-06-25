@@ -64,16 +64,18 @@ curl http://localhost:3000/api/cron/reports
 
 ## Deploying on Vercel
 
-Vercel's serverless runtime has no system Chromium, so install a serverless
-build and point the renderer at it:
+This works out of the box. `lib/report/render.ts` resolves the browser
+automatically:
 
-```sh
-pnpm --filter @artform/dashboards add @sparticuz/chromium
-```
+- **Local / self-hosted** — set `CHROMIUM_EXECUTABLE_PATH` to a Chromium binary.
+- **Serverless (Vercel)** — leave `CHROMIUM_EXECUTABLE_PATH` unset; the renderer
+  falls back to **@sparticuz/chromium**'s bundled binary (already a dependency,
+  dynamically imported so it isn't loaded in dev).
 
-Then in `lib/report/render.ts`, resolve the executable from
-`@sparticuz/chromium` and set `CHROMIUM_EXECUTABLE_PATH` accordingly (its
-`executablePath()`), plus its `args`/`headless` settings. The report routes
-already run on the Node runtime with a raised `maxDuration`. Add `RESEND_API_KEY`,
-`REPORT_FROM`, and `CRON_SECRET` in project env. Cron requires a Vercel plan that
-includes Cron Jobs.
+So on Vercel you only need to add `RESEND_API_KEY`, `REPORT_FROM`, and
+`CRON_SECRET` in project env. The report routes already run on the Node runtime
+with a raised `maxDuration`, and `@sparticuz/chromium` is externalized in
+`next.config`. Cron requires a Vercel plan that includes Cron Jobs.
+
+> If a Playwright/Chromium version mismatch ever surfaces, pin `@sparticuz/chromium`
+> to the build that matches your `playwright-core` version.

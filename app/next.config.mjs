@@ -6,7 +6,11 @@ const nextConfig = {
   // @tabler/core ships compiled CSS we import directly; nothing to transpile.
   experimental: {
     // Server-only packages that must never be bundled (native/dynamic requires).
-    serverComponentsExternalPackages: ["@google-analytics/data", "playwright-core"],
+    serverComponentsExternalPackages: [
+      "@google-analytics/data",
+      "playwright-core",
+      "@sparticuz/chromium",
+    ],
   },
 };
 

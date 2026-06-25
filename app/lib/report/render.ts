@@ -1,32 +1,36 @@
 /**
  * Render a dashboard URL to a PDF with headless Chromium (Playwright).
  *
- * Uses `playwright-core` (no bundled browser) so the Chromium binary is supplied
- * by the environment:
- *   - Local / self-hosted: set CHROMIUM_EXECUTABLE_PATH to a Chromium binary.
- *   - Vercel serverless: install @sparticuz/chromium and point the env var at
- *     its `executablePath` (see REPORTS.md).
+ * Browser resolution is automatic:
+ *   - If CHROMIUM_EXECUTABLE_PATH is set (local / self-hosted), use that binary.
+ *   - Otherwise fall back to @sparticuz/chromium's bundled binary, which works
+ *     on serverless platforms (Vercel/AWS Lambda). It's imported dynamically so
+ *     the ~50MB binary isn't loaded during local development.
  */
 import "server-only";
-import { chromium } from "playwright-core";
+import { chromium, type Browser } from "playwright-core";
 
-function executablePath(): string {
-  const p = process.env.CHROMIUM_EXECUTABLE_PATH;
-  if (!p) {
-    throw new Error(
-      "CHROMIUM_EXECUTABLE_PATH is not set — provide a path to a Chromium binary " +
-        "(local) or use @sparticuz/chromium on serverless. See REPORTS.md.",
-    );
+async function launchBrowser(): Promise<Browser> {
+  const localPath = process.env.CHROMIUM_EXECUTABLE_PATH;
+  if (localPath) {
+    return chromium.launch({
+      executablePath: localPath,
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+    });
   }
-  return p;
+
+  // Serverless: use the bundled Chromium build.
+  const sparticuz = (await import("@sparticuz/chromium")).default;
+  return chromium.launch({
+    args: sparticuz.args,
+    executablePath: await sparticuz.executablePath(),
+    headless: true,
+  });
 }
 
 export async function renderDashboardPdf(url: string): Promise<Buffer> {
-  const browser = await chromium.launch({
-    executablePath: executablePath(),
-    headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
-  });
+  const browser = await launchBrowser();
   try {
     const page = await browser.newPage();
     await page.goto(url, { waitUntil: "networkidle", timeout: 45_000 });
