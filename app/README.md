@@ -55,13 +55,19 @@ lib/connectors/
   zendesk.ts        ← Zendesk               (API token)
   github.ts         ← GitHub                (token)
   calendly.ts       ← Calendly              (OAuth bearer)
+  intercom.ts       ← Intercom              (bearer)
+  typeform.ts       ← Typeform              (bearer)
+  square.ts         ← Square                (bearer)
+  paypal.ts         ← PayPal                (OAuth client-credentials)
+  cloudflare.ts     ← Cloudflare            (GraphQL, token)
+  klaviyo.ts        ← Klaviyo               (API key)
 ```
 
-All twenty-two ship with a live REST path **and** a deterministic mock fallback,
-so the dashboard renders fully with no credentials and each source flips to live
-the moment its credentials + config are present. Categories span Analytics,
-Search, Advertising, Email, E-commerce, Payments, Video, CRM, Product,
-Messaging, Support, Developer, and Scheduling.
+All twenty-eight ship with a live REST path **and** a deterministic mock
+fallback, so the dashboard renders fully with no credentials and each source
+flips to live the moment its credentials + config are present. Categories span
+Analytics, Search, Advertising, Email, E-commerce, Payments, Video, CRM,
+Product, Messaging, Support, Developer, Scheduling, Forms, and Infrastructure.
 
 ### Adding a new API (the whole process)
 
@@ -130,6 +136,12 @@ Set credentials per provider (see `.env.example`):
 | Zendesk | API token | `ZENDESK_API_TOKEN`, `subdomain`/`email` in config |
 | GitHub | Token | `GITHUB_TOKEN`, `owner`/`repo` in config |
 | Calendly | OAuth bearer | `CALENDLY_ACCESS_TOKEN`, `organization` in config |
+| Intercom | Bearer | `INTERCOM_ACCESS_TOKEN` |
+| Typeform | Bearer | `TYPEFORM_ACCESS_TOKEN`, `formId` in config |
+| Square | Bearer | `SQUARE_ACCESS_TOKEN` |
+| PayPal | OAuth client-credentials | `PAYPAL_CLIENT_ID`, `PAYPAL_SECRET` |
+| Cloudflare | API token (GraphQL) | `CLOUDFLARE_API_TOKEN`, `zoneTag` in config |
+| Klaviyo | API key | `KLAVIYO_API_KEY` |
 
 GA4 and Search Console share one Google service account: enable the
 **Google Analytics Data API** and **Search Console API** in the GCP project,

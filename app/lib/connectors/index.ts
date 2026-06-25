@@ -34,6 +34,12 @@ import { twilioConnector } from "./twilio";
 import { zendeskConnector } from "./zendesk";
 import { githubConnector } from "./github";
 import { calendlyConnector } from "./calendly";
+import { intercomConnector } from "./intercom";
+import { typeformConnector } from "./typeform";
+import { squareConnector } from "./square";
+import { paypalConnector } from "./paypal";
+import { cloudflareConnector } from "./cloudflare";
+import { klaviyoConnector } from "./klaviyo";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const connectors: Record<string, Connector<any>> = {
@@ -59,6 +65,12 @@ export const connectors: Record<string, Connector<any>> = {
   [zendeskConnector.type]: zendeskConnector,
   [githubConnector.type]: githubConnector,
   [calendlyConnector.type]: calendlyConnector,
+  [intercomConnector.type]: intercomConnector,
+  [typeformConnector.type]: typeformConnector,
+  [squareConnector.type]: squareConnector,
+  [paypalConnector.type]: paypalConnector,
+  [cloudflareConnector.type]: cloudflareConnector,
+  [klaviyoConnector.type]: klaviyoConnector,
 };
 
 export function connectorFor(type: string): Connector | undefined {

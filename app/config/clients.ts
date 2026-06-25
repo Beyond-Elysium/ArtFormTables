@@ -85,6 +85,9 @@ export const clients: Client[] = [
       { type: "shopify", config: { shop: "northwind", currency: "USD" } },
       { type: "stripe", config: { currency: "USD" } },
       { type: "meta-ads", config: { adAccountId: "9876543210", currency: "USD" } },
+      { type: "square", config: { currency: "USD" } },
+      { type: "paypal", config: { currency: "USD" } },
+      { type: "klaviyo", config: {} },
     ],
   },
   {
@@ -101,6 +104,9 @@ export const clients: Client[] = [
       { type: "zendesk", config: { subdomain: "umbrella", email: "ops@umbrella.example" } },
       { type: "github", config: { owner: "umbrella", repo: "platform" } },
       { type: "calendly", config: { organization: "https://api.calendly.com/organizations/AAAA" } },
+      { type: "intercom", config: {} },
+      { type: "typeform", config: { formId: "AbC123" } },
+      { type: "cloudflare", config: { zoneTag: "0123456789abcdef0123456789abcdef" } },
     ],
   },
   {
