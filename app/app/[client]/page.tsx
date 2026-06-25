@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getClientBySubdomain } from "@/config/clients";
+import { getClientBySlug } from "@/config/clients";
 import { fetchClientData } from "@/lib/connectors";
 import type { DateRangePreset } from "@/lib/connectors/types";
 import { PanelSection } from "@/components/PanelSection";
@@ -19,10 +19,10 @@ export default async function ClientDashboard({
   params,
   searchParams,
 }: {
-  params: { subdomain: string };
+  params: { client: string };
   searchParams: { range?: string };
 }) {
-  const client = getClientBySubdomain(params.subdomain);
+  const client = getClientBySlug(params.client);
   if (!client) notFound();
 
   const range: DateRangePreset = (["7d", "28d", "90d"] as const).includes(

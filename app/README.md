@@ -1,14 +1,14 @@
 # ArtForm Dashboards
 
-Multi-client analytics dashboards. Each client gets a **subdomain**
-(`acme.dashboards.artform.com`) that renders a branded dashboard aggregating
+Multi-client analytics dashboards. Each client gets a **path**
+(`sitename.com/acme`) that renders a branded dashboard aggregating
 **any number of data sources** — Google Analytics 4, Search Console, Google Ads,
 Bing Webmaster, and anything else you add. No client login required.
 
 Built on the ArtForm-branded [`@tabler/core`](../core) design system + Next.js.
 
 > **Just want to use it?** → [DEPLOY.md](./DEPLOY.md) — run it, configure a
-> client, connect real data, and ship it to wildcard subdomains.
+> client, connect real data, and ship it on one domain.
 > **Adding a provider?** → [CONNECTORS.md](./CONNECTORS.md) +
 > [`lib/connectors/TEMPLATE.ts`](./lib/connectors/TEMPLATE.ts).
 
@@ -95,13 +95,12 @@ closest one.
 
 ## Clients & routing
 
-- **`config/clients.ts`** — registry of clients. Each has a `subdomain`, `name`,
+- **`config/clients.ts`** — registry of clients. Each has a `slug`, `name`,
   optional brand colours, and a list of `sources` (`{ type, config }`).
-- **`middleware.ts`** — maps the request's subdomain to a client and rewrites to
-  `/client/<subdomain>`.
-- **`app/client/[subdomain]/page.tsx`** — fans out across the client's sources in
-  parallel (`fetchClientData`) and renders a `PanelSection` per source. Cached
-  hourly via ISR.
+- **`app/[client]/page.tsx`** — the `/<slug>` route. Looks the slug up in the
+  registry (`getClientBySlug`), fans out across the client's sources in parallel
+  (`fetchClientData`), and renders a `PanelSection` per source. Cached hourly
+  via ISR. Unknown slugs render the 404 page.
 
 ## Local development
 
@@ -110,15 +109,14 @@ pnpm install
 pnpm --filter @artform/dashboards dev
 ```
 
-Then visit a client subdomain on localhost:
+Then visit a client path on localhost:
 
-- http://acme.localhost:3000   (GA4 + Search Console + Google Ads + Bing)
-- http://globex.localhost:3000 (GA4 + Search Console)
-- http://localhost:3000        (apex landing / client index)
+- http://localhost:3000        (landing / client index)
+- http://localhost:3000/acme   (GA4 + Search Console + Google Ads + Bing)
+- http://localhost:3000/globex (GA4 + Search Console)
 
-`*.localhost` resolves to 127.0.0.1 in modern browsers. With no credentials set
-you'll see a "Demo data" banner and deterministic sample metrics for every
-source.
+With no credentials set you'll see a "Demo data" banner and deterministic sample
+metrics for every source.
 
 ## Going live
 
@@ -189,9 +187,11 @@ refresh token for an access token (cached until expiry) and runs GAQL via
 ## Deploy (Vercel)
 
 - New Vercel project rooted at `app/`.
-- Add a **wildcard domain** `*.dashboards.artform.com` (DNS: wildcard `CNAME`
-  → Vercel). The middleware does per-tenant rewriting.
-- Set the provider env vars and `NEXT_PUBLIC_ROOT_DOMAIN` in project env.
+- Add your single domain (e.g. `dashboards.artform.com`). No wildcard / DNS
+  gymnastics — clients are just paths (`/<slug>`) under it.
+- Set the provider env vars in project env.
+
+See [DEPLOY.md](./DEPLOY.md) for the full runbook.
 
 ## Security note
 

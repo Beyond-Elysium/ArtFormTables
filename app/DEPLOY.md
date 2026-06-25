@@ -1,7 +1,8 @@
 # Standing up ArtForm Dashboards
 
 A practical runbook: run it locally, configure a client, connect real data, and
-deploy so clients can view their dashboard at their own subdomain.
+deploy so each client can view their dashboard at their own path
+(`sitename.com/<slug>`).
 
 ---
 
@@ -17,12 +18,11 @@ pnpm --filter @artform/dashboards dev
 Open:
 
 - http://localhost:3000 — landing / client index
-- http://acme.localhost:3000 — a client dashboard (subdomain routing)
-- http://umbrella.localhost:3000, http://hooli.localhost:3000, … — other demos
+- http://localhost:3000/acme — a client dashboard (path routing)
+- http://localhost:3000/umbrella, http://localhost:3000/hooli, … — other demos
 
-`*.localhost` resolves to 127.0.0.1 automatically in modern browsers — no
-hosts-file edits. With no credentials set you'll see a **"Demo data"** banner and
-deterministic sample metrics for every source. That's expected.
+With no credentials set you'll see a **"Demo data"** banner and deterministic
+sample metrics for every source. That's expected.
 
 > Tip: `pnpm --filter @artform/dashboards build && … start` runs the production
 > build. The `prebuild` step compiles the branded `@tabler/core` CSS first.
@@ -32,11 +32,11 @@ deterministic sample metrics for every source. That's expected.
 ## 2. Add or configure a client
 
 Everything about a client lives in [`config/clients.ts`](./config/clients.ts).
-A client = a subdomain + branding + a list of data sources:
+A client = a slug + branding + a list of data sources:
 
 ```ts
 {
-  subdomain: "acme",                 // acme.dashboards.artform.com
+  slug: "acme",                      // sitename.com/acme
   name: "Acme Corporation",
   brand: { primary: "#426fb6", accent: "#e41679", logo: "https://…/logo.svg" },
   sources: [
@@ -103,29 +103,23 @@ for which env vars + config each needs.
 
 ---
 
-## 4. Deploy to Vercel (wildcard subdomains)
+## 4. Deploy to Vercel
 
-The app is a normal Next.js project; the only special part is the **wildcard
-domain** so every client subdomain reaches it.
+The app is a normal Next.js project deployed on **one domain** — clients are
+paths (`/<slug>`) under it, so there's no wildcard DNS to set up.
 
 1. **Import the repo** into Vercel as a new project.
 2. **Root Directory:** set to `app`. (`app/vercel.json` pins the framework and
    build command; the build's `prebuild` compiles the branded CSS.)
-3. **Environment variables:** add the provider secrets from your `.env.local`,
-   plus `NEXT_PUBLIC_ROOT_DOMAIN=dashboards.artform.com`.
-4. **Domains:** add a wildcard domain `*.dashboards.artform.com` (and optionally
-   the apex `dashboards.artform.com` for the landing page).
-5. **DNS:** at your DNS provider, add a wildcard `CNAME`:
-   ```
-   *.dashboards   CNAME   cname.vercel-dns.com.
-   ```
-   (Vercel shows the exact target when you add the domain.)
-6. Deploy. `acme.dashboards.artform.com` now serves Acme's dashboard; the
-   `middleware.ts` maps the subdomain to the client.
+3. **Environment variables:** add the provider secrets from your `.env.local`.
+4. **Domains:** add your single domain, e.g. `dashboards.artform.com`, and point
+   its DNS at Vercel (a normal `A`/`CNAME` record — Vercel shows the exact value
+   when you add the domain). The landing page lives at the root; each client at
+   `dashboards.artform.com/<slug>`.
+5. Deploy. `dashboards.artform.com/acme` now serves Acme's dashboard.
 
-Adding a new client in production = edit `config/clients.ts`, commit, push.
-Because the domain is a wildcard, the new subdomain works immediately — no DNS
-or Vercel change needed.
+Adding a new client in production = edit `config/clients.ts`, commit, push. The
+new path works immediately — no DNS or Vercel change needed.
 
 > Existing `preview/` and `docs/` Vercel projects are untouched; this is a
 > separate project rooted at `app/`.
@@ -141,8 +135,8 @@ or Vercel change needed.
   repo changes.
 - **Access:** dashboards are public by URL by design (credentials stay
   server-side; only aggregated numbers reach the browser). To gate them, add a
-  password check in `middleware.ts` keyed off the client — say the word and it's
-  a small change.
+  password check (e.g. a `middleware.ts` keyed off the client slug) — say the
+  word and it's a small change.
 - **Branding:** `brand.primary` / `brand.accent` drive the dashboard accent
   colors and charts; `brand.logo` swaps the wordmark for an image.
 
@@ -154,8 +148,7 @@ or Vercel change needed.
 | --- | --- |
 | "Demo data" banner won't go away | The source's env var **or** its `config` is missing. Both are required. |
 | A source shows demo data but others are live | That provider's live call failed — check server logs for `[provider] live fetch failed`. |
-| 404 on a subdomain | The subdomain isn't in `config/clients.ts` (case-sensitive label). |
+| 404 at `/<slug>` | The slug isn't in `config/clients.ts` (matched lower-case). |
 | Build fails on Vercel: cannot find `@tabler/core/dist/...` | Ensure Root Directory is `app` so the `prebuild` runs `pnpm --filter @tabler/core run css`. |
-| Local subdomain won't load | Use `http://<sub>.localhost:3000`, not `127.0.0.1`. |
 
 See [CONNECTORS.md](./CONNECTORS.md) to add a brand-new provider.

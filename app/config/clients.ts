@@ -1,7 +1,7 @@
 /**
  * Client registry — the single source of truth for which clients exist, what
- * subdomain they live on, which data sources feed their dashboard, and any
- * per-client brand overrides.
+ * URL slug they live at (sitename.com/<slug>), which data sources feed their
+ * dashboard, and any per-client brand overrides.
  *
  * Each client has one or more `sources`. A source names a connector `type`
  * (see lib/connectors) plus the type-specific `config` that connector needs
@@ -32,8 +32,8 @@ export interface ClientSource {
 }
 
 export interface Client {
-  /** Subdomain label, e.g. "acme" for acme.dashboards.artform.com. */
-  subdomain: string;
+  /** URL slug, e.g. "acme" for sitename.com/acme. */
+  slug: string;
   /** Display name shown in the dashboard header. */
   name: string;
   sources: ClientSource[];
@@ -42,7 +42,7 @@ export interface Client {
 
 export const clients: Client[] = [
   {
-    subdomain: "acme",
+    slug: "acme",
     name: "Acme Corporation",
     brand: { primary: "#426fb6", accent: "#e41679" },
     sources: [
@@ -55,7 +55,7 @@ export const clients: Client[] = [
     ],
   },
   {
-    subdomain: "globex",
+    slug: "globex",
     name: "Globex",
     brand: { primary: "#0ca678", accent: "#f15e4d" },
     sources: [
@@ -67,7 +67,7 @@ export const clients: Client[] = [
     ],
   },
   {
-    subdomain: "initech",
+    slug: "initech",
     name: "Initech",
     brand: { primary: "#333333", accent: "#98d7eb" },
     sources: [
@@ -77,7 +77,7 @@ export const clients: Client[] = [
     ],
   },
   {
-    subdomain: "northwind",
+    slug: "northwind",
     name: "Northwind Traders",
     brand: { primary: "#d6336c", accent: "#f59f00" },
     sources: [
@@ -92,7 +92,7 @@ export const clients: Client[] = [
   },
   {
     // SaaS client — product, CRM, transactional email, payments.
-    subdomain: "umbrella",
+    slug: "umbrella",
     name: "Umbrella Software",
     brand: { primary: "#7048e8", accent: "#12b886" },
     sources: [
@@ -113,7 +113,7 @@ export const clients: Client[] = [
   },
   {
     // Operations-heavy agency client.
-    subdomain: "vandelay",
+    slug: "vandelay",
     name: "Vandelay Industries",
     brand: { primary: "#1864ab", accent: "#e8590c" },
     sources: [
@@ -126,7 +126,7 @@ export const clients: Client[] = [
   },
   {
     // Media/creator client — video + social advertising.
-    subdomain: "hooli",
+    slug: "hooli",
     name: "Hooli Media",
     brand: { primary: "#e8590c", accent: "#1c7ed6" },
     sources: [
@@ -140,6 +140,6 @@ export const clients: Client[] = [
   },
 ];
 
-export function getClientBySubdomain(subdomain: string): Client | undefined {
-  return clients.find((c) => c.subdomain === subdomain.toLowerCase());
+export function getClientBySlug(slug: string): Client | undefined {
+  return clients.find((c) => c.slug === slug.toLowerCase());
 }

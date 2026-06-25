@@ -9,7 +9,7 @@ export default function NotFound() {
           No dashboard exists for this address.
         </p>
         <p className="text-secondary">
-          Check the subdomain, or contact ArtForm if you think this is a mistake.
+          Check the address, or contact ArtForm if you think this is a mistake.
         </p>
       </div>
     </div>
