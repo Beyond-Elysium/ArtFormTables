@@ -46,6 +46,18 @@ export default async function ClientDashboard({
     to: to ?? undefined,
     compare,
   });
+  // Print mode (used by the PDF renderer): show every source, hide UI chrome.
+  const printMode = searchParams.print === "1" || searchParams.print === "true";
+
+  // Build a report link that carries the currently-viewed range/comparison.
+  const reportParams = new URLSearchParams();
+  if (range !== "28d") reportParams.set("range", range);
+  if (from) reportParams.set("from", from);
+  if (to) reportParams.set("to", to);
+  if (compare !== "none") reportParams.set("compare", compare);
+  const reportQs = reportParams.toString();
+  const reportHref = `/api/report/${client.slug}${reportQs ? `?${reportQs}` : ""}`;
+
   const results = await fetchClientData(client, resolved);
   const brand = { ...DEFAULT_BRAND, ...client.brand };
   const anyMock = results.some((r) => r.isMock);
@@ -112,6 +124,14 @@ export default async function ClientDashboard({
               end={resolved.window.end}
               compareMode={resolved.compareMode}
             />
+            <a
+              href={reportHref}
+              className="btn btn-sm btn-outline-primary"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Download PDF
+            </a>
           </div>
         </div>
 
@@ -134,7 +154,12 @@ export default async function ClientDashboard({
               </div>
             )}
 
-            <DashboardBody results={results} brand={brand} deltaSuffix={deltaSuffix} />
+            <DashboardBody
+              results={results}
+              brand={brand}
+              deltaSuffix={deltaSuffix}
+              showAll={printMode}
+            />
 
             <div className="text-secondary text-center mt-4 small">
               {client.name} · {windowLabel} · Updated {updated}

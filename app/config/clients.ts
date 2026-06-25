@@ -40,6 +40,13 @@ const clientSourceSchema = z.object({
   config: z.record(z.string(), z.unknown()).default({}),
 });
 
+const reportSchema = z.object({
+  /** Email recipients for scheduled PDF reports. */
+  recipients: z.array(z.string().email()).default([]),
+  /** Include this client in the scheduled report cron. */
+  enabled: z.boolean().default(false),
+});
+
 const clientSchema = z.object({
   /** URL slug, e.g. "acme" for sitename.com/acme. */
   slug: z.string().regex(/^[a-z0-9-]+$/, "slug must be lowercase letters, digits or hyphens"),
@@ -47,6 +54,8 @@ const clientSchema = z.object({
   name: z.string().min(1),
   sources: z.array(clientSourceSchema),
   brand: clientBrandSchema.optional(),
+  /** Optional scheduled-report settings. */
+  report: reportSchema.optional(),
 });
 
 const clientsSchema = z.array(clientSchema).superRefine((list, ctx) => {
@@ -61,6 +70,7 @@ const clientsSchema = z.array(clientSchema).superRefine((list, ctx) => {
 
 export type ClientBrand = z.infer<typeof clientBrandSchema>;
 export type ClientSource = z.infer<typeof clientSourceSchema>;
+export type ClientReport = z.infer<typeof reportSchema>;
 export type Client = z.infer<typeof clientSchema>;
 
 const clientDefs = [
@@ -118,6 +128,7 @@ const clientDefs = [
     slug: "umbrella",
     name: "Umbrella Software",
     brand: { primary: "#7048e8", accent: "#12b886" },
+    report: { recipients: ["ops@umbrella.example"], enabled: true },
     sources: [
       { type: "ga4", config: { propertyId: "000000005" } },
       { type: "posthog", config: { projectId: "12345" } },

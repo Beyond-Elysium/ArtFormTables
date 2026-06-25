@@ -11,6 +11,7 @@ Built on the ArtForm-branded [`@tabler/core`](../core) design system + Next.js.
 > client, connect real data, and ship it on one domain.
 > **Adding a provider?** → [CONNECTORS.md](./CONNECTORS.md) +
 > [`lib/connectors/TEMPLATE.ts`](./lib/connectors/TEMPLATE.ts).
+> **PDF / email reports?** → [REPORTS.md](./REPORTS.md).
 
 ## The connector framework
 

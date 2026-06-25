@@ -22,10 +22,13 @@ export function DashboardBody({
   results,
   brand,
   deltaSuffix,
+  showAll = false,
 }: {
   results: ConnectorResult[];
   brand: Branding;
   deltaSuffix?: string;
+  /** Render every source and hide the view tabs (used for PDF reports). */
+  showAll?: boolean;
 }) {
   // Categories in first-seen order.
   const categories = useMemo(() => {
@@ -59,11 +62,13 @@ export function DashboardBody({
   }
 
   const visible =
-    current === OVERVIEW ? results : results.filter((r) => r.category === current);
+    showAll || current === OVERVIEW
+      ? results
+      : results.filter((r) => r.category === current);
 
   return (
     <>
-      {tabs.length > 1 && (
+      {tabs.length > 1 && !showAll && (
         <ul className="nav nav-tabs view-tabs mb-3 d-print-none" role="tablist">
           {tabs.map((t) => (
             <li className="nav-item" key={t} role="presentation">
