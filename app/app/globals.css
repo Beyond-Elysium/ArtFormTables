@@ -148,6 +148,27 @@ h3 {
   color: var(--af-ink);
 }
 
+/* --- Chart loading skeleton ---------------------------------------------- */
+.chart-skeleton {
+  width: 100%;
+  background: linear-gradient(90deg, #f1f3f5 25%, #e9ecef 37%, #f1f3f5 63%);
+  background-size: 400% 100%;
+  animation: chart-shimmer 1.4s ease infinite;
+}
+@keyframes chart-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: 0 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chart-skeleton {
+    animation: none;
+  }
+}
+
 /* --- Print --------------------------------------------------------------- */
 @media print {
   body {

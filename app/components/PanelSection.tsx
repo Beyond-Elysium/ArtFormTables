@@ -131,11 +131,15 @@ function BreakdownTable({ panel }: { panel: BreakdownPanel }) {
           {panel.rows.map((r, i) => (
             <tr key={i}>
               <td>
-                <div className="fw-bold text-truncate" style={{ maxWidth: 220 }}>
+                <div className="fw-bold text-truncate" style={{ maxWidth: 220 }} title={r.label}>
                   {r.label}
                 </div>
                 {r.sublabel && (
-                  <div className="text-secondary small text-truncate" style={{ maxWidth: 220 }}>
+                  <div
+                    className="text-secondary small text-truncate"
+                    style={{ maxWidth: 220 }}
+                    title={r.sublabel}
+                  >
                     {r.sublabel}
                   </div>
                 )}

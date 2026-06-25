@@ -42,8 +42,12 @@ export function DashboardControls({
       else params.set(k, v);
     }
     const qs = params.toString();
+    // Preserve the active-view hash so the selected tab survives the change.
+    const hash = typeof window !== "undefined" ? window.location.hash : "";
     startTransition(() => {
-      router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+      router.push(qs ? `${pathname}?${qs}${hash}` : `${pathname}${hash}`, {
+        scroll: false,
+      });
     });
   }
 

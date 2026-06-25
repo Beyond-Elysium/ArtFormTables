@@ -1,17 +1,22 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ConnectorResult } from "@/lib/connectors/types";
 import type { Branding } from "@/components/Charts";
 import { PanelSection } from "@/components/PanelSection";
 
 const OVERVIEW = "Overview";
 
+const slugifyTab = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+
 /**
  * Renders a client's sources with view tabs. "Overview" shows everything; each
  * additional tab is a data category (Analytics, Advertising, Payments, …),
  * derived automatically from the sources. Switching views is instant — no
  * refetch — because all data is already on the page.
+ *
+ * The active view is mirrored to the URL hash so it survives a range/compare
+ * change (which remounts this component) and stays shareable.
  */
 export function DashboardBody({
   results,
@@ -29,9 +34,29 @@ export function DashboardBody({
     return seen;
   }, [results]);
 
-  const tabs = categories.length > 1 ? [OVERVIEW, ...categories] : [OVERVIEW];
+  const tabs = useMemo(
+    () => (categories.length > 1 ? [OVERVIEW, ...categories] : [OVERVIEW]),
+    [categories],
+  );
+
   const [active, setActive] = useState(OVERVIEW);
+
+  // Restore the active view from the URL hash after mount (SSR-safe).
+  useEffect(() => {
+    const h = decodeURIComponent(window.location.hash.slice(1));
+    if (!h) return;
+    const match = tabs.find((t) => slugifyTab(t) === h);
+    if (match) setActive(match);
+  }, [tabs]);
+
   const current = tabs.includes(active) ? active : OVERVIEW;
+
+  function select(t: string) {
+    setActive(t);
+    const hash = t === OVERVIEW ? " " : slugifyTab(t);
+    // replaceState keeps it out of history and avoids a scroll jump.
+    window.history.replaceState(null, "", t === OVERVIEW ? window.location.pathname + window.location.search : `#${hash}`);
+  }
 
   const visible =
     current === OVERVIEW ? results : results.filter((r) => r.category === current);
@@ -45,7 +70,7 @@ export function DashboardBody({
               <button
                 type="button"
                 className={`nav-link ${t === current ? "active" : ""}`}
-                onClick={() => setActive(t)}
+                onClick={() => select(t)}
                 role="tab"
                 aria-selected={t === current}
               >
@@ -61,14 +86,23 @@ export function DashboardBody({
         </ul>
       )}
 
-      {visible.map((result) => (
-        <PanelSection
-          key={result.sourceId}
-          result={result}
-          brand={brand}
-          deltaSuffix={deltaSuffix}
-        />
-      ))}
+      {visible.length > 0 ? (
+        visible.map((result) => (
+          <PanelSection
+            key={result.sourceId}
+            result={result}
+            brand={brand}
+            deltaSuffix={deltaSuffix}
+          />
+        ))
+      ) : (
+        <div className="empty">
+          <p className="empty-title">No data sources in this view</p>
+          <p className="empty-subtitle text-secondary">
+            Add sources to this client in <code>config/clients.ts</code>.
+          </p>
+        </div>
+      )}
     </>
   );
 }

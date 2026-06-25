@@ -2,9 +2,15 @@
 
 import dynamic from "next/dynamic";
 import type { ApexOptions } from "apexcharts";
+import { formatCompact } from "@/lib/format";
 
+const CHART_HEIGHT = 300;
+
+// Reserve the chart's height while the (client-only) bundle loads to avoid
+// layout shift, and show a subtle skeleton.
 const ReactApexChart = dynamic(() => import("react-apexcharts"), {
   ssr: false,
+  loading: () => <div className="chart-skeleton" style={{ height: CHART_HEIGHT }} />,
 });
 
 export interface Branding {
@@ -19,6 +25,7 @@ function palette(brand: Branding): string[] {
 
 const FONT = "Montserrat, sans-serif";
 const LABEL_FONT = "Fira Sans, sans-serif";
+const compactAxis = (v: number) => formatCompact(v);
 
 export function TimeseriesChart({
   series,
@@ -49,7 +56,7 @@ export function TimeseriesChart({
       labels: { style: { fontFamily: FONT } },
       tooltip: { enabled: false },
     },
-    yaxis: { labels: { style: { fontFamily: FONT } } },
+    yaxis: { labels: { style: { fontFamily: FONT }, formatter: compactAxis } },
     legend: { fontFamily: LABEL_FONT },
     tooltip: { x: { format: "dd MMM" } },
   };
@@ -57,7 +64,9 @@ export function TimeseriesChart({
     name: s.name,
     data: s.points.map((p) => ({ x: p.x, y: p.y })),
   }));
-  return <ReactApexChart options={options} series={apexSeries} type="area" height={300} />;
+  return (
+    <ReactApexChart options={options} series={apexSeries} type="area" height={CHART_HEIGHT} />
+  );
 }
 
 export function DonutChart({
@@ -80,7 +89,7 @@ export function DonutChart({
       options={options}
       series={rows.map((r) => r.value)}
       type="donut"
-      height={300}
+      height={CHART_HEIGHT}
     />
   );
 }
@@ -95,7 +104,7 @@ export function BarChart({
   const options: ApexOptions = {
     chart: { type: "bar", fontFamily: FONT, toolbar: { show: false } },
     colors: [brand.primary],
-    plotOptions: { bar: { horizontal: true, borderRadius: 2, barHeight: "60%" } },
+    plotOptions: { bar: { horizontal: true, borderRadius: 0, barHeight: "60%" } },
     dataLabels: { enabled: false },
     grid: { strokeDashArray: 4, borderColor: "#e6e7e9" },
     xaxis: {
@@ -109,7 +118,7 @@ export function BarChart({
       options={options}
       series={[{ name: "Value", data: rows.map((r) => r.value) }]}
       type="bar"
-      height={300}
+      height={CHART_HEIGHT}
     />
   );
 }

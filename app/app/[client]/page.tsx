@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getClientBySlug } from "@/config/clients";
 import { fetchClientData } from "@/lib/connectors";
@@ -8,6 +9,17 @@ import { DashboardBody } from "@/components/DashboardBody";
 
 // Cache provider responses for an hour to respect API quotas.
 export const revalidate = 3600;
+
+export async function generateMetadata({
+  params,
+}: {
+  params: { client: string };
+}): Promise<Metadata> {
+  const client = getClientBySlug(params.client);
+  return {
+    title: client ? `${client.name} · Performance` : "Dashboard not found",
+  };
+}
 
 const DEFAULT_BRAND = { primary: "#426fb6", accent: "#e41679" };
 const HEADER_BG = "#333333";
