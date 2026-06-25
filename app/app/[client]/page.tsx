@@ -1,14 +1,18 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { createSearchParamsCache } from "nuqs/server";
 import { getClientBySlug } from "@/config/clients";
 import { fetchClientData } from "@/lib/connectors";
 import { resolveRange, formatWindow } from "@/lib/range";
+import { dashboardParsers } from "@/lib/searchParams";
 import { readableTextColor } from "@/lib/contrast";
 import { DashboardControls } from "@/components/DashboardControls";
 import { DashboardBody } from "@/components/DashboardBody";
 
 // Cache provider responses for an hour to respect API quotas.
 export const revalidate = 3600;
+
+const searchParamsCache = createSearchParamsCache(dashboardParsers);
 
 export async function generateMetadata({
   params,
@@ -29,12 +33,19 @@ export default async function ClientDashboard({
   searchParams,
 }: {
   params: { client: string };
-  searchParams: { range?: string; from?: string; to?: string; compare?: string };
+  searchParams: Record<string, string | string[] | undefined>;
 }) {
   const client = getClientBySlug(params.client);
   if (!client) notFound();
 
-  const resolved = resolveRange(searchParams);
+  // Typed, validated URL state via the shared nuqs parsers.
+  const { range, from, to, compare } = searchParamsCache.parse(searchParams);
+  const resolved = resolveRange({
+    range,
+    from: from ?? undefined,
+    to: to ?? undefined,
+    compare,
+  });
   const results = await fetchClientData(client, resolved);
   const brand = { ...DEFAULT_BRAND, ...client.brand };
   const anyMock = results.some((r) => r.isMock);

@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useQueryStates } from "nuqs";
 import { DayPicker, type DateRange } from "react-day-picker";
 import { format, parseISO } from "date-fns";
 import "react-day-picker/style.css";
+import { dashboardParsers } from "@/lib/searchParams";
 import {
   RANGE_PRESETS,
   COMPARE_OPTIONS,
@@ -29,10 +30,14 @@ export function DashboardControls({
   end: string;
   compareMode: CompareMode;
 }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
+  // nuqs owns the URL state. shallow:false re-runs the server component (and so
+  // refetches data); it preserves the active-view hash automatically.
+  const [, setParams] = useQueryStates(dashboardParsers, {
+    shallow: false,
+    scroll: false,
+    startTransition,
+  });
 
   const [showCustom, setShowCustom] = useState(false);
   const [selected, setSelected] = useState<DateRange | undefined>(() => {
@@ -43,34 +48,18 @@ export function DashboardControls({
     }
   });
 
-  function apply(updates: Record<string, string | null>) {
-    const params = new URLSearchParams(searchParams.toString());
-    for (const [k, v] of Object.entries(updates)) {
-      if (v === null) params.delete(k);
-      else params.set(k, v);
-    }
-    const qs = params.toString();
-    // Preserve the active-view hash so the selected tab survives the change.
-    const hash = typeof window !== "undefined" ? window.location.hash : "";
-    startTransition(() => {
-      router.push(qs ? `${pathname}?${qs}${hash}` : `${pathname}${hash}`, {
-        scroll: false,
-      });
-    });
-  }
-
   function selectPreset(id: RangePresetId) {
     if (id === "custom") {
       setShowCustom((s) => !s);
       return;
     }
     setShowCustom(false);
-    apply({ range: id, from: null, to: null });
+    setParams({ range: id, from: null, to: null });
   }
 
   function applyCustom() {
     if (!selected?.from || !selected?.to) return;
-    apply({
+    setParams({
       range: "custom",
       from: format(selected.from, "yyyy-MM-dd"),
       to: format(selected.to, "yyyy-MM-dd"),
@@ -165,9 +154,7 @@ export function DashboardControls({
           className="form-select form-select-sm"
           style={{ width: "auto" }}
           value={compareMode}
-          onChange={(e) =>
-            apply({ compare: e.target.value === "none" ? null : e.target.value })
-          }
+          onChange={(e) => setParams({ compare: e.target.value as CompareMode })}
         >
           {COMPARE_OPTIONS.map((c) => (
             <option key={c.id} value={c.id}>
