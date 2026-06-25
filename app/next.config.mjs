@@ -23,15 +23,14 @@ const nextConfig = {
 
     // @sparticuz/chromium ships its browser as bin/*.br data files that are read
     // from disk at runtime — Next's tracer only follows `require`d JS, so force
-    // these into the report functions' bundles (covers the symlink and the real
-    // .pnpm path).
+    // these into the report functions' bundles. Point at the *real* .pnpm path
+    // (not the app/node_modules symlink) so Vercel can package the files —
+    // tracing through the symlink yields an invalid serverless function.
     outputFileTracingIncludes: {
       "/api/report/[client]": [
-        "./node_modules/@sparticuz/chromium/bin/**",
         "../node_modules/.pnpm/@sparticuz+chromium@*/node_modules/@sparticuz/chromium/bin/**",
       ],
       "/api/cron/reports": [
-        "./node_modules/@sparticuz/chromium/bin/**",
         "../node_modules/.pnpm/@sparticuz+chromium@*/node_modules/@sparticuz/chromium/bin/**",
       ],
     },
