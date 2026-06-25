@@ -74,8 +74,12 @@ automatically:
 
 So on Vercel you only need to add `RESEND_API_KEY`, `REPORT_FROM`, and
 `CRON_SECRET` in project env. The report routes already run on the Node runtime
-with a raised `maxDuration`, and `@sparticuz/chromium` is externalized in
-`next.config`. Cron requires a Vercel plan that includes Cron Jobs.
+with a raised `maxDuration`; `@sparticuz/chromium` is externalized; and its
+`bin/*.br` browser files are force-included into the report functions via
+`experimental.outputFileTracingIncludes` in `next.config` (otherwise Next's
+tracer omits them, since they're read from disk rather than `require`d, and you
+get `The input directory ".../@sparticuz/chromium/bin" does not exist`). Cron
+requires a Vercel plan that includes Cron Jobs.
 
 > If a Playwright/Chromium version mismatch ever surfaces, pin `@sparticuz/chromium`
 > to the build that matches your `playwright-core` version.
