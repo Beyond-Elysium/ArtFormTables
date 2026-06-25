@@ -148,6 +148,40 @@ h3 {
   color: var(--af-ink);
 }
 
+/* --- Date range calendar (react-day-picker) ------------------------------ */
+.daypicker-popover {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 0.25rem;
+  z-index: 40;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
+  border: 1px solid var(--tblr-border-color, #e6e7e9);
+}
+.daypicker-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 39;
+}
+.rdp-root {
+  --rdp-accent-color: var(--tblr-primary, #426fb6);
+  --rdp-accent-background-color: #eaf0f8;
+  --rdp-range_middle-color: var(--af-ink, #333);
+  font-family: "Montserrat", var(--tblr-font-sans-serif);
+  margin: 0;
+}
+/* Square cells to match the Swiss style. */
+.rdp-day_button,
+.rdp-button_reset,
+.rdp-range_start .rdp-day_button,
+.rdp-range_end .rdp-day_button {
+  border-radius: 0 !important;
+}
+.rdp-caption_label,
+.rdp-weekday {
+  font-family: "Fira Sans", var(--tblr-font-sans-serif);
+}
+
 /* --- Chart loading skeleton ---------------------------------------------- */
 .chart-skeleton {
   width: 100%;

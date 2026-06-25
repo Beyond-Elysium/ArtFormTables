@@ -1,8 +1,15 @@
 /**
  * Date-range + comparison resolution. Pure and framework-agnostic so both the
  * server page and the client controls can share it. Operates on YYYY-MM-DD
- * strings in UTC to avoid timezone drift.
+ * date-only strings via date-fns (calendar-correct day/month/year math).
  */
+import {
+  addDays,
+  differenceInCalendarDays,
+  format,
+  parseISO,
+  subYears,
+} from "date-fns";
 
 export type RangePresetId = "7d" | "28d" | "90d" | "6mo" | "12mo" | "custom";
 export type CompareMode = "none" | "previous" | "year";
@@ -48,26 +55,20 @@ export interface ResolvedRange {
 }
 
 /* ----------------------------- date helpers ---------------------------- */
+// Operate on date-only strings via date-fns. parseISO + format("yyyy-MM-dd")
+// are calendar-correct (addDays handles month/year/DST boundaries).
 
-function parse(iso: string): Date {
-  const [y, m, d] = iso.split("-").map(Number);
-  return new Date(Date.UTC(y, m - 1, d));
-}
-function toISO(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
+const ISO = "yyyy-MM-dd";
+
 export function todayISO(): string {
-  return toISO(new Date());
+  return format(new Date(), ISO);
 }
 function shift(iso: string, days: number): string {
-  const d = parse(iso);
-  d.setUTCDate(d.getUTCDate() + days);
-  return toISO(d);
+  return format(addDays(parseISO(iso), days), ISO);
 }
 /** Inclusive number of days between two ISO dates. */
 function inclusiveDays(start: string, end: string): number {
-  const ms = parse(end).getTime() - parse(start).getTime();
-  return Math.max(1, Math.round(ms / 86_400_000) + 1);
+  return Math.max(1, differenceInCalendarDays(parseISO(end), parseISO(start)) + 1);
 }
 
 /** Every ISO date in a window, oldest first (length === window.days). */
@@ -130,9 +131,11 @@ export function resolveRange(params: RangeParams): ResolvedRange {
     const cStart = shift(cEnd, -(days - 1));
     compare = { key: `${cStart}_${cEnd}`, start: cStart, end: cEnd, days };
   } else if (compareMode === "year") {
-    const cStart = shift(start, -365);
-    const cEnd = shift(end, -365);
-    compare = { key: `${cStart}_${cEnd}`, start: cStart, end: cEnd, days };
+    // subYears handles leap years correctly (vs a flat -365).
+    const cStart = format(subYears(parseISO(start), 1), "yyyy-MM-dd");
+    const cEnd = format(subYears(parseISO(end), 1), "yyyy-MM-dd");
+    const cDays = inclusiveDays(cStart, cEnd);
+    compare = { key: `${cStart}_${cEnd}`, start: cStart, end: cEnd, days: cDays };
   }
 
   return { preset, window, compareMode, compare };
@@ -140,23 +143,11 @@ export function resolveRange(params: RangeParams): ResolvedRange {
 
 /* ------------------------------ formatting ----------------------------- */
 
-const FMT = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  day: "numeric",
-  year: "numeric",
-  timeZone: "UTC",
-});
-const FMT_NO_YEAR = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  day: "numeric",
-  timeZone: "UTC",
-});
-
 /** "Jun 1 – Jun 28, 2026" (drops the year on the start when it matches the end). */
 export function formatWindow(w: Window): string {
-  const s = parse(w.start);
-  const e = parse(w.end);
-  const sameYear = s.getUTCFullYear() === e.getUTCFullYear();
-  const left = sameYear ? FMT_NO_YEAR.format(s) : FMT.format(s);
-  return `${left} – ${FMT.format(e)}`;
+  const s = parseISO(w.start);
+  const e = parseISO(w.end);
+  const sameYear = s.getFullYear() === e.getFullYear();
+  const left = format(s, sameYear ? "MMM d" : "MMM d, yyyy");
+  return `${left} – ${format(e, "MMM d, yyyy")}`;
 }

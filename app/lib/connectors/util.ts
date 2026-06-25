@@ -1,10 +1,9 @@
 /** Small shared helpers for connector live paths. */
 import "server-only";
+import { format, subDays } from "date-fns";
 
 export function dateNDaysAgo(n: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  return d.toISOString().slice(0, 10);
+  return format(subDays(new Date(), n), "yyyy-MM-dd");
 }
 
 /** Current + previous equal-length windows ending today. */

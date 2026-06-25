@@ -78,8 +78,22 @@ interface Connector<Config> {
 | OAuth client-credentials | `paypal.ts`, `zoom.ts` | client id/secret → token (cache it) |
 | GraphQL | `cloudflare.ts`, `linear.ts` | POST `{ query, variables }` |
 
+## Fetching: use `fetchJson` (retry + validation)
+
+Prefer [`http.ts`](./lib/connectors/http.ts)'s `fetchJson(schema, url, opts)` over
+raw `fetch`. It runs through **ofetch** (timeout + retry with backoff, so one
+flaky provider can't hang the page) and validates the response with a **zod**
+schema, turning an unexpected payload into a clean error → mock fallback instead
+of a downstream `NaN`. See [`plausible.ts`](./lib/connectors/plausible.ts) and
+the template for the pattern:
+
+```ts
+const schema = z.object({ daily: z.array(z.object({ date: z.string(), value: z.number().nullish() })).default([]) });
+const json = await fetchJson(schema, url, { headers: { Authorization: `Bearer ${token}` } });
+```
+
 Shared helpers live in [`util.ts`](./lib/connectors/util.ts)
-(`rangeDates`, `pct`, `num`, `dateNDaysAgo`) and
+(`rangeDates`, `pct`, `num`, `dateNDaysAgo` — date math via date-fns) and
 [`mock.ts`](./lib/connectors/mock.ts) (`rng`, `mockSeries`, `mockDelta`).
 Google auth is in [`googleAuth.ts`](./lib/connectors/googleAuth.ts).
 

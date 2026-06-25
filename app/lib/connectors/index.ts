@@ -5,6 +5,7 @@
  * provider by listing a source of that `type` in the client registry.
  */
 import "server-only";
+import pLimit from "p-limit";
 import type { Client } from "@/config/clients";
 import {
   type Connector,
@@ -91,6 +92,10 @@ export function connectorFor(type: string): Connector | undefined {
   return connectors[type];
 }
 
+// Cap how many provider APIs we hit at once. A client with many sources
+// (doubled when comparing) shouldn't fire dozens of simultaneous requests.
+const MAX_CONCURRENT_SOURCES = 6;
+
 /** Fetch every configured source for a client over one window, in parallel. */
 async function fetchWindow(client: Client, w: Window): Promise<ConnectorResult[]> {
   const ctx: ConnectorContext = {
@@ -99,26 +104,29 @@ async function fetchWindow(client: Client, w: Window): Promise<ConnectorResult[]
     start: w.start,
     end: w.end,
   };
+  const limit = pLimit(MAX_CONCURRENT_SOURCES);
   const results = await Promise.all(
-    client.sources.map(async (source, i): Promise<ConnectorResult> => {
-      const connector = connectors[source.type];
-      if (!connector) {
+    client.sources.map((source, i): Promise<ConnectorResult> =>
+      limit(async () => {
+        const connector = connectors[source.type];
+        if (!connector) {
+          return {
+            sourceId: `${source.type}-${i}`,
+            label: source.label ?? source.type,
+            category: "Unknown",
+            panels: [],
+            isMock: true,
+            error: `No connector registered for type "${source.type}"`,
+          };
+        }
+        const result = await connector.fetch(source.config, ctx);
         return {
-          sourceId: `${source.type}-${i}`,
-          label: source.label ?? source.type,
-          category: "Unknown",
-          panels: [],
-          isMock: true,
-          error: `No connector registered for type "${source.type}"`,
+          ...result,
+          sourceId: `${result.sourceId}-${i}`,
+          label: source.label ?? result.label,
         };
-      }
-      const result = await connector.fetch(source.config, ctx);
-      return {
-        ...result,
-        sourceId: `${result.sourceId}-${i}`,
-        label: source.label ?? result.label,
-      };
-    }),
+      }),
+    ),
   );
   // Relabel mock timeseries onto the real window dates so custom/past ranges
   // show correct axes. Live data already carries its own dates, so leave it.

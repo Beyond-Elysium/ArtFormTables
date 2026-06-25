@@ -16,9 +16,11 @@
  * This file is NOT registered, so it's inert — it just compiles as a reference.
  */
 import "server-only";
+import { z } from "zod";
 import type { Connector, ConnectorContext, Panel } from "./types";
+import { fetchJson } from "./http";
 import { mockSeries, mockDelta, rng } from "./mock";
-import { num, pct, rangeDates } from "./util";
+import { num, rangeDates } from "./util";
 
 // 1) The per-client config stored in config/clients.ts (`source.config`).
 interface ExampleConfig {
@@ -33,35 +35,39 @@ function isConfigured(): boolean {
 }
 
 /* ----------------------------- live path ----------------------------- */
-// Talk to the real API and map the response to Panels. See googleAuth.ts for the
-// service-account/token helper, googleAds.ts for OAuth refresh-token, paypal.ts
-// for OAuth client-credentials, mailchimp.ts/zendesk.ts for HTTP Basic.
+// Validate the response shape with zod so a payload change fails cleanly
+// (→ mock fallback) rather than producing NaN downstream.
+const responseSchema = z.object({
+  daily: z.array(z.object({ date: z.string(), value: z.number().nullish() })).default([]),
+  by_category: z
+    .array(z.object({ name: z.string(), value: z.number().nullish() }))
+    .default([]),
+});
+
+// Talk to the real API and map the response to Panels. `fetchJson` (lib/http)
+// adds retry + timeout via ofetch and validates with the schema. See
+// googleAuth.ts for the service-account/token helper, googleAds.ts for OAuth
+// refresh-token, paypal.ts for OAuth client-credentials, zendesk.ts for Basic.
 async function fetchLive(config: ExampleConfig, ctx: ConnectorContext): Promise<Panel[]> {
   const currency = config.currency ?? "USD";
-  const { start, end, prevStart, prevEnd } = rangeDates(ctx.days);
+  const { start, end } = rangeDates(ctx.days);
 
-  const res = await fetch(
+  const json = await fetchJson(
+    responseSchema,
     `https://api.example.com/v1/accounts/${config.accountId}/stats?start=${start}&end=${end}`,
-    { headers: { Authorization: `Bearer ${process.env.EXAMPLE_API_TOKEN!}` }, cache: "no-store" },
+    { headers: { Authorization: `Bearer ${process.env.EXAMPLE_API_TOKEN!}` } },
   );
-  if (!res.ok) throw new Error(`Example ${res.status}: ${await res.text()}`);
-  const json = await res.json();
 
   // Map the API's daily rows into totals + a timeseries.
   let total = 0;
-  const ts = (json.daily ?? []).map((r: any) => {
+  const ts = json.daily.map((r) => {
     total += num(r.value);
-    return { x: String(r.date).slice(0, 10), y: num(r.value) };
+    return { x: r.date.slice(0, 10), y: num(r.value) };
   });
 
-  // (Optional) a second call for previous-period deltas.
-  void prevStart;
-  void prevEnd;
-  const delta = 0;
+  const breakdown = json.by_category.map((r) => ({ label: r.name, value: num(r.value) }));
 
-  const breakdown = (json.by_category ?? []).map((r: any) => ({ label: r.name, value: num(r.value) }));
-
-  return buildPanels(currency, { total, delta }, ts, breakdown);
+  return buildPanels(currency, { total, delta: 0 }, ts, breakdown);
 }
 
 /* ----------------------------- mock path ----------------------------- */

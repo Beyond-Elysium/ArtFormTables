@@ -6,13 +6,30 @@
  * Config: { siteId }  (the domain configured in Plausible, e.g. "acme.com").
  */
 import "server-only";
+import { z } from "zod";
 import type { Connector, ConnectorContext, Panel } from "./types";
+import { fetchJson } from "./http";
 import { mockDelta, mockSeries, rng } from "./mock";
 import { num, rangeDates } from "./util";
 
 interface PlausibleConfig {
   siteId: string;
 }
+
+// Response shapes are validated, so a payload change surfaces as a clean error
+// (→ mock fallback) instead of a silent NaN.
+const metric = z.object({ value: z.number().nullish(), change: z.number().nullish() });
+const aggregateSchema = z.object({ results: z.record(z.string(), metric).default({}) });
+const timeseriesSchema = z.object({
+  results: z
+    .array(z.object({ date: z.string() }).catchall(z.number().nullish()))
+    .default([]),
+});
+const breakdownSchema = z.object({
+  results: z
+    .array(z.object({ source: z.string().nullish(), visitors: z.number().nullish() }))
+    .default([]),
+});
 
 function apiKey(): string | undefined {
   return process.env.PLAUSIBLE_API_KEY;
@@ -22,14 +39,12 @@ function baseUrl(): string {
   return process.env.PLAUSIBLE_BASE_URL || "https://plausible.io";
 }
 
-async function api(path: string, params: Record<string, string>): Promise<any> {
+// Resilient (ofetch retry/timeout) + zod-validated fetch.
+function api<T>(schema: z.ZodType<T>, path: string, params: Record<string, string>): Promise<T> {
   const qs = new URLSearchParams(params);
-  const res = await fetch(`${baseUrl()}/api/v1/stats/${path}?${qs}`, {
+  return fetchJson(schema, `${baseUrl()}/api/v1/stats/${path}?${qs}`, {
     headers: { Authorization: `Bearer ${apiKey()!}` },
-    cache: "no-store",
   });
-  if (!res.ok) throw new Error(`Plausible ${res.status}: ${await res.text()}`);
-  return res.json();
 }
 
 async function fetchLive(config: PlausibleConfig, ctx: ConnectorContext): Promise<Panel[]> {
@@ -38,29 +53,33 @@ async function fetchLive(config: PlausibleConfig, ctx: ConnectorContext): Promis
   const common = { site_id: config.siteId, period: "custom", date };
 
   const [aggregate, timeseries, sources] = await Promise.all([
-    api("aggregate", {
+    api(aggregateSchema, "aggregate", {
       ...common,
       metrics: "visitors,pageviews,bounce_rate,visit_duration",
       compare: "previous_period",
     }),
-    api("timeseries", { ...common, metrics: "visitors,pageviews" }),
-    api("breakdown", { ...common, property: "visit:source", metrics: "visitors", limit: "8" }),
+    api(timeseriesSchema, "timeseries", { ...common, metrics: "visitors,pageviews" }),
+    api(breakdownSchema, "breakdown", {
+      ...common,
+      property: "visit:source",
+      metrics: "visitors",
+      limit: "8",
+    }),
   ]);
 
-  const r = aggregate.results ?? {};
+  const r = aggregate.results;
   const stat = (k: string) => ({ value: num(r[k]?.value), delta: num(r[k]?.change) });
   const visitors = stat("visitors");
   const pageviews = stat("pageviews");
   const bounce = stat("bounce_rate"); // integer percent
   const duration = stat("visit_duration"); // seconds
 
-  const tsRows: any[] = timeseries.results ?? [];
-  const ts = tsRows.map((row) => ({
-    x: row.date as string,
+  const ts = timeseries.results.map((row) => ({
+    x: row.date,
     visitors: num(row.visitors),
     pageviews: num(row.pageviews),
   }));
-  const sourceRows = ((sources.results ?? []) as any[]).map((s) => ({
+  const sourceRows = sources.results.map((s) => ({
     label: s.source || "Direct",
     value: num(s.visitors),
   }));

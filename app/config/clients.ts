@@ -12,35 +12,58 @@
  * its `type` here. No database needed for the MVP.
  */
 
-export interface ClientBrand {
+import { z } from "zod";
+
+// The registry is validated by zod at import: a malformed entry (bad slug, bad
+// hex colour, missing fields) fails the build loudly rather than rendering
+// something broken at request time. Types are inferred from the schemas.
+
+const hexColor = z
+  .string()
+  .regex(/^#[0-9a-fA-F]{6}$/, "must be a #rrggbb hex colour");
+
+const clientBrandSchema = z.object({
   /** Primary action colour. Defaults to ArtForm Brand Blue. */
-  primary?: string;
+  primary: hexColor.optional(),
   /** Accent colour (charts, highlights). Defaults to ArtForm Brand Pink. */
-  accent?: string;
+  accent: hexColor.optional(),
   /** Optional logo URL shown in the navbar; falls back to the client name. */
-  logo?: string;
-}
+  logo: z.string().url().optional(),
+});
 
-/** One data source on a client dashboard. */
-export interface ClientSource {
-  /** Connector type, e.g. "ga4" | "search-console" | "google-ads" | "bing-webmaster". */
-  type: string;
+const clientSourceSchema = z.object({
+  /** Connector type, e.g. "ga4" | "search-console" | "google-ads". */
+  type: z.string().min(1),
   /** Optional override for the section heading. */
-  label?: string;
+  label: z.string().optional(),
   /** Connector-specific configuration. */
-  config: Record<string, unknown>;
-}
+  config: z.record(z.string(), z.unknown()).default({}),
+});
 
-export interface Client {
+const clientSchema = z.object({
   /** URL slug, e.g. "acme" for sitename.com/acme. */
-  slug: string;
+  slug: z.string().regex(/^[a-z0-9-]+$/, "slug must be lowercase letters, digits or hyphens"),
   /** Display name shown in the dashboard header. */
-  name: string;
-  sources: ClientSource[];
-  brand?: ClientBrand;
-}
+  name: z.string().min(1),
+  sources: z.array(clientSourceSchema),
+  brand: clientBrandSchema.optional(),
+});
 
-export const clients: Client[] = [
+const clientsSchema = z.array(clientSchema).superRefine((list, ctx) => {
+  const seen = new Set<string>();
+  for (const c of list) {
+    if (seen.has(c.slug)) {
+      ctx.addIssue({ code: "custom", message: `duplicate slug "${c.slug}"` });
+    }
+    seen.add(c.slug);
+  }
+});
+
+export type ClientBrand = z.infer<typeof clientBrandSchema>;
+export type ClientSource = z.infer<typeof clientSourceSchema>;
+export type Client = z.infer<typeof clientSchema>;
+
+const clientDefs = [
   {
     slug: "acme",
     name: "Acme Corporation",
@@ -139,6 +162,9 @@ export const clients: Client[] = [
     ],
   },
 ];
+
+/** Validated client registry (throws at import if an entry is malformed). */
+export const clients: Client[] = clientsSchema.parse(clientDefs);
 
 export function getClientBySlug(slug: string): Client | undefined {
   return clients.find((c) => c.slug === slug.toLowerCase());
