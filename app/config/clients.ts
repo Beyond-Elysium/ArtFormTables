@@ -107,6 +107,21 @@ export const clients: Client[] = [
       { type: "intercom", config: {} },
       { type: "typeform", config: { formId: "AbC123" } },
       { type: "cloudflare", config: { zoneTag: "0123456789abcdef0123456789abcdef" } },
+      { type: "sentry", config: { organization: "umbrella" } },
+      { type: "linear", config: {} },
+    ],
+  },
+  {
+    // Operations-heavy agency client.
+    subdomain: "vandelay",
+    name: "Vandelay Industries",
+    brand: { primary: "#1864ab", accent: "#e8590c" },
+    sources: [
+      { type: "ga4", config: { propertyId: "000000007" } },
+      { type: "airtable", config: { baseId: "appXXXXXXXXXXXXXX", tableName: "Leads" } },
+      { type: "zoom", config: {} },
+      { type: "activecampaign", config: {} },
+      { type: "amplitude", config: {} },
     ],
   },
   {

@@ -61,13 +61,20 @@ lib/connectors/
   paypal.ts         ← PayPal                (OAuth client-credentials)
   cloudflare.ts     ← Cloudflare            (GraphQL, token)
   klaviyo.ts        ← Klaviyo               (API key)
+  sentry.ts         ← Sentry                (bearer)
+  linear.ts         ← Linear                (API key, GraphQL)
+  zoom.ts           ← Zoom                  (OAuth server-to-server)
+  amplitude.ts      ← Amplitude             (HTTP Basic)
+  activecampaign.ts ← ActiveCampaign        (Api-Token)
+  airtable.ts       ← Airtable              (bearer)
 ```
 
-All twenty-eight ship with a live REST path **and** a deterministic mock
+All thirty-four ship with a live REST path **and** a deterministic mock
 fallback, so the dashboard renders fully with no credentials and each source
 flips to live the moment its credentials + config are present. Categories span
 Analytics, Search, Advertising, Email, E-commerce, Payments, Video, CRM,
-Product, Messaging, Support, Developer, Scheduling, Forms, and Infrastructure.
+Product, Messaging, Support, Developer, Scheduling, Forms, Infrastructure,
+Errors, Project Management, Meetings, and Operations.
 
 ### Adding a new API (the whole process)
 
@@ -142,6 +149,12 @@ Set credentials per provider (see `.env.example`):
 | PayPal | OAuth client-credentials | `PAYPAL_CLIENT_ID`, `PAYPAL_SECRET` |
 | Cloudflare | API token (GraphQL) | `CLOUDFLARE_API_TOKEN`, `zoneTag` in config |
 | Klaviyo | API key | `KLAVIYO_API_KEY` |
+| Sentry | Auth token | `SENTRY_AUTH_TOKEN`, `organization` in config |
+| Linear | API key (GraphQL) | `LINEAR_API_KEY` |
+| Zoom | OAuth server-to-server | `ZOOM_ACCOUNT_ID`, `ZOOM_CLIENT_ID`, `ZOOM_CLIENT_SECRET` |
+| Amplitude | API key + secret (Basic) | `AMPLITUDE_API_KEY`, `AMPLITUDE_SECRET_KEY` |
+| ActiveCampaign | Api-Token | `ACTIVECAMPAIGN_API_URL`, `ACTIVECAMPAIGN_API_TOKEN` |
+| Airtable | Access token | `AIRTABLE_API_KEY`, `baseId`/`tableName` in config |
 
 GA4 and Search Console share one Google service account: enable the
 **Google Analytics Data API** and **Search Console API** in the GCP project,

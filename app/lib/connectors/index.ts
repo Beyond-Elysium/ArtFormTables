@@ -40,6 +40,12 @@ import { squareConnector } from "./square";
 import { paypalConnector } from "./paypal";
 import { cloudflareConnector } from "./cloudflare";
 import { klaviyoConnector } from "./klaviyo";
+import { sentryConnector } from "./sentry";
+import { linearConnector } from "./linear";
+import { zoomConnector } from "./zoom";
+import { amplitudeConnector } from "./amplitude";
+import { activeCampaignConnector } from "./activecampaign";
+import { airtableConnector } from "./airtable";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const connectors: Record<string, Connector<any>> = {
@@ -71,6 +77,12 @@ export const connectors: Record<string, Connector<any>> = {
   [paypalConnector.type]: paypalConnector,
   [cloudflareConnector.type]: cloudflareConnector,
   [klaviyoConnector.type]: klaviyoConnector,
+  [sentryConnector.type]: sentryConnector,
+  [linearConnector.type]: linearConnector,
+  [zoomConnector.type]: zoomConnector,
+  [amplitudeConnector.type]: amplitudeConnector,
+  [activeCampaignConnector.type]: activeCampaignConnector,
+  [airtableConnector.type]: airtableConnector,
 };
 
 export function connectorFor(type: string): Connector | undefined {
