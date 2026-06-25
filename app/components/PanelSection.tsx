@@ -21,15 +21,8 @@ export function PanelSection({
   const stats = result.panels.filter((p) => p.kind === "stat");
   const rest = result.panels.filter((p) => p.kind !== "stat");
 
-  // Cycle accent colors across KPI cards (left border + icon).
-  const accents = [
-    brand.primary,
-    brand.accent,
-    "#4263eb",
-    "#0ca678",
-    "#f59f00",
-    "#ae3ec9",
-  ];
+  // Cycle the ArtForm palette across KPI cards (left border + icon).
+  const accents = [brand.primary, brand.accent, "#98d7eb", "#333333"];
 
   return (
     <section className="mb-4">

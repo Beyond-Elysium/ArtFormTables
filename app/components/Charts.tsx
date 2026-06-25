@@ -12,11 +12,13 @@ export interface Branding {
   accent: string;
 }
 
+// ArtForm palette: brand blue/pink, sky, ink.
 function palette(brand: Branding): string[] {
-  return [brand.primary, brand.accent, "#98d7eb", "#f15e4d", "#0ca678", "#333333"];
+  return [brand.primary, brand.accent, "#98d7eb", "#333333"];
 }
 
 const FONT = "Montserrat, sans-serif";
+const LABEL_FONT = "Fira Sans, sans-serif";
 
 export function TimeseriesChart({
   series,
@@ -48,7 +50,7 @@ export function TimeseriesChart({
       tooltip: { enabled: false },
     },
     yaxis: { labels: { style: { fontFamily: FONT } } },
-    legend: { fontFamily: "Fira Sans, sans-serif" },
+    legend: { fontFamily: LABEL_FONT },
     tooltip: { x: { format: "dd MMM" } },
   };
   const apexSeries = series.map((s) => ({
@@ -69,7 +71,7 @@ export function DonutChart({
     chart: { type: "donut", fontFamily: FONT },
     labels: rows.map((r) => r.label),
     colors: palette(brand),
-    legend: { position: "bottom", fontFamily: "Fira Sans, sans-serif" },
+    legend: { position: "bottom", fontFamily: LABEL_FONT },
     dataLabels: { enabled: false },
     plotOptions: { pie: { donut: { size: "70%" } } },
   };

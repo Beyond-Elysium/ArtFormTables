@@ -1,16 +1,33 @@
 /* App-level tweaks on top of the branded @tabler/core design system. */
 
 :root {
+  /* ArtForm palette — the only colors used across the UI. */
+  --af-white: #ffffff;
+  --af-ink: #333333;
   --af-pink: #e41679;
   --af-sky: #98d7eb;
-  --af-coral: #f15e4d;
+  --af-blue: #426fb6;
+
+  /* Montserrat is the base/body typeface for all Tabler components. */
+  --tblr-font-sans-serif: "Montserrat", system-ui, -apple-system, "Segoe UI", Roboto,
+    sans-serif;
+
+  /* Swiss/International: square boxes — zero out component radii. */
+  --tblr-border-radius: 0;
+  --tblr-border-radius-sm: 0;
+  --tblr-border-radius-lg: 0;
+  --tblr-border-radius-xl: 0;
+  --tblr-border-radius-2xl: 0;
+  --tblr-border-radius-pill: 0;
 }
 
 body {
   background: var(--tblr-body-bg, #f6f7f9);
+  font-family: "Montserrat", var(--tblr-font-sans-serif);
+  color: var(--af-ink);
 }
 
-/* Swiss/International style: tight, square, confident headings. */
+/* Titles: League Spartan, heavy and tight. */
 .page-title,
 .h1,
 .h2,
@@ -23,6 +40,7 @@ h3 {
   letter-spacing: -0.01em;
 }
 
+/* Subtitles / labels: Fira Sans. */
 .text-subtitle,
 .card-subtitle,
 .subheader {
@@ -30,16 +48,22 @@ h3 {
   font-weight: 700;
 }
 
-/* Keep corners minimal. */
+/* Square corners everywhere (favor boxes over rounding). */
 .card,
 .btn,
+.btn-group > .btn,
 .form-control,
-.form-select {
-  border-radius: 2px;
+.form-select,
+.badge,
+.alert,
+.nav-tabs .nav-link,
+.dropdown-menu,
+.list-group-item {
+  border-radius: 0;
 }
 
 .mock-banner {
-  border-left: 3px solid var(--af-coral);
+  border-left: 3px solid var(--af-pink);
 }
 
 /* --- Contrast / accessibility -------------------------------------------- */
@@ -86,7 +110,7 @@ h3 {
   font-size: 0.7rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #9aa3b2;
+  color: rgba(255, 255, 255, 0.6);
 }
 
 /* --- Section titles ------------------------------------------------------ */
@@ -121,7 +145,7 @@ h3 {
   font-size: 1.9rem;
   letter-spacing: -0.02em;
   line-height: 1.1;
-  color: #16191f;
+  color: var(--af-ink);
 }
 
 /* --- Print --------------------------------------------------------------- */

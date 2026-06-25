@@ -10,7 +10,7 @@ import { DashboardBody } from "@/components/DashboardBody";
 export const revalidate = 3600;
 
 const DEFAULT_BRAND = { primary: "#426fb6", accent: "#e41679" };
-const HEADER_BG = "#1a1d29";
+const HEADER_BG = "#333333";
 
 export default async function ClientDashboard({
   params,
