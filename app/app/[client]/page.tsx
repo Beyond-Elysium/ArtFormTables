@@ -10,6 +10,7 @@ import { DashboardBody } from "@/components/DashboardBody";
 export const revalidate = 3600;
 
 const DEFAULT_BRAND = { primary: "#426fb6", accent: "#e41679" };
+const HEADER_BG = "#1a1d29";
 
 export default async function ClientDashboard({
   params,
@@ -29,6 +30,10 @@ export default async function ClientDashboard({
   const badgeFg = readableTextColor(brand.primary);
   const windowLabel = formatWindow(resolved.window);
   const compareLabel = resolved.compare ? formatWindow(resolved.compare) : null;
+  const deltaSuffix =
+    resolved.compareMode === "year"
+      ? "vs prior year"
+      : `vs prior ${resolved.window.days}d`;
   const updated = new Date().toLocaleString("en-US", {
     dateStyle: "medium",
     timeStyle: "short",
@@ -44,43 +49,40 @@ export default async function ClientDashboard({
         } as React.CSSProperties
       }
     >
-      <header className="navbar navbar-expand-md navbar-light d-print-none border-bottom">
-        <div className="container-xl">
-          <span className="navbar-brand h1 mb-0" style={{ color: brand.primary }}>
+      {/* Dark header with a brand-accent underline. */}
+      <header
+        className="af-header d-print-none"
+        style={{ background: HEADER_BG, borderBottom: `4px solid ${brand.accent}` }}
+      >
+        <div className="container-xl d-flex align-items-center py-3">
+          <div className="d-flex align-items-center">
             {client.brand?.logo ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={client.brand.logo} alt={client.name} height={28} />
+              <img src={client.brand.logo} alt={client.name} height={30} />
             ) : (
-              client.name
+              <span className="af-header-title">{client.name}</span>
             )}
-          </span>
-          <div className="navbar-nav flex-row order-md-last">
-            <span className="nav-item text-secondary align-self-center small">
-              Powered by ArtForm
+            <span className="af-header-sub ms-3 d-none d-sm-inline">
+              Performance dashboard
             </span>
+          </div>
+          <div className="ms-auto d-flex align-items-center gap-3">
+            <span
+              className="badge text-uppercase"
+              style={{ background: brand.primary, color: badgeFg }}
+            >
+              {windowLabel}
+              {compareLabel ? ` · vs ${compareLabel}` : ""}
+            </span>
+            <span className="af-header-sub d-none d-md-inline">Powered by ArtForm</span>
           </div>
         </div>
       </header>
 
       <div className="page-wrapper">
-        {/* Sticky header: title + range/compare controls stay reachable on scroll. */}
-        <div className="page-header sticky-controls d-print-none">
-          <div className="container-xl">
-            <div className="row align-items-center g-2 mb-2">
-              <div className="col">
-                <div className="page-pretitle text-subtitle">Performance</div>
-                <h1 className="page-title">{client.name} dashboard</h1>
-              </div>
-              <div className="col-auto">
-                <span
-                  className="badge text-uppercase"
-                  style={{ background: brand.primary, color: badgeFg }}
-                >
-                  {windowLabel}
-                  {compareLabel ? ` · vs ${compareLabel}` : ""}
-                </span>
-              </div>
-            </div>
+        {/* Sticky range/compare controls. */}
+        <div className="sticky-controls d-print-none">
+          <div className="container-xl d-flex flex-wrap align-items-center gap-2">
             <DashboardControls
               preset={resolved.preset}
               start={resolved.window.start}
@@ -92,12 +94,12 @@ export default async function ClientDashboard({
 
         <div className="page-body">
           <div className="container-xl">
-            {/* Print-only heading (the sticky one is hidden when printing). */}
-            <div className="d-none d-print-block mb-3">
-              <h1 className="page-title">{client.name} dashboard</h1>
+            <div className="mb-3">
+              <h1 className="page-title mb-1">Performance overview</h1>
               <div className="text-secondary">
                 {windowLabel}
-                {compareLabel ? ` · vs ${compareLabel}` : ""}
+                {compareLabel ? ` · compared with ${compareLabel}` : ""} ·{" "}
+                {results.length} data source{results.length === 1 ? "" : "s"}
               </div>
             </div>
 
@@ -109,11 +111,10 @@ export default async function ClientDashboard({
               </div>
             )}
 
-            <DashboardBody results={results} brand={brand} />
+            <DashboardBody results={results} brand={brand} deltaSuffix={deltaSuffix} />
 
             <div className="text-secondary text-center mt-4 small">
-              {client.name} · {windowLabel} · {results.length} data source
-              {results.length === 1 ? "" : "s"} · Updated {updated}
+              {client.name} · {windowLabel} · Updated {updated}
             </div>
           </div>
         </div>

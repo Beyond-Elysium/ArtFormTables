@@ -16,9 +16,11 @@ const OVERVIEW = "Overview";
 export function DashboardBody({
   results,
   brand,
+  deltaSuffix,
 }: {
   results: ConnectorResult[];
   brand: Branding;
+  deltaSuffix?: string;
 }) {
   // Categories in first-seen order.
   const categories = useMemo(() => {
@@ -60,7 +62,12 @@ export function DashboardBody({
       )}
 
       {visible.map((result) => (
-        <PanelSection key={result.sourceId} result={result} brand={brand} />
+        <PanelSection
+          key={result.sourceId}
+          result={result}
+          brand={brand}
+          deltaSuffix={deltaSuffix}
+        />
       ))}
     </>
   );

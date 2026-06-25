@@ -38,12 +38,16 @@ export interface StatPanel {
   currency?: string;
   /** Comparison-period value, attached by the orchestrator when comparing. */
   compareValue?: number;
+  /** Caption shown when there's no delta (e.g. "Avg over period"). */
+  caption?: string;
 }
 
 /** A time series with one or more lines. */
 export interface TimeseriesPanel {
   kind: "timeseries";
   title: string;
+  /** Optional muted line under the title. */
+  subtitle?: string;
   series: { name: string; points: { x: string; y: number }[]; dashed?: boolean }[];
 }
 
@@ -51,6 +55,8 @@ export interface TimeseriesPanel {
 export interface BreakdownPanel {
   kind: "breakdown";
   title: string;
+  /** Optional muted line under the title. */
+  subtitle?: string;
   display: "donut" | "bar" | "table";
   valueLabel?: string;
   valueFormat?: StatFormat;

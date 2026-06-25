@@ -11,26 +11,37 @@ import { TimeseriesChart, DonutChart, BarChart, type Branding } from "@/componen
 export function PanelSection({
   result,
   brand,
+  deltaSuffix,
 }: {
   result: ConnectorResult;
   brand: Branding;
+  /** Trailing context for KPI deltas, e.g. "vs prior 30d". */
+  deltaSuffix?: string;
 }) {
   const stats = result.panels.filter((p) => p.kind === "stat");
   const rest = result.panels.filter((p) => p.kind !== "stat");
 
+  // Cycle accent colors across KPI cards (left border + icon).
+  const accents = [
+    brand.primary,
+    brand.accent,
+    "#4263eb",
+    "#0ca678",
+    "#f59f00",
+    "#ae3ec9",
+  ];
+
   return (
     <section className="mb-4">
-      <div className="d-flex align-items-center mb-2 mt-3">
-        <h2 className="page-title mb-0">{result.label}</h2>
+      <div className="d-flex align-items-center flex-wrap gap-2 mb-2 mt-4">
+        <h2 className="section-title mb-0">{result.label}</h2>
         <span
-          className="badge ms-2 text-uppercase"
+          className="badge text-uppercase"
           style={{ background: brand.primary, color: readableTextColor(brand.primary) }}
         >
           {result.category}
         </span>
-        {result.isMock && (
-          <span className="badge bg-orange-lt ms-2">demo data</span>
-        )}
+        {result.isMock && <span className="badge bg-orange-lt">demo data</span>}
       </div>
 
       {result.error && (
@@ -40,7 +51,7 @@ export function PanelSection({
       )}
 
       {stats.length > 0 && (
-        <div className="row row-cards">
+        <div className="stat-grid">
           {stats.map((p, i) =>
             p.kind === "stat" ? (
               <StatCard
@@ -49,6 +60,9 @@ export function PanelSection({
                 value={formatValue(p.value, p.format, p.currency)}
                 delta={p.delta}
                 invertDelta={p.invertDelta}
+                caption={p.caption}
+                accentColor={accents[i % accents.length]}
+                deltaSuffix={deltaSuffix}
                 compareValue={
                   p.compareValue != null
                     ? formatValue(p.compareValue, p.format, p.currency)
@@ -66,9 +80,12 @@ export function PanelSection({
             if (p.kind === "timeseries") {
               return (
                 <div className="col-lg-8" key={i}>
-                  <div className="card">
-                    <div className="card-header">
-                      <h3 className="card-title">{p.title}</h3>
+                  <div className="card h-100">
+                    <div className="card-header d-block">
+                      <h3 className="card-title mb-0">{p.title}</h3>
+                      {p.subtitle && (
+                        <div className="text-secondary small">{p.subtitle}</div>
+                      )}
                     </div>
                     <div className="card-body">
                       <TimeseriesChart series={p.series} brand={brand} />
@@ -80,8 +97,11 @@ export function PanelSection({
             return (
               <div className="col-lg-4" key={i}>
                 <div className="card h-100">
-                  <div className="card-header">
-                    <h3 className="card-title">{p.title}</h3>
+                  <div className="card-header d-block">
+                    <h3 className="card-title mb-0">{p.title}</h3>
+                    {p.subtitle && (
+                      <div className="text-secondary small">{p.subtitle}</div>
+                    )}
                   </div>
                   {p.display === "table" ? (
                     <BreakdownTable panel={p} />
