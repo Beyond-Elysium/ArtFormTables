@@ -22,6 +22,12 @@ import { mailchimpConnector } from "./mailchimp";
 import { shopifyConnector } from "./shopify";
 import { stripeConnector } from "./stripe";
 import { plausibleConnector } from "./plausible";
+import { youtubeConnector } from "./youtube";
+import { tiktokAdsConnector } from "./tiktokAds";
+import { hubspotConnector } from "./hubspot";
+import { sendgridConnector } from "./sendgrid";
+import { posthogConnector } from "./posthog";
+import { matomoConnector } from "./matomo";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const connectors: Record<string, Connector<any>> = {
@@ -35,6 +41,12 @@ export const connectors: Record<string, Connector<any>> = {
   [shopifyConnector.type]: shopifyConnector,
   [stripeConnector.type]: stripeConnector,
   [plausibleConnector.type]: plausibleConnector,
+  [youtubeConnector.type]: youtubeConnector,
+  [tiktokAdsConnector.type]: tiktokAdsConnector,
+  [hubspotConnector.type]: hubspotConnector,
+  [sendgridConnector.type]: sendgridConnector,
+  [posthogConnector.type]: posthogConnector,
+  [matomoConnector.type]: matomoConnector,
 };
 
 export function connectorFor(type: string): Connector | undefined {

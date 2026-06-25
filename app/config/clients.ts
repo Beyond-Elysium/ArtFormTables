@@ -62,6 +62,7 @@ export const clients: Client[] = [
       { type: "search-console", config: { siteUrl: "https://globex.example/" } },
       { type: "linkedin-ads", config: { accountId: "503012345", currency: "EUR" } },
       { type: "plausible", config: { siteId: "globex.example" } },
+      { type: "matomo", config: { siteId: 1 } },
     ],
   },
   {
@@ -83,6 +84,31 @@ export const clients: Client[] = [
       { type: "shopify", config: { shop: "northwind", currency: "USD" } },
       { type: "stripe", config: { currency: "USD" } },
       { type: "meta-ads", config: { adAccountId: "9876543210", currency: "USD" } },
+    ],
+  },
+  {
+    // SaaS client — product, CRM, transactional email, payments.
+    subdomain: "umbrella",
+    name: "Umbrella Software",
+    brand: { primary: "#7048e8", accent: "#12b886" },
+    sources: [
+      { type: "ga4", config: { propertyId: "000000005" } },
+      { type: "posthog", config: { projectId: "12345" } },
+      { type: "hubspot", config: {} },
+      { type: "sendgrid", config: {} },
+      { type: "stripe", config: { currency: "USD" } },
+    ],
+  },
+  {
+    // Media/creator client — video + social advertising.
+    subdomain: "hooli",
+    name: "Hooli Media",
+    brand: { primary: "#e8590c", accent: "#1c7ed6" },
+    sources: [
+      { type: "ga4", config: { propertyId: "000000006" } },
+      { type: "youtube", config: { channelId: "UC_x5XG1OV2P6uZZ5FSM9Ttw" } },
+      { type: "tiktok-ads", config: { advertiserId: "7000000000001", currency: "USD" } },
+      { type: "meta-ads", config: { adAccountId: "5555555555", currency: "USD" } },
     ],
   },
 ];

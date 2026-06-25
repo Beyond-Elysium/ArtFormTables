@@ -43,11 +43,18 @@ lib/connectors/
   shopify.ts        ← Shopify               (Admin API token)
   stripe.ts         ← Stripe                (secret key)
   plausible.ts      ← Plausible Analytics   (API key)
+  youtube.ts        ← YouTube               (Data API key)
+  tiktokAds.ts      ← TikTok Ads            (access token)
+  hubspot.ts        ← HubSpot CRM           (private-app token)
+  sendgrid.ts       ← SendGrid              (API key)
+  posthog.ts        ← PostHog               (personal API key)
+  matomo.ts         ← Matomo Analytics      (token_auth)
 ```
 
-All ten ship with a live REST path **and** a deterministic mock fallback, so the
-dashboard renders fully with no credentials and each source flips to live the
-moment its credentials + config are present.
+All sixteen ship with a live REST path **and** a deterministic mock fallback, so
+the dashboard renders fully with no credentials and each source flips to live
+the moment its credentials + config are present. Categories span Analytics,
+Search, Advertising, Email, E-commerce, Payments, Video, CRM, and Product.
 
 ### Adding a new API (the whole process)
 
@@ -104,6 +111,12 @@ Set credentials per provider (see `.env.example`):
 | Shopify | Admin API token | `SHOPIFY_ACCESS_TOKEN`, `shop` in config |
 | Stripe | Secret / restricted key | `STRIPE_SECRET_KEY` |
 | Plausible | API key | `PLAUSIBLE_API_KEY`, `siteId` in config |
+| YouTube | Data API key | `YOUTUBE_API_KEY`, `channelId` in config |
+| TikTok Ads | Access token | `TIKTOK_ACCESS_TOKEN`, `advertiserId` in config |
+| HubSpot | Private-app token | `HUBSPOT_ACCESS_TOKEN` |
+| SendGrid | API key | `SENDGRID_API_KEY` |
+| PostHog | Personal API key | `POSTHOG_API_KEY`, `projectId` in config |
+| Matomo | token_auth | `MATOMO_BASE_URL`, `MATOMO_TOKEN`, `siteId` in config |
 
 GA4 and Search Console share one Google service account: enable the
 **Google Analytics Data API** and **Search Console API** in the GCP project,
