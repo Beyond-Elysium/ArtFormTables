@@ -5,6 +5,7 @@
   "description": "ArtForm multi-client GA4 dashboards",
   "scripts": {
     "dev": "next dev --port 3000",
+    "prebuild": "pnpm --filter @tabler/core run css",
     "build": "next build",
     "start": "next start --port 3000",
     "lint": "next lint",

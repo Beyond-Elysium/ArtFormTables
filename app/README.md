@@ -7,6 +7,11 @@ Bing Webmaster, and anything else you add. No client login required.
 
 Built on the ArtForm-branded [`@tabler/core`](../core) design system + Next.js.
 
+> **Just want to use it?** → [DEPLOY.md](./DEPLOY.md) — run it, configure a
+> client, connect real data, and ship it to wildcard subdomains.
+> **Adding a provider?** → [CONNECTORS.md](./CONNECTORS.md) +
+> [`lib/connectors/TEMPLATE.ts`](./lib/connectors/TEMPLATE.ts).
+
 ## The connector framework
 
 The core idea: the dashboard is **provider-agnostic**. Every data source
