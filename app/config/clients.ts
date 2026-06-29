@@ -95,7 +95,7 @@ const clientDefs = [
     name: "BBB National Programs",
     brand: { primary: "#333333", accent: "#426fb6" },
     sources: [
-      { type: "ga4", config: { propertyId: "000000002" } },
+      { type: "ga4", config: { propertyId: "302989852" } },
       { type: "search-console", config: { siteUrl: "https://bbbprograms.org/" } },
       { type: "google-ads", config: { customerId: "000-000-0000", currency: "USD" } },
       { type: "mailchimp", config: {} },
@@ -115,7 +115,7 @@ const clientDefs = [
     name: "ISEA",
     brand: { primary: "#426fb6", accent: "#e41679" },
     sources: [
-      { type: "ga4", config: { propertyId: "000000004" } },
+      { type: "ga4", config: { propertyId: "333478304" } },
       { type: "search-console", config: { siteUrl: "https://isea.example/" } },
       { type: "linkedin-ads", config: { accountId: "500000001", currency: "USD" } },
       { type: "mailchimp", config: {} },
@@ -126,7 +126,7 @@ const clientDefs = [
     name: "Maximus",
     brand: { primary: "#333333", accent: "#e41679" },
     sources: [
-      { type: "ga4", config: { propertyId: "000000005" } },
+      { type: "ga4", config: { propertyId: "302350399" } },
       { type: "search-console", config: { siteUrl: "https://maximus.com/" } },
       { type: "linkedin-ads", config: { accountId: "500000002", currency: "USD" } },
     ],
@@ -136,7 +136,7 @@ const clientDefs = [
     name: "Miami Federal",
     brand: { primary: "#426fb6", accent: "#98d7eb" },
     sources: [
-      { type: "ga4", config: { propertyId: "000000006" } },
+      { type: "ga4", config: { propertyId: "521857796" } },
       { type: "search-console", config: { siteUrl: "https://miamifederal.example/" } },
       { type: "google-ads", config: { customerId: "000-000-0000", currency: "USD" } },
     ],
@@ -158,7 +158,7 @@ const clientDefs = [
     name: "Sigma Defense",
     brand: { primary: "#333333", accent: "#426fb6" },
     sources: [
-      { type: "ga4", config: { propertyId: "000000008" } },
+      { type: "ga4", config: { propertyId: "298141839" } },
       { type: "search-console", config: { siteUrl: "https://sigmadefense.example/" } },
       { type: "linkedin-ads", config: { accountId: "500000003", currency: "USD" } },
     ],
@@ -200,7 +200,7 @@ const clientDefs = [
     name: "Winterscale",
     brand: { primary: "#333333", accent: "#98d7eb" },
     sources: [
-      { type: "ga4", config: { propertyId: "000000012" } },
+      { type: "ga4", config: { propertyId: "398292533" } },
       { type: "search-console", config: { siteUrl: "https://winterscale.example/" } },
       { type: "linkedin-ads", config: { accountId: "500000005", currency: "USD" } },
     ],

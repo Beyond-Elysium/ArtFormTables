@@ -16,8 +16,16 @@ export function serviceAccountJson(): {
   private_key: string;
   project_id?: string;
 } {
-  const raw = process.env.GA_SERVICE_ACCOUNT_KEY!;
-  return JSON.parse(Buffer.from(raw, "base64").toString("utf8"));
+  const raw = process.env.GA_SERVICE_ACCOUNT_KEY!.trim();
+  // Accept either raw JSON or base64-encoded JSON, so it works however the key
+  // was pasted into the env var.
+  const text = raw.startsWith("{") ? raw : Buffer.from(raw, "base64").toString("utf8");
+  const json = JSON.parse(text);
+  // Vercel sometimes stores the PEM with literal "\n"; normalise to real newlines.
+  if (typeof json.private_key === "string") {
+    json.private_key = json.private_key.replace(/\\n/g, "\n");
+  }
+  return json;
 }
 
 const authCache = new Map<string, GoogleAuth>();
