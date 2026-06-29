@@ -9,7 +9,12 @@ import type {
   ConnectorResult,
   Panel,
 } from "./types";
-import { hasServiceAccount, serviceAccountJson } from "./googleAuth";
+import {
+  googleOAuthClient,
+  hasGoogleAuth,
+  hasOAuth,
+  serviceAccountJson,
+} from "./googleAuth";
 import { mockDelta, mockSeries, rng } from "./mock";
 
 interface Ga4Config {
@@ -21,12 +26,20 @@ let client: import("@google-analytics/data").BetaAnalyticsDataClient | null =
 
 async function getClient() {
   if (client) return client;
-  const json = serviceAccountJson();
   const { BetaAnalyticsDataClient } = await import("@google-analytics/data");
-  client = new BetaAnalyticsDataClient({
-    credentials: { client_email: json.client_email, private_key: json.private_key },
-    projectId: json.project_id,
-  });
+  if (hasOAuth()) {
+    // OAuth Web client: drive the Data API with the agency's OAuth2 client.
+    // The Data API accepts an OAuth2Client at runtime; its types only list
+    // service-account JSON clients, so suppress the narrow type here.
+    // @ts-expect-error -- OAuth2Client is a valid authClient at runtime
+    client = new BetaAnalyticsDataClient({ authClient: googleOAuthClient() });
+  } else {
+    const json = serviceAccountJson();
+    client = new BetaAnalyticsDataClient({
+      credentials: { client_email: json.client_email, private_key: json.private_key },
+      projectId: json.project_id,
+    });
+  }
   return client;
 }
 
@@ -194,14 +207,14 @@ export const ga4Connector: Connector<Ga4Config> = {
   type: "ga4",
   label: "Website Analytics",
   category: "Analytics",
-  isLive: () => hasServiceAccount(),
+  isLive: () => hasGoogleAuth(),
   async fetch(config, ctx) {
     const base: Omit<ConnectorResult, "panels" | "isMock" | "error"> = {
       sourceId: "ga4",
       label: "Website Analytics",
       category: "Analytics",
     };
-    if (!hasServiceAccount()) return { ...base, panels: fetchMock(config, ctx), isMock: true };
+    if (!hasGoogleAuth()) return { ...base, panels: fetchMock(config, ctx), isMock: true };
     try {
       return { ...base, panels: await fetchLive(config, ctx), isMock: false };
     } catch (err) {

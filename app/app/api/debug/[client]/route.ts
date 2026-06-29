@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getClientBySlug } from "@/config/clients";
 import { fetchClientData } from "@/lib/connectors";
 import { resolveRange } from "@/lib/range";
-import { hasServiceAccount, serviceAccountJson } from "@/lib/connectors/googleAuth";
+import {
+  googleAuthMethod,
+  hasOAuth,
+  hasServiceAccount,
+  serviceAccountJson,
+} from "@/lib/connectors/googleAuth";
 
 // Live diagnostic — runs each source and reports demo/live + any error, plus
 // the service-account status. Bypasses ISR caching so it shows the real state.
@@ -23,17 +28,20 @@ export async function GET(req: NextRequest, { params }: { params: { client: stri
   const client = getClientBySlug(params.client);
   if (!client) return NextResponse.json({ error: "unknown client" }, { status: 404 });
 
-  // Service-account status (never returns the key itself, only the email).
-  const serviceAccount: Record<string, unknown> = { present: hasServiceAccount() };
+  // Google auth status (never returns the secret/key itself).
+  const googleAuth: Record<string, unknown> = {
+    method: googleAuthMethod(),
+    oauthConfigured: hasOAuth(),
+    serviceAccountConfigured: hasServiceAccount(),
+  };
   if (hasServiceAccount()) {
     try {
       const json = serviceAccountJson();
-      serviceAccount.valid = Boolean(json.client_email && json.private_key);
-      serviceAccount.clientEmail = json.client_email ?? null;
-      serviceAccount.projectId = json.project_id ?? null;
+      googleAuth.serviceAccountValid = Boolean(json.client_email && json.private_key);
+      googleAuth.clientEmail = json.client_email ?? null;
     } catch (err) {
-      serviceAccount.valid = false;
-      serviceAccount.parseError = String(err);
+      googleAuth.serviceAccountValid = false;
+      googleAuth.parseError = String(err);
     }
   }
 
@@ -46,5 +54,5 @@ export async function GET(req: NextRequest, { params }: { params: { client: stri
     error: r.error ?? null,
   }));
 
-  return NextResponse.json({ slug: client.slug, serviceAccount, sources });
+  return NextResponse.json({ slug: client.slug, googleAuth, sources });
 }

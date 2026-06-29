@@ -7,7 +7,7 @@
  */
 import "server-only";
 import type { Connector, ConnectorContext, ConnectorResult, Panel } from "./types";
-import { googleAccessToken, hasServiceAccount } from "./googleAuth";
+import { googleAccessToken, hasGoogleAuth } from "./googleAuth";
 import { mockDelta, mockSeries, rng } from "./mock";
 
 interface ScConfig {
@@ -118,10 +118,10 @@ export const searchConsoleConnector: Connector<ScConfig> = {
   type: "search-console",
   label: "Google Search",
   category: "Search",
-  isLive: () => hasServiceAccount(),
+  isLive: () => hasGoogleAuth(),
   async fetch(config, ctx) {
     const base = { sourceId: "search-console", label: "Google Search", category: "Search" };
-    if (!hasServiceAccount()) return { ...base, panels: fetchMock(config, ctx), isMock: true };
+    if (!hasGoogleAuth()) return { ...base, panels: fetchMock(config, ctx), isMock: true };
     try {
       return { ...base, panels: await fetchLive(config, ctx), isMock: false };
     } catch (err) {
