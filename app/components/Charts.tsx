@@ -97,12 +97,28 @@ export function DonutChart({
 export function BarChart({
   rows,
   brand,
+  onSelect,
 }: {
   rows: { label: string; value: number }[];
   brand: Branding;
+  /** Cross-filter hook: fires with the clicked bar's category label. */
+  onSelect?: (label: string) => void;
 }) {
   const options: ApexOptions = {
-    chart: { type: "bar", fontFamily: FONT, toolbar: { show: false } },
+    chart: {
+      type: "bar",
+      fontFamily: FONT,
+      toolbar: { show: false },
+      events: onSelect
+        ? {
+            dataPointSelection: (_e, _ctx, cfg) => {
+              const label = rows[cfg.dataPointIndex]?.label;
+              if (label !== undefined) onSelect(String(label));
+            },
+          }
+        : undefined,
+    },
+    states: onSelect ? { active: { filter: { type: "none" } } } : undefined,
     colors: [brand.primary],
     plotOptions: { bar: { horizontal: true, borderRadius: 0, barHeight: "60%" } },
     dataLabels: { enabled: false },

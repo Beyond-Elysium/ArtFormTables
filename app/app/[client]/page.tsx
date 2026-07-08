@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { IconChartHistogram } from "@tabler/icons-react";
 import { createSearchParamsCache } from "nuqs/server";
 import { getClientBySlug } from "@/config/clients";
 import { fetchClientData } from "@/lib/connectors";
@@ -127,6 +128,12 @@ export default async function ClientDashboard({
               end={resolved.window.end}
               compareMode={resolved.compareMode}
             />
+            <a
+              href={`/${client.slug}/explore`}
+              className="btn btn-sm btn-primary d-inline-flex align-items-center gap-1"
+            >
+              <IconChartHistogram size={16} stroke={2} /> Explore
+            </a>
             <a
               href={reportHref}
               className="btn btn-sm btn-outline-primary"
