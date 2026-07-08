@@ -82,11 +82,15 @@ def build_rollups(sources: list[str] | None = None, time_col: str = "date") -> l
             list(schema.columns), dict(schema.dtypes), time_col
         )
 
+        # Not every source is per-client partitioned (e.g. pre-joined blended
+        # tables) — only group by `client` when the column exists.
+        has_client = CLIENT_COL in list(schema.columns)
+        lead = [CLIENT_COL] if has_client else []
         month_expr = f"strftime(CAST({time_col} AS DATE), '%Y-%m-01')"
-        group_cols = [CLIENT_COL, "month"] + dims
+        group_cols = lead + ["month"] + dims
         sum_cols = ", ".join(f"SUM({m}) AS {m}" for m in measures)
-        select_dims = ", ".join([CLIENT_COL, f"{month_expr} AS month"] + dims)
-        group_by = ", ".join([CLIENT_COL, month_expr] + dims)
+        select_dims = ", ".join(lead + [f"{month_expr} AS month"] + dims)
+        group_by = ", ".join(lead + [month_expr] + dims)
 
         con.execute(
             f"CREATE OR REPLACE TABLE {source}_monthly AS "
@@ -97,7 +101,7 @@ def build_rollups(sources: list[str] | None = None, time_col: str = "date") -> l
         con.execute(f"COPY {source}_monthly TO '{parquet_path}' (FORMAT PARQUET)")
         n = con.execute(f"SELECT COUNT(*) FROM {source}_monthly").fetchone()[0]
 
-        spec_path = _emit_monthly_spec(source, dims, measures)
+        spec_path = _emit_monthly_spec(source, dims, measures, has_client)
         out.append(
             {"model": f"{source}_monthly", "rows": int(n),
              "parquet": parquet_path, "spec": spec_path, "group_cols": group_cols}
@@ -106,9 +110,14 @@ def build_rollups(sources: list[str] | None = None, time_col: str = "date") -> l
     return out
 
 
-def _emit_monthly_spec(source: str, dims: list[str], measures: list[str]) -> str:
+def _emit_monthly_spec(
+    source: str, dims: list[str], measures: list[str], has_client: bool = True
+) -> str:
     """specs/<source>_monthly.yaml — a first-class model over the rollup parquet."""
-    dim_map = {CLIENT_COL: f"_.{CLIENT_COL}", "month": "_.month"}
+    dim_map: dict[str, str] = {}
+    if has_client:
+        dim_map[CLIENT_COL] = f"_.{CLIENT_COL}"
+    dim_map["month"] = "_.month"
     dim_map.update({d: f"_.{d}" for d in dims})
     meas_map = {m: f"_.{m}.sum()" for m in measures}
     # re-expose the same ratio calcs the daily spec offers, if the parts exist

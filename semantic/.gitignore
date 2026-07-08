@@ -5,3 +5,4 @@ venv/
 data/
 store/
 *.duckdb
+specs/*_monthly.yaml
