@@ -182,6 +182,28 @@ h3 {
   font-family: "Fira Sans", var(--tblr-font-sans-serif);
 }
 
+/* --- Smart narrative summary --------------------------------------------- */
+.narrative-card {
+  border-left-width: 4px;
+  border-left-style: solid;
+}
+.narrative-headline {
+  font-family: "Fira Sans", var(--tblr-font-sans-serif);
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--af-ink, #333);
+}
+.narrative-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.25rem;
+  font-size: 0.9rem;
+  color: #5a6372;
+}
+
 /* --- Chart loading skeleton ---------------------------------------------- */
 .chart-skeleton {
   width: 100%;

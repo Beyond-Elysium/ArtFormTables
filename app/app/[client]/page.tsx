@@ -6,8 +6,10 @@ import { fetchClientData } from "@/lib/connectors";
 import { resolveRange, formatWindow } from "@/lib/range";
 import { dashboardParsers } from "@/lib/searchParams";
 import { readableTextColor } from "@/lib/contrast";
+import { buildNarrative } from "@/lib/narrative";
 import { DashboardControls } from "@/components/DashboardControls";
 import { DashboardBody } from "@/components/DashboardBody";
+import { NarrativeCard } from "@/components/NarrativeCard";
 
 // Cache provider responses for an hour to respect API quotas.
 export const revalidate = 3600;
@@ -69,6 +71,7 @@ export default async function ClientDashboard({
     resolved.compareMode === "year"
       ? "vs prior year"
       : `vs prior ${resolved.window.days}d`;
+  const narrative = buildNarrative(results, deltaSuffix);
   const updated = new Date().toLocaleString("en-US", {
     dateStyle: "medium",
     timeStyle: "short",
@@ -145,6 +148,8 @@ export default async function ClientDashboard({
                 {results.length} data source{results.length === 1 ? "" : "s"}
               </div>
             </div>
+
+            <NarrativeCard narrative={narrative} brand={brand} />
 
             {anyMock && (
               <div className="alert mock-banner mb-3" role="alert">
