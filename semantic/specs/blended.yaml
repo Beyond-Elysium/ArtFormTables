@@ -1,0 +1,32 @@
+# Declarative spec for the BLENDED cross-source model.
+#
+# Unlike the per-source specs, this model's table is pre-joined by
+# `build_blended.py` (ad_spend + orders + ga4 -> data/blended.parquet at
+# date x channel). Everything below is still plain declarative YAML: the blend is
+# just another table, and its agency-grade KPIs are ratio-of-sums measures —
+# defined once, correct at any grain the dashboard queries.
+#
+# Requires: python seed.py && python seed_blended.py && python build_blended.py
+model: blended
+source: "data/blended.parquet"
+description: "Blended cross-source KPIs (ad spend + orders + analytics) at date x channel"
+time_dimension: date
+dimensions:
+  date: _.date
+  channel: _.channel
+measures:
+  # Raw full-funnel measures (span all three sources).
+  impressions: _.impressions.sum()
+  clicks: _.clicks.sum()
+  spend: _.spend.sum()
+  conversions: _.conversions.sum()
+  leads: _.leads.sum()
+  orders: _.orders.sum()
+  revenue: _.revenue.sum()
+  # Blended KPIs — ratio-of-sums, so they aggregate correctly at any grain:
+  cac: _.spend.sum() / _.conversions.sum()             # cost per acquisition
+  roas: _.revenue.sum() / _.spend.sum()                # return on ad spend
+  ctr: _.clicks.sum() / _.impressions.sum()            # click-through rate
+  cpc: _.spend.sum() / _.clicks.sum()                  # cost per click
+  conversion_rate: _.conversions.sum() / _.clicks.sum()
+  cost_per_lead: _.spend.sum() / _.leads.sum()
