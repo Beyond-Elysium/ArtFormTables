@@ -56,6 +56,10 @@ def build(days: int = 90, seed: int = 7) -> pd.DataFrame:
 def main() -> None:
     os.makedirs(DATA_DIR, exist_ok=True)
     df = build()
+    # Standardized `client` column so this legacy demo file unions cleanly with
+    # the per-client lake (data/<client>/ga4.parquet) and specs can expose a
+    # `client` dimension. Real per-client extracts flow through ingest.py.
+    df.insert(0, "client", "demo")
     path = os.path.join(DATA_DIR, "ga4.parquet")
     df.to_parquet(path, index=False)
     print(f"wrote {len(df):,} rows -> {path}")

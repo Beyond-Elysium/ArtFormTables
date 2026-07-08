@@ -1,0 +1,17 @@
+model: ga4_monthly
+source: store/rollups/ga4_monthly.parquet
+description: ga4 monthly rollup (pre-aggregation for wide ranges)
+time_dimension: month
+dimensions:
+  client: _.client
+  month: _.month
+  channel: _.channel
+  device: _.device
+  country: _.country
+measures:
+  users: _.users.sum()
+  sessions: _.sessions.sum()
+  conversions: _.conversions.sum()
+  revenue: _.revenue.sum()
+  revenue_per_user: _.revenue.sum() / _.users.sum()
+  conversion_rate: _.conversions.sum() / _.sessions.sum()

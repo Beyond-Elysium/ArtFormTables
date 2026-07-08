@@ -12,6 +12,7 @@ source: "data/**/ga4.parquet"
 description: "Website analytics by channel / device / country"
 time_dimension: date
 dimensions:
+  client: _.client
   date: _.date
   channel: _.channel
   device: _.device
