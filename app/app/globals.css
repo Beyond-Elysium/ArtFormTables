@@ -204,6 +204,27 @@ h3 {
   color: #5a6372;
 }
 
+/* --- Explore (interactive analysis) -------------------------------------- */
+.explore-chip {
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.explore-chip:hover {
+  filter: brightness(0.92);
+}
+.explore-row {
+  cursor: pointer;
+}
+.explore-row:hover {
+  background: #eaf0f8;
+}
+.explore-breadcrumb .subheader {
+  margin: 0;
+}
+
 /* --- Chart loading skeleton ---------------------------------------------- */
 .chart-skeleton {
   width: 100%;
