@@ -6,3 +6,4 @@ pyarrow
 pyarrow-hotfix
 fastapi
 uvicorn[standard]
+pyyaml

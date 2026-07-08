@@ -1,0 +1,26 @@
+# Declarative semantic model spec.
+#
+# Drop a spec like this + a Parquet file matching `source`, and the model is
+# queryable — no Python. This is the "connect anything" contract: any connector
+# that can emit rows (date x dimensions x measures) + a spec gets cross-filter,
+# drill-down, and dynamic-calculation support for free.
+#
+# `source` is a Parquet glob; client-partitioned files (data/<client>/ga4.parquet)
+# are unioned. Add a `client` column + a `client` dimension for per-client filtering.
+model: ga4
+source: "data/**/ga4.parquet"
+description: "Website analytics by channel / device / country"
+time_dimension: date
+dimensions:
+  date: _.date
+  channel: _.channel
+  device: _.device
+  country: _.country
+measures:
+  users: _.users.sum()
+  sessions: _.sessions.sum()
+  conversions: _.conversions.sum()
+  revenue: _.revenue.sum()
+  # Dynamic calculations — defined once, correct at any grain:
+  revenue_per_user: _.revenue.sum() / _.users.sum()
+  conversion_rate: _.conversions.sum() / _.sessions.sum()

@@ -1,21 +1,24 @@
 """
-Semantic models (boring-semantic-layer over DuckDB).
+Spec-driven semantic models (boring-semantic-layer over DuckDB).
 
-Each model wraps a DuckDB-backed Ibis table with named **dimensions** (what you
-slice by) and **measures** (what you aggregate) — defined once here and reused
-for cross-filtering, drill-downs, and dynamic calculations. Measures like
-`revenue_per_user` are the "dynamic calculations" defined in one place.
+Models are declared in `specs/*.yaml` — dimensions, measures (incl. dynamic
+calculations), and a Parquet `source` — and loaded generically here. Adding a
+new source is: drop a spec + its Parquet data. No Python changes. This is the
+"connect anything" foundation the rest of the BI features build on.
 """
 
 from __future__ import annotations
 
+import glob as _glob
 import os
 from dataclasses import dataclass
 
 import boring_semantic_layer as bsl
 import ibis
+import yaml
 
-DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
+HERE = os.path.dirname(__file__)
+SPECS_DIR = os.path.join(HERE, "specs")
 
 _con = None
 
@@ -33,34 +36,39 @@ class ModelDef:
     dimensions: list[str]
     measures: list[str]
     time_dimension: str | None
+    source: str
 
 
-def _ga4() -> ModelDef:
+def _load_spec(path: str) -> ModelDef | None:
+    with open(path) as f:
+        spec = yaml.safe_load(f)
+    name = spec["model"]
+    source = spec["source"]
+    files = sorted(_glob.glob(os.path.join(HERE, source), recursive=True))
+    if not files:
+        # No data yet for this model — skip rather than crash (connect later).
+        print(f"[models] no data for {name!r} at {source!r}; skipping")
+        return None
+
     con = connection()
-    t = con.read_parquet(os.path.join(DATA_DIR, "ga4.parquet"))
-    sm = (
-        bsl.to_semantic_table(t, name="ga4", description="Website analytics by channel/device/country")
-        .with_dimensions(
-            date=lambda t: t.date,
-            channel=lambda t: t.channel,
-            device=lambda t: t.device,
-            country=lambda t: t.country,
-        )
-        .with_measures(
-            users=lambda t: t.users.sum(),
-            sessions=lambda t: t.sessions.sum(),
-            conversions=lambda t: t.conversions.sum(),
-            revenue=lambda t: t.revenue.sum(),
-            # Dynamic calculations — defined once, correct at any grain:
-            revenue_per_user=lambda t: t.revenue.sum() / t.users.sum(),
-            conversion_rate=lambda t: t.conversions.sum() / t.sessions.sum(),
-        )
-    )
+    table = con.read_parquet(files)
+    table_ref = f"{name}_tbl"
+
+    config = {
+        name: {
+            "table": table_ref,
+            "description": spec.get("description", name),
+            "dimensions": spec.get("dimensions", {}),
+            "measures": spec.get("measures", {}),
+        }
+    }
+    sm = bsl.from_config(config, tables={table_ref: table})[name]
     return ModelDef(
         model=sm,
-        dimensions=["date", "channel", "device", "country"],
-        measures=["users", "sessions", "conversions", "revenue", "revenue_per_user", "conversion_rate"],
-        time_dimension="date",
+        dimensions=list(spec.get("dimensions", {}).keys()),
+        measures=list(spec.get("measures", {}).keys()),
+        time_dimension=spec.get("time_dimension"),
+        source=source,
     )
 
 
@@ -68,7 +76,21 @@ _MODELS: dict[str, ModelDef] | None = None
 
 
 def models() -> dict[str, ModelDef]:
+    """Load (once) every model declared under specs/ that has data."""
     global _MODELS
     if _MODELS is None:
-        _MODELS = {"ga4": _ga4()}
+        out: dict[str, ModelDef] = {}
+        for path in sorted(_glob.glob(os.path.join(SPECS_DIR, "*.yaml"))):
+            md = _load_spec(path)
+            if md is not None:
+                out[os.path.splitext(os.path.basename(path))[0]] = md
+        _MODELS = out
     return _MODELS
+
+
+def reload_models() -> dict[str, ModelDef]:
+    """Drop the cache (after new data/specs land)."""
+    global _MODELS, _con
+    _MODELS = None
+    _con = None
+    return models()
