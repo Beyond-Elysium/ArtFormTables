@@ -178,6 +178,16 @@ paid integrations for organic social. Strategy:
 > **Proposed, not yet built:** a `gsheets` connector (`config: { spreadsheetId,
 > tab, range }`) as the universal token-free ingestion path.
 
+### Advanced analytics (BI) — semantic layer
+For **cross-filtering, drill-downs, dynamic calculations, and NLQ** (branded UI,
+no viewer tokens), there's a **boring-semantic-layer + DuckDB** service in
+[`/semantic`](../semantic/README.md). The app queries it server-to-server via
+[`lib/semantic.ts`](./lib/semantic.ts) + the `/api/semantic` proxy
+(`SEMANTIC_API_URL` / `SEMANTIC_API_TOKEN`). Scaffolded + verified with demo
+data; next steps (real per-client extracts, cross-filter UI, Claude-powered NLQ)
+are in the semantic README. **Smart Narratives** already ship in-app
+(`lib/narrative.ts`).
+
 ### Auth patterns cheat-sheet
 When adding a provider, copy the closest existing one — see the table in
 [Authoring a new connector](#auth--copy-the-closest-example).

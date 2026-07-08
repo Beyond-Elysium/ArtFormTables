@@ -1,0 +1,8 @@
+boring-semantic-layer
+ibis-framework[duckdb]
+duckdb
+pandas
+pyarrow
+pyarrow-hotfix
+fastapi
+uvicorn[standard]
