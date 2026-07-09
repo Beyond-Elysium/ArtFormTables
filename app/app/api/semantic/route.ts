@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { semanticConfigured, semanticQuery, type SemanticQuery } from "@/lib/semantic";
+import { semanticConfigured, runSemanticQuery, type SemanticQuery } from "@/lib/semantic";
 
 // Browser → this route → semantic service. The server holds the token, so
 // interactive cross-filtering/drill-down never exposes a credential to viewers.
@@ -14,9 +14,14 @@ export async function POST(req: NextRequest) {
   if (!body?.model) {
     return NextResponse.json({ error: "model is required" }, { status: 400 });
   }
-  const result = await semanticQuery(body);
-  if (!result) {
-    return NextResponse.json({ error: "query failed" }, { status: 502 });
+  const outcome = await runSemanticQuery(body);
+  if (!outcome.ok) {
+    // Relay the upstream reason (e.g. "401 unauthorized", "unknown model 'ga4'")
+    // so 502s are debuggable instead of opaque.
+    return NextResponse.json(
+      { error: outcome.message ?? "query failed", upstreamStatus: outcome.status },
+      { status: outcome.status >= 400 && outcome.status < 600 ? outcome.status : 502 },
+    );
   }
-  return NextResponse.json(result);
+  return NextResponse.json(outcome.result);
 }

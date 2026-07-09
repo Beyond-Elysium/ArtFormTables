@@ -79,6 +79,77 @@ export async function semanticQuery(q: SemanticQuery): Promise<SemanticResult | 
   }
 }
 
+export interface SemanticOutcome {
+  ok: boolean;
+  result?: SemanticResult;
+  /** HTTP-ish status to relay to the caller. */
+  status: number;
+  /** Human-readable reason (upstream detail) when !ok. */
+  message?: string;
+}
+
+/** Pull a readable status + message out of an ofetch error. */
+function errorDetail(err: unknown): { status: number; message: string } {
+  const e = err as { status?: number; statusCode?: number; data?: unknown; message?: string };
+  const status = e?.status ?? e?.statusCode ?? 502;
+  const data = e?.data as { detail?: unknown } | string | undefined;
+  const detail =
+    (typeof data === "object" && data && "detail" in data ? data.detail : data) ??
+    e?.message ??
+    String(err);
+  return { status, message: typeof detail === "string" ? detail : JSON.stringify(detail) };
+}
+
+/** Query and surface the upstream failure reason (used by the proxy route). */
+export async function runSemanticQuery(q: SemanticQuery): Promise<SemanticOutcome> {
+  const base = process.env.SEMANTIC_API_URL;
+  if (!base) return { ok: false, status: 503, message: "SEMANTIC_API_URL not set" };
+  try {
+    const result = await http<SemanticResult>(`${base}/query`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: {
+        model: q.model,
+        dimensions: q.dimensions ?? [],
+        measures: q.measures ?? [],
+        filters: q.filters ?? [],
+        time_range: q.timeRange ?? null,
+        order_by: q.orderBy ?? null,
+        limit: q.limit ?? 1000,
+      },
+      responseType: "json",
+    });
+    return { ok: true, result, status: 200 };
+  } catch (err) {
+    const { status, message } = errorDetail(err);
+    console.error(`[semantic] query failed (${status}):`, message);
+    return { ok: false, status, message };
+  }
+}
+
+/** Connection check: pings the service /health and reports what it sees. */
+export async function semanticHealth(): Promise<{
+  ok: boolean;
+  url?: string;
+  status?: number;
+  models?: string[];
+  message?: string;
+}> {
+  const base = process.env.SEMANTIC_API_URL;
+  if (!base) return { ok: false, message: "SEMANTIC_API_URL not set" };
+  try {
+    const data = await http<{ ok?: boolean; models?: string[] }>(`${base}/health`, {
+      headers: authHeaders(),
+      responseType: "json",
+      timeout: 8000,
+    });
+    return { ok: true, url: base, models: data.models ?? [] };
+  } catch (err) {
+    const { status, message } = errorDetail(err);
+    return { ok: false, url: base, status, message };
+  }
+}
+
 /** The available models and their dimensions/measures (for UI + NLQ). */
 export async function semanticModels(): Promise<Record<string, SemanticModelSchema> | null> {
   const base = process.env.SEMANTIC_API_URL;
