@@ -121,8 +121,13 @@ export function ExploreClient({ brand }: { brand: Branding }) {
       signal: ctrl.signal,
     })
       .then(async (r) => {
-        if (!r.ok) throw new Error(`query ${r.status}`);
-        return (await r.json()) as SemanticResult;
+        const payload = await r.json().catch(() => null);
+        if (!r.ok) {
+          // Surface the upstream reason the proxy relays, not just the status.
+          const detail = (payload as { error?: string } | null)?.error;
+          throw new Error(detail ? `${detail} (${r.status})` : `query ${r.status}`);
+        }
+        return payload as SemanticResult;
       })
       .then((res) => setResult(res))
       .catch((e) => {
