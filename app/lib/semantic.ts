@@ -127,26 +127,65 @@ export async function runSemanticQuery(q: SemanticQuery): Promise<SemanticOutcom
   }
 }
 
-/** Connection check: pings the service /health and reports what it sees. */
+/**
+ * Auth probe: the service checks the bearer BEFORE it validates the body, so a
+ * request with a nonsense model returns 401 on a bad token and 404 on a good
+ * one. Lets the health check confirm the token WITHOUT any valid query.
+ */
+async function probeAuth(base: string): Promise<"ok" | "unauthorized" | "unknown"> {
+  try {
+    await http(`${base}/query`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: { model: "__auth_probe__" },
+      responseType: "json",
+      timeout: 8000,
+    });
+    return "ok"; // 2xx (unexpected but fine)
+  } catch (err) {
+    const { status } = errorDetail(err);
+    if (status === 401 || status === 403) return "unauthorized";
+    if (status >= 400) return "ok"; // 404/422/etc. → auth passed, body rejected
+    return "unknown";
+  }
+}
+
+/**
+ * Connection check: pings /health (open) AND probes /query auth, so it reports
+ * reachability, the model list, and whether the configured token is accepted.
+ */
 export async function semanticHealth(): Promise<{
   ok: boolean;
   url?: string;
   status?: number;
   models?: string[];
+  auth?: "ok" | "unauthorized" | "unknown";
+  tokenSet?: boolean;
   message?: string;
 }> {
   const base = process.env.SEMANTIC_API_URL;
   if (!base) return { ok: false, message: "SEMANTIC_API_URL not set" };
+  const tokenSet = Boolean(process.env.SEMANTIC_API_TOKEN);
   try {
     const data = await http<{ ok?: boolean; models?: string[] }>(`${base}/health`, {
       headers: authHeaders(),
       responseType: "json",
       timeout: 8000,
     });
-    return { ok: true, url: base, models: data.models ?? [] };
+    const auth = await probeAuth(base);
+    return {
+      ok: auth !== "unauthorized",
+      url: base,
+      models: data.models ?? [],
+      auth,
+      tokenSet,
+      ...(auth === "unauthorized"
+        ? { message: "token rejected by service — SEMANTIC_API_TOKEN mismatch" }
+        : {}),
+    };
   } catch (err) {
     const { status, message } = errorDetail(err);
-    return { ok: false, url: base, status, message };
+    return { ok: false, url: base, status, tokenSet, message };
   }
 }
 
