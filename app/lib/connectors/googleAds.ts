@@ -35,12 +35,26 @@ interface AdsDeltas {
   ctr: number;
 }
 
+// OAuth client/secret/refresh-token fall back to the shared GOOGLE_OAUTH_*
+// vars, so one Web OAuth client (with a refresh token scoped for both Analytics
+// and AdWords) powers GA4, Search Console, and Google Ads. Ads still needs its
+// own developer token + login-customer-id.
+function adsClientId(): string | undefined {
+  return process.env.GOOGLE_ADS_CLIENT_ID || process.env.GOOGLE_OAUTH_CLIENT_ID;
+}
+function adsClientSecret(): string | undefined {
+  return process.env.GOOGLE_ADS_CLIENT_SECRET || process.env.GOOGLE_OAUTH_CLIENT_SECRET;
+}
+function adsRefreshToken(): string | undefined {
+  return process.env.GOOGLE_ADS_OAUTH_REFRESH_TOKEN || process.env.GOOGLE_OAUTH_REFRESH_TOKEN;
+}
+
 function hasAdsCredentials(): boolean {
   return Boolean(
     process.env.GOOGLE_ADS_DEVELOPER_TOKEN &&
-      process.env.GOOGLE_ADS_OAUTH_REFRESH_TOKEN &&
-      process.env.GOOGLE_ADS_CLIENT_ID &&
-      process.env.GOOGLE_ADS_CLIENT_SECRET,
+      adsRefreshToken() &&
+      adsClientId() &&
+      adsClientSecret(),
   );
 }
 
@@ -57,9 +71,9 @@ async function getAccessToken(): Promise<string> {
     return cachedToken.value;
   }
   const body = new URLSearchParams({
-    client_id: process.env.GOOGLE_ADS_CLIENT_ID!,
-    client_secret: process.env.GOOGLE_ADS_CLIENT_SECRET!,
-    refresh_token: process.env.GOOGLE_ADS_OAUTH_REFRESH_TOKEN!,
+    client_id: adsClientId()!,
+    client_secret: adsClientSecret()!,
+    refresh_token: adsRefreshToken()!,
     grant_type: "refresh_token",
   });
   const res = await fetch("https://oauth2.googleapis.com/token", {
