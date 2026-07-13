@@ -8,6 +8,7 @@
 import "server-only";
 import type { Connector, ConnectorContext, ConnectorResult, Panel } from "./types";
 import { googleAccessToken, hasGoogleAuth } from "./googleAuth";
+import { isPlaceholderSiteUrl } from "./placeholder";
 import { mockDelta, mockSeries, rng } from "./mock";
 
 interface ScConfig {
@@ -121,7 +122,10 @@ export const searchConsoleConnector: Connector<ScConfig> = {
   isLive: () => hasGoogleAuth(),
   async fetch(config, ctx) {
     const base = { sourceId: "search-console", label: "Google Search", category: "Search" };
-    if (!hasGoogleAuth()) return { ...base, panels: fetchMock(config, ctx), isMock: true };
+    // Placeholder site URLs (e.g. *.example) can never resolve — skip the
+    // doomed live call and serve mock directly.
+    if (!hasGoogleAuth() || isPlaceholderSiteUrl(config.siteUrl))
+      return { ...base, panels: fetchMock(config, ctx), isMock: true };
     try {
       return { ...base, panels: await fetchLive(config, ctx), isMock: false };
     } catch (err) {

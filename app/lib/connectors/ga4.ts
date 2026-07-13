@@ -15,6 +15,7 @@ import {
   hasOAuth,
   serviceAccountJson,
 } from "./googleAuth";
+import { isPlaceholderId } from "./placeholder";
 import { mockDelta, mockSeries, rng } from "./mock";
 
 interface Ga4Config {
@@ -214,7 +215,9 @@ export const ga4Connector: Connector<Ga4Config> = {
       label: "Website Analytics",
       category: "Analytics",
     };
-    if (!hasGoogleAuth()) return { ...base, panels: fetchMock(config, ctx), isMock: true };
+    // A placeholder property id (all zeros) can't resolve — serve mock directly.
+    if (!hasGoogleAuth() || isPlaceholderId(config.propertyId))
+      return { ...base, panels: fetchMock(config, ctx), isMock: true };
     try {
       return { ...base, panels: await fetchLive(config, ctx), isMock: false };
     } catch (err) {

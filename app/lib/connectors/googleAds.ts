@@ -14,6 +14,7 @@
  */
 import "server-only";
 import type { Connector, ConnectorContext, ConnectorResult, Panel } from "./types";
+import { isPlaceholderId } from "./placeholder";
 import { mockDelta, mockSeries, rng } from "./mock";
 
 interface AdsConfig {
@@ -309,7 +310,9 @@ export const googleAdsConnector: Connector<AdsConfig> = {
   isLive: () => hasAdsCredentials(),
   async fetch(config, ctx) {
     const base = { sourceId: "google-ads", label: "Google Ads", category: "Advertising" };
-    if (!hasAdsCredentials()) return { ...base, panels: fetchMock(config, ctx), isMock: true };
+    // A placeholder customer id (000-000-0000) can't resolve — serve mock.
+    if (!hasAdsCredentials() || isPlaceholderId(config.customerId))
+      return { ...base, panels: fetchMock(config, ctx), isMock: true };
     try {
       return { ...base, panels: await fetchLive(config, ctx), isMock: false };
     } catch (err) {
