@@ -104,21 +104,12 @@ const clientDefs = [
     ],
   },
   {
-    slug: "cisa",
-    name: "CISA",
-    brand: { primary: "#426fb6", accent: "#98d7eb" },
-    sources: [
-      { type: "ga4", config: { propertyId: "000000003" } },
-      { type: "search-console", config: { siteUrl: "https://www.cisa.gov/" } },
-    ],
-  },
-  {
     slug: "isea",
     name: "ISEA",
     brand: { primary: "#426fb6", accent: "#e41679" },
     sources: [
       { type: "ga4", config: { propertyId: "333478304" } },
-      { type: "search-console", config: { siteUrl: "https://isea.example/" } },
+      { type: "search-console", config: { siteUrl: "https://safetyequipment.org/" } },
       { type: "linkedin-ads", config: { accountId: "500000001", currency: "USD" } },
       { type: "mailchimp", config: {} },
     ],
@@ -149,20 +140,8 @@ const clientDefs = [
     brand: { primary: "#426fb6", accent: "#e41679" },
     sources: [
       { type: "ga4", config: { propertyId: "223367126" } },
-      { type: "search-console", config: { siteUrl: "https://moveinterstate.example/" } },
+      { type: "search-console", config: { siteUrl: "https://www.moveinterstate.com/" } },
       { type: "google-ads", config: { customerId: "000-000-0000", currency: "USD" } },
-    ],
-  },
-  {
-    slug: "mocktails",
-    name: "Mocktails",
-    brand: { primary: "#e41679", accent: "#98d7eb" },
-    sources: [
-      { type: "ga4", config: { propertyId: "000000007" } },
-      { type: "search-console", config: { siteUrl: "https://mocktails.example/" } },
-      { type: "meta-ads", config: { adAccountId: "1000000000", currency: "USD" } },
-      { type: "shopify", config: { shop: "mocktails", currency: "USD" } },
-      { type: "klaviyo", config: {} },
     ],
   },
   {
@@ -176,38 +155,6 @@ const clientDefs = [
     ],
   },
   {
-    slug: "tanaq",
-    name: "Tanaq",
-    brand: { primary: "#426fb6", accent: "#98d7eb" },
-    sources: [
-      { type: "ga4", config: { propertyId: "000000009" } },
-      { type: "search-console", config: { siteUrl: "https://tanaq.example/" } },
-      { type: "linkedin-ads", config: { accountId: "500000004", currency: "USD" } },
-    ],
-  },
-  {
-    slug: "stanton",
-    name: "Stanton Communications",
-    brand: { primary: "#e41679", accent: "#426fb6" },
-    sources: [
-      { type: "ga4", config: { propertyId: "000000010" } },
-      { type: "search-console", config: { siteUrl: "https://stantoncomm.example/" } },
-      { type: "google-ads", config: { customerId: "000-000-0000", currency: "USD" } },
-      { type: "mailchimp", config: {} },
-    ],
-  },
-  {
-    slug: "verasole-calibre",
-    name: "Verasole / Calibre",
-    brand: { primary: "#426fb6", accent: "#e41679" },
-    sources: [
-      { type: "ga4", config: { propertyId: "000000011" } },
-      { type: "search-console", config: { siteUrl: "https://verasole.example/" } },
-      { type: "meta-ads", config: { adAccountId: "1000000001", currency: "USD" } },
-      { type: "google-ads", config: { customerId: "000-000-0000", currency: "USD" } },
-    ],
-  },
-  {
     slug: "winterscale",
     name: "Winterscale",
     brand: { primary: "#333333", accent: "#98d7eb" },
@@ -215,17 +162,6 @@ const clientDefs = [
       { type: "ga4", config: { propertyId: "398292533" } },
       { type: "search-console", config: { siteUrl: "https://winterscale.example/" } },
       { type: "linkedin-ads", config: { accountId: "500000005", currency: "USD" } },
-    ],
-  },
-  {
-    slug: "minburn-tech",
-    name: "Minburn Tech",
-    brand: { primary: "#426fb6", accent: "#e41679" },
-    sources: [
-      { type: "ga4", config: { propertyId: "000000013" } },
-      { type: "search-console", config: { siteUrl: "https://minburntech.example/" } },
-      { type: "google-ads", config: { customerId: "000-000-0000", currency: "USD" } },
-      { type: "posthog", config: { projectId: "00000" } },
     ],
   },
   {
