@@ -96,6 +96,8 @@ const clientDefs = [
     brand: { primary: "#333333", accent: "#426fb6" },
     sources: [
       { type: "ga4", config: { propertyId: "302989852" } },
+      // BBBNP CISR/IRI — separate GA4 property; candidate for its own view later.
+      { type: "ga4", label: "BBBNP CISR/IRI", config: { propertyId: "499713205" } },
       { type: "search-console", config: { siteUrl: "https://bbbprograms.org/" } },
       { type: "google-ads", config: { customerId: "000-000-0000", currency: "USD" } },
       { type: "mailchimp", config: {} },
@@ -138,6 +140,16 @@ const clientDefs = [
     sources: [
       { type: "ga4", config: { propertyId: "521857796" } },
       { type: "search-console", config: { siteUrl: "https://miamifederal.example/" } },
+      { type: "google-ads", config: { customerId: "000-000-0000", currency: "USD" } },
+    ],
+  },
+  {
+    slug: "moveinterstate",
+    name: "MoveInterstate",
+    brand: { primary: "#426fb6", accent: "#e41679" },
+    sources: [
+      { type: "ga4", config: { propertyId: "223367126" } },
+      { type: "search-console", config: { siteUrl: "https://moveinterstate.example/" } },
       { type: "google-ads", config: { customerId: "000-000-0000", currency: "USD" } },
     ],
   },
@@ -221,7 +233,7 @@ const clientDefs = [
     name: "GovCon IDEATORS",
     brand: { primary: "#333333", accent: "#e41679" },
     sources: [
-      { type: "ga4", config: { propertyId: "000000014" } },
+      { type: "ga4", config: { propertyId: "395344759" } },
       { type: "search-console", config: { siteUrl: "https://govconideators.example/" } },
       { type: "linkedin-ads", config: { accountId: "500000006", currency: "USD" } },
       { type: "hubspot", config: {} },
