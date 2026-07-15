@@ -16,7 +16,7 @@ import {
   serviceAccountJson,
 } from "./googleAuth";
 import { isPlaceholderId } from "./placeholder";
-import { computeAiScore, matchAiSource, type AiScore, type AiSignals } from "./aiSources";
+import { AI_SOURCE_TOKENS, computeAiScore, matchAiSource, type AiScore, type AiSignals } from "./aiSources";
 import { mockDelta, mockSeries, rng } from "./mock";
 
 interface Ga4Config {
@@ -158,13 +158,28 @@ async function fetchAiInsights(
   totalSessions: number,
   siteEngagementRate: number,
 ): Promise<Panel[]> {
+  // Server-side filter: only rows whose sessionSource contains an AI host
+  // token. Keeps the (typically low-volume) AI rows from being dropped by a
+  // row cap, and shrinks the payload to just what we need.
+  const aiSourceFilter = {
+    orGroup: {
+      expressions: AI_SOURCE_TOKENS.map((value) => ({
+        filter: {
+          fieldName: "sessionSource",
+          stringFilter: { matchType: "CONTAINS" as const, value, caseSensitive: false },
+        },
+      })),
+    },
+  };
+
   try {
-    // Current-period sessions + engaged sessions per source.
+    // Current-period sessions + engaged sessions per AI source.
     const [srcRes] = await ga.runReport({
       property,
       dateRanges: [curr],
       dimensions: [{ name: "sessionSource" }],
       metrics: [{ name: "sessions" }, { name: "engagedSessions" }],
+      dimensionFilter: aiSourceFilter,
       limit: 250,
     });
     let aiSessions = 0;
@@ -185,6 +200,7 @@ async function fetchAiInsights(
       dateRanges: [prev],
       dimensions: [{ name: "sessionSource" }],
       metrics: [{ name: "sessions" }],
+      dimensionFilter: aiSourceFilter,
       limit: 250,
     });
     let prevAiSessions = 0;
@@ -195,13 +211,15 @@ async function fetchAiInsights(
     }
 
     // Landing page × source → which pages AI surfaces, and via which assistant.
+    // Same server-side AI filter, higher cap: coverage counts every AI page.
     const [pageRes] = await ga.runReport({
       property,
       dateRanges: [curr],
       dimensions: [{ name: "landingPagePlusQueryString" }, { name: "sessionSource" }],
       metrics: [{ name: "sessions" }],
+      dimensionFilter: aiSourceFilter,
       orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
-      limit: 500,
+      limit: 1000,
     });
     const byPage = new Map<string, { sessions: number; top: string; topN: number }>();
     for (const row of pageRes.rows ?? []) {

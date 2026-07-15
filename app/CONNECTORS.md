@@ -214,9 +214,30 @@ sending us?"). No extra config: it rides on the existing GA4 property.
   Targets/weights are constants (`AI_SCORE_TARGETS`, `AI_SCORE_WEIGHTS`) — tune
   as the AI-referral baseline shifts. Grades: A+ ≥85, A ≥70, B ≥55, C ≥40, else D.
 
+The AI-referred pulls use a **server-side GA4 source filter** (not client-side
+slicing) so low-volume AI rows are never truncated by a row cap — the counts,
+assistant list and page coverage are accurate.
+
 Search Console's **Keyword breakdown** panel (top queries with clicks, position,
 CTR and impressions) is likewise a default — it lights up once a real Search
 Console site URL + access are in place.
+
+### Crawl errors & backlinks
+- **Crawl errors / index health (Google, existing OAuth).** Every Search
+  Console section adds index-health panels from the **Sitemaps API** — index
+  coverage (indexed ÷ submitted), URLs *not indexed*, sitemap **errors** and
+  **warnings**, and a "sitemaps needing attention" table. No new credential.
+  > Note: Google **retired** the old aggregate Crawl Errors API; the modern API
+  > exposes crawl/index health via sitemaps + per-URL Inspection only. Sitemap
+  > errors/warnings + not-indexed are the honest, available Google signal.
+- **Crawl errors + backlinks (Bing Webmaster, free key).** Google has **no API
+  for backlinks** (the GSC "Links" report is UI-only), so the token-free home
+  for backlinks is **Bing Webmaster Tools** (`BING_WEBMASTER_API_KEY`). The
+  `bing-webmaster` connector now adds **Backlinks** (total inbound links + top
+  linked pages via `GetLinkCounts`) and **Crawl errors / pages-in-index** (via
+  `GetCrawlStats`). Attached to ArtForm + BBBNP as examples; add a
+  `bing-webmaster` source (with the site verified in Bing) to any client.
+  Paid alternatives for richer backlinks: Ahrefs, Majestic, Moz, Semrush.
 
 ### Auth patterns cheat-sheet
 When adding a provider, copy the closest existing one — see the table in

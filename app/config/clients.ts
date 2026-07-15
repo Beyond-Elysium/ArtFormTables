@@ -85,6 +85,7 @@ const clientDefs = [
     sources: [
       { type: "ga4", config: { propertyId: "310586485" } },
       { type: "search-console", config: { siteUrl: "https://artformagency.com/" } },
+      { type: "bing-webmaster", config: { siteUrl: "https://artformagency.com/" } },
       { type: "google-ads", config: { customerId: "000-000-0000", currency: "USD" } },
       { type: "linkedin-ads", config: { accountId: "500000000", currency: "USD" } },
       { type: "mailchimp", config: {} },
@@ -99,6 +100,7 @@ const clientDefs = [
       // BBBNP CISR/IRI — separate GA4 property; candidate for its own view later.
       { type: "ga4", label: "BBBNP CISR/IRI", config: { propertyId: "499713205" } },
       { type: "search-console", config: { siteUrl: "https://bbbprograms.org/" } },
+      { type: "bing-webmaster", config: { siteUrl: "https://bbbprograms.org/" } },
       { type: "google-ads", config: { customerId: "000-000-0000", currency: "USD" } },
       { type: "mailchimp", config: {} },
     ],

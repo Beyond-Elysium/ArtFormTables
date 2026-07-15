@@ -40,6 +40,71 @@ async function query(siteUrl: string, body: unknown): Promise<{ rows?: any[] }> 
   return res.json();
 }
 
+interface SitemapEntry {
+  path?: string;
+  errors?: string | number;
+  warnings?: string | number;
+  isPending?: boolean;
+  contents?: { submitted?: string | number; indexed?: string | number }[];
+}
+
+/** Sitemaps API: submitted/indexed counts + crawl errors/warnings per sitemap. */
+async function fetchSitemaps(siteUrl: string): Promise<SitemapEntry[]> {
+  const token = await googleAccessToken([SCOPE]);
+  const res = await fetch(
+    `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/sitemaps`,
+    { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" },
+  );
+  if (!res.ok) throw new Error(`Search Console sitemaps ${res.status}: ${await res.text()}`);
+  const data = (await res.json()) as { sitemap?: SitemapEntry[] };
+  return data.sitemap ?? [];
+}
+
+/** Roll sitemap entries up into index/crawl-health panels. */
+function indexHealthPanels(sitemaps: SitemapEntry[]): Panel[] {
+  let submitted = 0;
+  let indexed = 0;
+  let errors = 0;
+  let warnings = 0;
+  const problem: { label: string; value: number; sublabel?: string }[] = [];
+  for (const s of sitemaps) {
+    const e = Number(s.errors ?? 0);
+    const w = Number(s.warnings ?? 0);
+    errors += e;
+    warnings += w;
+    for (const c of s.contents ?? []) {
+      submitted += Number(c.submitted ?? 0);
+      indexed += Number(c.indexed ?? 0);
+    }
+    if (e > 0 || w > 0) {
+      problem.push({
+        label: s.path ?? "(sitemap)",
+        value: e,
+        sublabel: `${e} error${e === 1 ? "" : "s"} · ${w} warning${w === 1 ? "" : "s"}`,
+      });
+    }
+  }
+  const coverage = submitted > 0 ? indexed / submitted : 0;
+  const notIndexed = Math.max(0, submitted - indexed);
+
+  const panels: Panel[] = [
+    { kind: "stat", label: "Index coverage", value: coverage, format: "percent", caption: `${indexed.toLocaleString()} of ${submitted.toLocaleString()} URLs indexed` },
+    { kind: "stat", label: "Not indexed", value: notIndexed, format: "compact", invertDelta: true, caption: "Submitted but not indexed" },
+    { kind: "stat", label: "Crawl errors", value: errors, format: "number", invertDelta: true, caption: `${warnings.toLocaleString()} warning${warnings === 1 ? "" : "s"}` },
+  ];
+  if (problem.length > 0) {
+    panels.push({
+      kind: "breakdown",
+      title: "Sitemaps needing attention",
+      subtitle: "Sitemaps reporting crawl errors or warnings",
+      display: "table",
+      valueLabel: "Errors",
+      rows: problem.sort((a, b) => b.value - a.value).slice(0, 10),
+    });
+  }
+  return panels;
+}
+
 async function fetchLive(config: ScConfig, ctx: ConnectorContext): Promise<Panel[]> {
   const startDate = dateNDaysAgo(ctx.days);
   const endDate = dateNDaysAgo(1);
@@ -58,12 +123,22 @@ async function fetchLive(config: ScConfig, ctx: ConnectorContext): Promise<Panel
     impressions: r.impressions as number,
   }));
 
-  return buildPanels(
+  const core = buildPanels(
     { clicks: t.clicks, impressions: t.impressions, ctr: t.ctr, position: t.position },
     ts,
     (queries.rows ?? []).map((r) => keywordRow(r.keys?.[0], r.clicks, r.impressions, r.ctr, r.position)),
     (pages.rows ?? []).map((r) => ({ label: r.keys?.[0], value: r.clicks })),
   );
+
+  // Index/crawl health is isolated: a sitemaps failure never drops the core
+  // search panels.
+  let health: Panel[] = [];
+  try {
+    health = indexHealthPanels(await fetchSitemaps(config.siteUrl));
+  } catch (err) {
+    console.error(`[search-console] sitemaps unavailable for ${config.siteUrl}:`, err);
+  }
+  return [...core, ...health];
 }
 
 /** A keyword row: clicks as the value, with position/CTR/impressions beneath. */
@@ -108,7 +183,16 @@ function fetchMock(config: ScConfig, ctx: ConnectorContext): Panel[] {
     .map((label) => ({ label, value: Math.floor(clicks * (0.04 + rand() * 0.2)) }))
     .sort((a, b) => b.value - a.value);
 
-  return buildPanels({ clicks, impressions, ctr, position }, ts, queries, pages);
+  // Synthesize a sitemap so demo dashboards show index/crawl health too.
+  const submitted = 200 + Math.floor(rand() * 4000);
+  const indexed = Math.floor(submitted * (0.75 + rand() * 0.24));
+  const errors = Math.floor(rand() * 6);
+  const warnings = Math.floor(rand() * 12);
+  const mockSitemaps: SitemapEntry[] = [
+    { path: `${config.siteUrl}sitemap.xml`, errors, warnings, contents: [{ submitted, indexed }] },
+  ];
+
+  return [...buildPanels({ clicks, impressions, ctr, position }, ts, queries, pages), ...indexHealthPanels(mockSitemaps)];
 }
 
 function buildPanels(

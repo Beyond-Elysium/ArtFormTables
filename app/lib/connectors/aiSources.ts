@@ -17,31 +17,50 @@ import "server-only";
 interface AiSourceDef {
   id: string;
   label: string;
-  match: RegExp;
+  /** Host substrings that identify this assistant (matched case-insensitively). */
+  tokens: string[];
 }
 
 // Ordered: first match wins. Tokens are chosen to catch host variants without
 // grabbing the plain search engines (e.g. match Bing *Copilot*, not Bing).
 const AI_SOURCES: AiSourceDef[] = [
-  { id: "chatgpt", label: "ChatGPT", match: /chatgpt|openai/i },
-  { id: "perplexity", label: "Perplexity", match: /perplexity/i },
-  { id: "gemini", label: "Gemini", match: /gemini|bard/i },
-  { id: "copilot", label: "Copilot", match: /copilot|edgeservices|bingapis/i },
-  { id: "claude", label: "Claude", match: /claude\.ai|anthropic/i },
-  { id: "grok", label: "Grok", match: /grok|x\.ai/i },
-  { id: "deepseek", label: "DeepSeek", match: /deepseek/i },
-  { id: "meta-ai", label: "Meta AI", match: /meta\.ai/i },
-  { id: "mistral", label: "Le Chat", match: /mistral|lechat/i },
-  { id: "you", label: "You.com", match: /(^|\W)you\.com/i },
-  { id: "poe", label: "Poe", match: /poe\.com/i },
-  { id: "phind", label: "Phind", match: /phind/i },
+  { id: "chatgpt", label: "ChatGPT", tokens: ["chatgpt", "openai"] },
+  { id: "perplexity", label: "Perplexity", tokens: ["perplexity"] },
+  { id: "gemini", label: "Gemini", tokens: ["gemini", "bard"] },
+  { id: "copilot", label: "Copilot", tokens: ["copilot", "edgeservices", "bingapis"] },
+  { id: "claude", label: "Claude", tokens: ["claude.ai", "anthropic"] },
+  { id: "grok", label: "Grok", tokens: ["grok", "x.ai"] },
+  { id: "deepseek", label: "DeepSeek", tokens: ["deepseek"] },
+  { id: "meta-ai", label: "Meta AI", tokens: ["meta.ai"] },
+  { id: "mistral", label: "Le Chat", tokens: ["mistral", "lechat"] },
+  { id: "you", label: "You.com", tokens: ["you.com"] },
+  { id: "poe", label: "Poe", tokens: ["poe.com"] },
+  { id: "phind", label: "Phind", tokens: ["phind"] },
 ];
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// Precompiled per-source matcher (literal substring, case-insensitive).
+const COMPILED = AI_SOURCES.map((s) => ({
+  id: s.id,
+  label: s.label,
+  re: new RegExp(s.tokens.map(escapeRegExp).join("|"), "i"),
+}));
+
+/**
+ * Every host substring across all assistants — used to build a GA4 server-side
+ * dimension filter so low-volume AI rows aren't truncated by a row cap before
+ * we can count them.
+ */
+export const AI_SOURCE_TOKENS: string[] = AI_SOURCES.flatMap((s) => s.tokens);
 
 /** Resolve a GA4 session source to a known AI assistant, or null. */
 export function matchAiSource(source: string | undefined): { id: string; label: string } | null {
   if (!source) return null;
-  for (const a of AI_SOURCES) {
-    if (a.match.test(source)) return { id: a.id, label: a.label };
+  for (const a of COMPILED) {
+    if (a.re.test(source)) return { id: a.id, label: a.label };
   }
   return null;
 }
