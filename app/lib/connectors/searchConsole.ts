@@ -47,7 +47,7 @@ async function fetchLive(config: ScConfig, ctx: ConnectorContext): Promise<Panel
   const [totals, byDate, queries, pages] = await Promise.all([
     query(config.siteUrl, { startDate, endDate, dimensions: [] }),
     query(config.siteUrl, { startDate, endDate, dimensions: ["date"] }),
-    query(config.siteUrl, { startDate, endDate, dimensions: ["query"], rowLimit: 10 }),
+    query(config.siteUrl, { startDate, endDate, dimensions: ["query"], rowLimit: 20 }),
     query(config.siteUrl, { startDate, endDate, dimensions: ["page"], rowLimit: 10 }),
   ]);
 
@@ -61,9 +61,24 @@ async function fetchLive(config: ScConfig, ctx: ConnectorContext): Promise<Panel
   return buildPanels(
     { clicks: t.clicks, impressions: t.impressions, ctr: t.ctr, position: t.position },
     ts,
-    (queries.rows ?? []).map((r) => ({ label: r.keys?.[0], value: r.clicks })),
+    (queries.rows ?? []).map((r) => keywordRow(r.keys?.[0], r.clicks, r.impressions, r.ctr, r.position)),
     (pages.rows ?? []).map((r) => ({ label: r.keys?.[0], value: r.clicks })),
   );
+}
+
+/** A keyword row: clicks as the value, with position/CTR/impressions beneath. */
+function keywordRow(
+  keyword: string | undefined,
+  clicks: number,
+  impressions: number,
+  ctr: number,
+  position: number,
+): { label: string; value: number; sublabel: string } {
+  return {
+    label: keyword ?? "(unknown)",
+    value: clicks,
+    sublabel: `Pos ${position.toFixed(1)} · ${(ctr * 100).toFixed(1)}% CTR · ${Math.round(impressions).toLocaleString()} impr`,
+  };
 }
 
 function fetchMock(config: ScConfig, ctx: ConnectorContext): Panel[] {
@@ -82,7 +97,12 @@ function fetchMock(config: ScConfig, ctx: ConnectorContext): Panel[] {
 
   const terms = ["brand name", "buy widgets online", "best widgets", "widget pricing", "widget reviews", "cheap widgets", "widget alternatives", "how to use widgets"];
   const queries = terms
-    .map((label) => ({ label, value: Math.floor(clicks * (0.02 + rand() * 0.12)) }))
+    .map((label) => {
+      const c = Math.floor(clicks * (0.02 + rand() * 0.12));
+      const impr = Math.max(c, Math.floor(c * (8 + rand() * 30)));
+      const pos = 1 + rand() * 25;
+      return keywordRow(label, c, impr, impr ? c / impr : 0, pos);
+    })
     .sort((a, b) => b.value - a.value);
   const pages = ["/", "/products", "/blog/guide", "/pricing", "/reviews"]
     .map((label) => ({ label, value: Math.floor(clicks * (0.04 + rand() * 0.2)) }))
@@ -94,7 +114,7 @@ function fetchMock(config: ScConfig, ctx: ConnectorContext): Panel[] {
 function buildPanels(
   m: { clicks: number; impressions: number; ctr: number; position: number },
   ts: { x: string; clicks: number; impressions: number }[],
-  queries: { label: string; value: number }[],
+  queries: { label: string; value: number; sublabel?: string }[],
   pages: { label: string; value: number }[],
 ): Panel[] {
   return [
@@ -110,7 +130,7 @@ function buildPanels(
         { name: "Impressions", points: ts.map((p) => ({ x: p.x, y: p.impressions })) },
       ],
     },
-    { kind: "breakdown", title: "Top queries", display: "table", valueLabel: "Clicks", rows: queries },
+    { kind: "breakdown", title: "Keyword breakdown", subtitle: "Top search queries — clicks, position & CTR", display: "table", valueLabel: "Clicks", rows: queries },
     { kind: "breakdown", title: "Top landing pages", display: "table", valueLabel: "Clicks", rows: pages },
   ];
 }

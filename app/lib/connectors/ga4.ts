@@ -16,6 +16,7 @@ import {
   serviceAccountJson,
 } from "./googleAuth";
 import { isPlaceholderId } from "./placeholder";
+import { computeAiScore, matchAiSource, type AiScore, type AiSignals } from "./aiSources";
 import { mockDelta, mockSeries, rng } from "./mock";
 
 interface Ga4Config {
@@ -122,7 +123,7 @@ async function fetchLive(
   const devices = await dim("deviceCategory", "totalUsers", 4);
   const pages = await dim("pagePath", "screenPageViews", 10, "pageTitle");
 
-  return buildPanels(
+  const corePanels = buildPanels(
     { users: c[0], sessions: c[1], pageviews: c[2], engagement: c[3], avgDur: c[4] },
     {
       users: pct(c[0], p[0]),
@@ -135,6 +136,156 @@ async function fetchLive(
     devices,
     pages.map((r) => ({ label: r.sublabel || r.label, value: r.value, sublabel: r.label })),
   );
+
+  // AI insights are additive and isolated: if these extra reports fail (e.g. a
+  // property that rejects a dimension) the core dashboard still renders live.
+  const ai = await fetchAiInsights(ga, property, curr, prev, c[1], c[3]);
+  return [...corePanels, ...ai];
+}
+
+/* ------------------------------------------------------------------ *
+ * AI insights (AI-referred pages, AI assistants, AI Score)
+ * ------------------------------------------------------------------ */
+
+type Ga = Awaited<ReturnType<typeof getClient>>;
+type Range = { startDate: string; endDate: string };
+
+async function fetchAiInsights(
+  ga: Ga,
+  property: string,
+  curr: Range,
+  prev: Range,
+  totalSessions: number,
+  siteEngagementRate: number,
+): Promise<Panel[]> {
+  try {
+    // Current-period sessions + engaged sessions per source.
+    const [srcRes] = await ga.runReport({
+      property,
+      dateRanges: [curr],
+      dimensions: [{ name: "sessionSource" }],
+      metrics: [{ name: "sessions" }, { name: "engagedSessions" }],
+      limit: 250,
+    });
+    let aiSessions = 0;
+    let aiEngaged = 0;
+    const byAssistant = new Map<string, number>();
+    for (const row of srcRes.rows ?? []) {
+      const hit = matchAiSource(row.dimensionValues?.[0]?.value ?? "");
+      if (!hit) continue;
+      const sessions = Number(row.metricValues?.[0]?.value ?? 0);
+      aiSessions += sessions;
+      aiEngaged += Number(row.metricValues?.[1]?.value ?? 0);
+      byAssistant.set(hit.label, (byAssistant.get(hit.label) ?? 0) + sessions);
+    }
+
+    // Previous-period AI sessions (for momentum).
+    const [srcPrev] = await ga.runReport({
+      property,
+      dateRanges: [prev],
+      dimensions: [{ name: "sessionSource" }],
+      metrics: [{ name: "sessions" }],
+      limit: 250,
+    });
+    let prevAiSessions = 0;
+    for (const row of srcPrev.rows ?? []) {
+      if (matchAiSource(row.dimensionValues?.[0]?.value ?? "")) {
+        prevAiSessions += Number(row.metricValues?.[0]?.value ?? 0);
+      }
+    }
+
+    // Landing page × source → which pages AI surfaces, and via which assistant.
+    const [pageRes] = await ga.runReport({
+      property,
+      dateRanges: [curr],
+      dimensions: [{ name: "landingPagePlusQueryString" }, { name: "sessionSource" }],
+      metrics: [{ name: "sessions" }],
+      orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
+      limit: 500,
+    });
+    const byPage = new Map<string, { sessions: number; top: string; topN: number }>();
+    for (const row of pageRes.rows ?? []) {
+      const hit = matchAiSource(row.dimensionValues?.[1]?.value ?? "");
+      if (!hit) continue;
+      const page = row.dimensionValues?.[0]?.value ?? "(not set)";
+      const sessions = Number(row.metricValues?.[0]?.value ?? 0);
+      const e = byPage.get(page) ?? { sessions: 0, top: hit.label, topN: 0 };
+      e.sessions += sessions;
+      if (sessions > e.topN) {
+        e.top = hit.label;
+        e.topN = sessions;
+      }
+      byPage.set(page, e);
+    }
+
+    const signals: AiSignals = {
+      aiSessions,
+      totalSessions,
+      prevAiSessions,
+      aiEngagedSessions: aiEngaged,
+      siteEngagementRate,
+      distinctSources: byAssistant.size,
+      distinctPages: byPage.size,
+    };
+    const score = computeAiScore(signals);
+
+    const pageRows = [...byPage.entries()]
+      .sort((a, b) => b[1].sessions - a[1].sessions)
+      .slice(0, 10)
+      .map(([label, v]) => ({ label, value: v.sessions, sublabel: `via ${v.top}` }));
+    const assistantRows = [...byAssistant.entries()]
+      .map(([label, value]) => ({ label, value }))
+      .sort((a, b) => b.value - a.value);
+
+    return aiPanels(score, aiSessions, pageRows, assistantRows);
+  } catch (err) {
+    console.error("[ga4] AI insights unavailable:", err);
+    return [];
+  }
+}
+
+function aiPanels(
+  score: AiScore,
+  aiSessions: number,
+  pages: { label: string; value: number; sublabel?: string }[],
+  assistants: { label: string; value: number }[],
+): Panel[] {
+  const panels: Panel[] = [
+    {
+      kind: "stat",
+      label: "AI Score",
+      value: score.score,
+      format: "number",
+      caption: `Grade ${score.grade} · ${(score.share * 100).toFixed(1)}% of sessions from AI`,
+    },
+    {
+      kind: "stat",
+      label: "AI-referred sessions",
+      value: aiSessions,
+      format: "compact",
+      delta: score.trendPct,
+    },
+  ];
+  if (pages.length > 0) {
+    panels.push({
+      kind: "breakdown",
+      title: "AI-referred pages",
+      subtitle: "Landing pages surfaced by AI assistants",
+      display: "table",
+      valueLabel: "Sessions",
+      rows: pages,
+    });
+  }
+  if (assistants.length > 0) {
+    panels.push({
+      kind: "breakdown",
+      title: "AI assistants",
+      subtitle: "Which answer engines send traffic",
+      display: "donut",
+      rows: assistants,
+    });
+  }
+  return panels;
 }
 
 function fetchMock(config: Ga4Config, ctx: ConnectorContext): Panel[] {
@@ -167,7 +318,7 @@ function fetchMock(config: Ga4Config, ctx: ConnectorContext): Panel[] {
     .map(([path, title]) => ({ label: title, sublabel: path, value: Math.floor(pageviews * (0.03 + rand() * 0.18)) }))
     .sort((a, b) => b.value - a.value);
 
-  return buildPanels(
+  const corePanels = buildPanels(
     { users, sessions, pageviews, engagement, avgDur },
     { users: mockDelta(rand), sessions: mockDelta(rand), pageviews: mockDelta(rand), engagement: mockDelta(rand) },
     tsPoints,
@@ -175,6 +326,40 @@ function fetchMock(config: Ga4Config, ctx: ConnectorContext): Panel[] {
     devices,
     pages,
   );
+
+  // Synthesize plausible AI-referral data so demo dashboards show the feature.
+  const aiShare = 0.008 + rand() * 0.03; // ~0.8%–3.8% of sessions
+  const aiSessions = Math.max(1, Math.floor(sessions * aiShare));
+  const prevAiSessions = Math.max(1, Math.floor(aiSessions * (0.6 + rand() * 0.8)));
+  const aiEngaged = Math.floor(aiSessions * (0.5 + rand() * 0.4));
+  const assistantMix: [string, number][] = [
+    ["ChatGPT", 0.5], ["Perplexity", 0.2], ["Gemini", 0.15], ["Copilot", 0.1], ["Claude", 0.05],
+  ];
+  const nAssistants = 2 + Math.floor(rand() * 4);
+  const assistantRows = assistantMix
+    .slice(0, nAssistants)
+    .map(([label, wt]) => ({ label, value: Math.max(1, Math.floor(aiSessions * wt)) }))
+    .sort((a, b) => b.value - a.value);
+  const distinctPages = 3 + Math.floor(rand() * 22);
+  const pageRows = [["/", "Home"], ["/pricing", "Pricing"], ["/blog/guide", "Guide"], ["/product", "Product"], ["/faq", "FAQ"], ["/about", "About"]]
+    .slice(0, Math.min(6, distinctPages))
+    .map(([path], i) => ({
+      label: path,
+      value: Math.max(1, Math.floor(aiSessions * (0.32 - i * 0.045))),
+      sublabel: `via ${assistantRows[i % assistantRows.length].label}`,
+    }))
+    .filter((r) => r.value > 0);
+  const score = computeAiScore({
+    aiSessions,
+    totalSessions: sessions,
+    prevAiSessions,
+    aiEngagedSessions: aiEngaged,
+    siteEngagementRate: engagement,
+    distinctSources: assistantRows.length,
+    distinctPages,
+  });
+
+  return [...corePanels, ...aiPanels(score, aiSessions, pageRows, assistantRows)];
 }
 
 function buildPanels(

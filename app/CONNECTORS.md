@@ -188,6 +188,36 @@ data; next steps (real per-client extracts, cross-filter UI, Claude-powered NLQ)
 are in the semantic README. **Smart Narratives** already ship in-app
 (`lib/narrative.ts`).
 
+### AI referrals & the AI Score
+Every GA4 dashboard ships, **by default**, with AI-visibility panels — the
+GEO / answer-engine question agencies increasingly field ("how much is AI
+sending us?"). No extra config: it rides on the existing GA4 property.
+
+- **AI-referred sessions** — sessions whose GA4 *session source* is an AI
+  assistant (ChatGPT, Perplexity, Gemini, Copilot, Claude, Grok, DeepSeek,
+  Meta AI, Le Chat, You.com, Poe, Phind). Matched by host token in
+  [`lib/connectors/aiSources.ts`](./lib/connectors/aiSources.ts) — add a source
+  there as new engines appear.
+- **AI-referred pages** — which landing pages those assistants surface, and via
+  which engine.
+- **AI assistants** — the mix of answer engines driving traffic.
+- **AI Score (0–100)** — a transparent composite of five GA4-derived signals:
+
+  | Signal | Weight | Full marks at |
+  | --- | --- | --- |
+  | AI traffic share (AI ÷ all sessions) | 35% | ≥ 3% |
+  | Momentum (vs prior period) | 20% | ≥ +100% |
+  | Engagement quality (AI vs site engagement) | 15% | ≥ 2× site |
+  | Assistant diversity (distinct engines) | 15% | ≥ 5 |
+  | Page coverage (distinct AI-referred pages) | 15% | ≥ 20 |
+
+  Targets/weights are constants (`AI_SCORE_TARGETS`, `AI_SCORE_WEIGHTS`) — tune
+  as the AI-referral baseline shifts. Grades: A+ ≥85, A ≥70, B ≥55, C ≥40, else D.
+
+Search Console's **Keyword breakdown** panel (top queries with clicks, position,
+CTR and impressions) is likewise a default — it lights up once a real Search
+Console site URL + access are in place.
+
 ### Auth patterns cheat-sheet
 When adding a provider, copy the closest existing one — see the table in
 [Authoring a new connector](#auth--copy-the-closest-example).
