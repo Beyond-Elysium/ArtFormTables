@@ -16,6 +16,7 @@
  */
 import "server-only";
 import type { Connector, ConnectorContext, ConnectorResult, Panel } from "./types";
+import { isPlaceholderSiteUrl } from "./placeholder";
 import { mockSeries, rng } from "./mock";
 
 interface BingConfig {
@@ -206,7 +207,8 @@ export const bingWebmasterConnector: Connector<BingConfig> = {
   isLive: () => hasBingKey(),
   async fetch(config, ctx) {
     const base = { sourceId: "bing-webmaster", label: "Bing Search", category: "Search" };
-    if (!hasBingKey()) return { ...base, panels: fetchMock(config, ctx), isMock: true };
+    if (!hasBingKey() || isPlaceholderSiteUrl(config.siteUrl))
+      return { ...base, panels: fetchMock(config, ctx), isMock: true };
     try {
       return { ...base, panels: await fetchLive(config, ctx), isMock: false };
     } catch (err) {

@@ -112,6 +112,7 @@ const clientDefs = [
     sources: [
       { type: "ga4", config: { propertyId: "333478304" } },
       { type: "search-console", config: { siteUrl: "https://safetyequipment.org/" } },
+      { type: "bing-webmaster", config: { siteUrl: "https://safetyequipment.org/" } },
       { type: "linkedin-ads", config: { accountId: "500000001", currency: "USD" } },
       { type: "mailchimp", config: {} },
     ],
@@ -123,6 +124,7 @@ const clientDefs = [
     sources: [
       { type: "ga4", config: { propertyId: "302350399" } },
       { type: "search-console", config: { siteUrl: "https://maximus.com/" } },
+      { type: "bing-webmaster", config: { siteUrl: "https://maximus.com/" } },
       { type: "linkedin-ads", config: { accountId: "500000002", currency: "USD" } },
     ],
   },
@@ -133,6 +135,7 @@ const clientDefs = [
     sources: [
       { type: "ga4", config: { propertyId: "521857796" } },
       { type: "search-console", config: { siteUrl: "https://miamifederal.example/" } },
+      { type: "bing-webmaster", config: { siteUrl: "https://miamifederal.example/" } },
       { type: "google-ads", config: { customerId: "000-000-0000", currency: "USD" } },
     ],
   },
@@ -143,6 +146,7 @@ const clientDefs = [
     sources: [
       { type: "ga4", config: { propertyId: "223367126" } },
       { type: "search-console", config: { siteUrl: "https://www.moveinterstate.com/" } },
+      { type: "bing-webmaster", config: { siteUrl: "https://www.moveinterstate.com/" } },
       { type: "google-ads", config: { customerId: "000-000-0000", currency: "USD" } },
     ],
   },
@@ -153,6 +157,7 @@ const clientDefs = [
     sources: [
       { type: "ga4", config: { propertyId: "298141839" } },
       { type: "search-console", config: { siteUrl: "https://sigmadefense.example/" } },
+      { type: "bing-webmaster", config: { siteUrl: "https://sigmadefense.example/" } },
       { type: "linkedin-ads", config: { accountId: "500000003", currency: "USD" } },
     ],
   },
@@ -163,6 +168,7 @@ const clientDefs = [
     sources: [
       { type: "ga4", config: { propertyId: "398292533" } },
       { type: "search-console", config: { siteUrl: "https://winterscale.example/" } },
+      { type: "bing-webmaster", config: { siteUrl: "https://winterscale.example/" } },
       { type: "linkedin-ads", config: { accountId: "500000005", currency: "USD" } },
     ],
   },
@@ -173,6 +179,7 @@ const clientDefs = [
     sources: [
       { type: "ga4", config: { propertyId: "395344759" } },
       { type: "search-console", config: { siteUrl: "https://govconideators.example/" } },
+      { type: "bing-webmaster", config: { siteUrl: "https://govconideators.example/" } },
       { type: "linkedin-ads", config: { accountId: "500000006", currency: "USD" } },
       { type: "hubspot", config: {} },
     ],
