@@ -1,6 +1,7 @@
 # ArtForm Dashboards — Full Audit & Work Plan
 
 _Audited 2026-07-18 against branch `claude/happy-newton-ya2s7o`. Covers the Next.js app (`app/`), the semantic layer (`semantic/`), config, ops, and docs._
+_Second pass 2026-07-18: added the UX audit (§2F), landing-page exposure finding (S6), and Phase 6 chunks 30–37._
 
 ---
 
@@ -92,6 +93,7 @@ Ads API versions sunset roughly yearly; `v18` (default in `googleAds.ts`) is nea
 - **S3 — Dashboards are public-by-URL** (deliberate MVP choice). Decide: keep, or add a lightweight per-client password / signed-link gate. Easy to add later; noted as a product decision, chunk provided.
 - **S4 — No CI**: the repo's `.github/workflows` are upstream Tabler's; nothing typechecks/tests/builds `app/` or `semantic/` on push. One bad merge = broken prod build discovered at deploy time.
 - **S5 — No error monitoring/analytics** on the app itself (silent failures only visible in Vercel logs; `console.error` is the entire observability story).
+- **S6 — The root landing page publicly enumerates the entire client roster.** `app/app/page.tsx` renders every client's name, slug, and source categories as clickable cards at `/`. Anyone who finds the domain gets a directory of your clients and links to each dashboard — worse than any single unlisted URL leaking. The original architecture called for a dev-only index. Chunk 33.
 
 ### D. Product gaps (features you'd want next)
 
@@ -113,6 +115,25 @@ Ads API versions sunset roughly yearly; `v18` (default in `googleAds.ts`) is nea
 - **E3** — History beyond GA4's API window: daily→monthly rollups exist (`rollups.py`) but nothing schedules them; no cron on the VM.
 - **E4** — NLQ ("ask your dashboard") — designed, not built. Needs a `/nlq` endpoint that has Claude translate a question into a semantic-layer query against `/models` schemas, execute it, and return panels. All server-side, stays branded (Path A).
 - **E5** — Explore is not client-scoped server-side: the shared bearer token can query any client's rows; the UI filters by `client` but the API doesn't enforce it. Fine while data is fake; must be enforced before real data lands (derive allowed `client` from the requesting page, inject the filter in the Next proxy).
+
+### F. UX audit (second pass — every claim verified in code)
+
+The first pass was correctness/data-heavy; this is the experience pass. Ordered by how much a client would notice.
+
+- **F1 — Client-facing copy leaks dev internals. (Fix first — it's a trust leak.)** The demo-data banner says *"See `app/README.md` to connect live data"* (`app/[client]/page.tsx`) and the empty-view state says *"Add sources to this client in `config/clients.ts`"* (`DashboardBody.tsx`). Clients viewing their own dashboard are reading your repo instructions. All viewer-visible copy must be client-appropriate ("Sample data shown while this source is being connected").
+- **F2 — Fonts load from the Google Fonts CDN** via `<link>` in `layout.tsx` instead of `next/font` self-hosting: flash-of-unstyled-text on first paint, a third-party request on every client dashboard, and the PDF renderer depends on the CDN being reachable. Also: no favicon, no OG/social metadata (a shared dashboard link unfurls as nothing).
+- **F3 — Comparison overlay colors don't pair.** Dashed "(prev)" series are appended to the series list, so they take the *next* palette slots: "Users" renders brand-blue but "Users (prev)" renders sky; "Sessions" pink but "Sessions (prev)" ink. Visually nothing says which dashed line belongs to which solid line. Prev-series should reuse their primary's color (muted/dashed).
+- **F4 — Donut palette runs out.** `palette()` yields 4 colors; GA4's sources donut has 6 slices — ApexCharts cycles, so two pairs of slices share colors. Need 6–8 distinct brand-derived shades (contrast-checked).
+- **F5 — Charts are invisible to assistive tech and ignore reduced-motion.** No aria summaries on chart cards; `prefers-reduced-motion` exists in CSS but ApexCharts animates via JS and ignores it (`matchMedia` must set `chart.animations.enabled: false`).
+- **F6 — Explore speaks in raw schema.** Model dropdown shows `ga4`/`blended`; group-by chips show `sessionDefaultChannelGroup`, `totalUsers`. No sort or row-limit control; filter chips hardcode white text on `brand.primary` (should use `readableTextColor`); table shows only "Loading…" in the chart header while refreshing; no Escape-to-close anywhere.
+- **F7 — Range presets miss the agency staples.** Only 7d/28d/90d/custom — no "This month" / "Last month", which is how agencies actually report. Day-picker popover: no Escape-close, and react-day-picker's default stylesheet is rounded (off design system).
+- **F8 — (= S6)** Landing page exposes the roster — see §2C.
+- **F9 — View tabs lack keyboard arrow navigation** (`role="tablist"` without arrow-key handling). Buttons are tabbable, so it's usable — just not to spec.
+- **F10 — New KPIs fall back to a generic icon** (`Icons.tsx` maps by label; AI Score, AI-referred sessions, Backlinks, Index coverage, Crawl errors aren't mapped), and Smart Narratives ignore the AI/SEO panels entirely — the newest features never make the summary card.
+- **F11 — Loading skeleton mirrors only stat tiles** (8 placeholder cards, no chart/table blocks) — a jarring swap on slow loads.
+- **F12 — During a range/compare change only the controls dim**; the stale dashboard body shows no refresh cue. A subtle top progress bar (or dimming the body region) would signal "recalculating."
+- **F13 — Horizontal bar charts with long labels** (page paths, campaign names) crowd/truncate at Apex defaults; needs a label formatter + full value in tooltip.
+- **F14 — Mobile is unverified.** `globals.css` has essentially one breakpoint's worth of responsive rules; the sticky controls row (4 preset buttons + compare select + Explore + PDF) likely wraps awkwardly under ~400px. Needs a real device-width pass with screenshots, not guesses.
 
 ---
 
@@ -440,18 +461,109 @@ Write app/ONBOARDING.md: the exact recipe to add a new client end-to-end, derive
 
 ---
 
+### Phase 6 — UX & experience polish (second pass)
+
+---
+
+**Chunk 30 — Client-safe copy sweep** _(F1; smallest chunk in the plan, do it immediately)_
+
+*Prompt:*
+```
+Viewer-visible copy in the dashboards leaks dev internals. In app/app/[client]/page.tsx the demo-data banner says "See app/README.md to connect live data" and in app/components/DashboardBody.tsx the empty-view state says "Add sources to this client in config/clients.ts". Sweep ALL viewer-visible strings (dashboard page, DashboardBody, PanelSection "Live fetch unavailable" line, Explore error/empty states, not-found page) and make them client-appropriate — e.g. "Sample data shown while this source is being connected." No file paths, no repo references, no jargon. Keep the orange "demo data" badge. Dev hints may move into HTML comments or show only when the URL has ?internal=1. Typecheck, suite, build, commit, push.
+```
+
+---
+
+**Chunk 31 — Self-hosted fonts + favicon + OG metadata** _(F2)_
+
+*Prompt:*
+```
+app/app/layout.tsx loads League Spartan/Fira Sans/Montserrat from the Google Fonts CDN via <link>. Migrate to next/font/google (self-hosted, no runtime third-party request): League Spartan weight 900, Fira Sans 400/500/700, Montserrat 400/500/600/700, exposing CSS variables consumed where the compiled Tabler CSS / globals.css reference the family names (add font-family fallbacks via the variables — check core/scss + app/app/globals.css for hardcoded family names and align without rebuilding core if possible; overriding via globals.css :root is acceptable). Also add: a favicon (simple square "A" mark in ArtForm ink/pink, as app/app/icon.svg), per-client OpenGraph/Twitter metadata in [client]/page.tsx generateMetadata (title, description "Performance dashboard · ArtForm", no client data in the OG image — text-free brand image or none). Verify the PDF renderer still renders with correct fonts (they're now bundled). Typecheck, suite, build, commit, push.
+```
+
+---
+
+**Chunk 32 — Chart color science + chart a11y** _(F3, F4, F5, F13; land after Chunk 2)_
+
+*Prompt:*
+```
+Four chart fixes in app/components/Charts.tsx (+ PanelSection where noted):
+1) Comparison pairing: TimeseriesChart currently appends "(prev)" dashed series which take the NEXT palette colors, so prev lines don't visually pair with their primary. Assign each dashed series the same color as its primary series (match by name prefix before " (prev)"), keeping dash + reduced opacity as the differentiator.
+2) Donut palette: palette() has 4 colors but donuts get up to 6 slices (colors repeat). Extend to 8 distinct brand-derived colors (derive tints/shades of #426fb6 #e41679 #98d7eb #333333; ensure adjacent slices are distinguishable and legend text stays AA on white).
+3) Reduced motion: respect prefers-reduced-motion by disabling Apex animations (window.matchMedia in a client hook; charts get animations: { enabled: false } when reduced).
+4) Long horizontal-bar labels: clamp category labels to ~28 chars with an ellipsis via yaxis/xaxis label formatter, showing the full label in the tooltip.
+Also add an aria-label to each chart card container in PanelSection summarizing the panel (title + series names + point count). Add/extend a small unit test for the pure color-derivation helper. Typecheck, suite, build, commit, push.
+```
+
+---
+
+**Chunk 33 — Landing-page privacy mode** _(F8/S6)_
+
+*Prompt:*
+```
+The root page (app/app/page.tsx) publicly lists every client with links — a directory of the agency's roster. Make it private by default: introduce env LANDING_INDEX (unset/false = render a minimal branded splash: dark header, "ArtForm Dashboards", "Powered by ArtForm", no client list, noindex; true = current index for internal use). Alternatively also allow ?token=<CRON_SECRET> to view the full index on demand when LANDING_INDEX is false. Keep the design system. Update DEPLOY.md (set LANDING_INDEX=true only on preview/internal deployments). Typecheck, suite, build, commit, push.
+```
+
+---
+
+**Chunk 34 — Mobile/responsive verification pass (with screenshots)** _(F14, F11, F12)_
+
+*Prompt:*
+```
+Do a real responsive pass on the dashboards app. Run the dev server and use Playwright (chromium at /opt/pw-browsers, PLAYWRIGHT_BROWSERS_PATH set) to screenshot /artform (Overview + a category tab + compare on + custom-range picker open) at 360, 768, 1280 widths. Fix what the screenshots show is broken, expected suspects: the sticky controls row wrapping awkwardly (4 preset buttons + compare select + Explore + PDF at 360px), view-tab overflow (make them horizontally scrollable with no wrap on mobile), day-picker popover overflowing the viewport (single month on small screens via numberOfMonths responsive), stat-grid min column width, table overflow. Also: extend [client]/loading.tsx skeleton to include a chart-shaped block and a table block so the swap is less jarring, and add a 2px brand-primary top progress bar during range/compare transitions (the controls already expose isPending — lift or duplicate that signal). Re-screenshot after fixes and send me before/after. Typecheck, suite, build, commit, push.
+```
+
+---
+
+**Chunk 35 — Explore usability** _(F6; independent)_
+
+*Prompt:*
+```
+Make Explore friendlier (app/components/Explore.tsx + lib/explore.ts):
+1) Friendly labels: add a display-name map (lib/semanticLabels.ts) for models (ga4 → "Website analytics", blended → "Cross-source") and fields (totalUsers → "Users", sessionDefaultChannelGroup → "Channel", session_date → "Date", cost/cac/roas → proper case) with fallback = prettified raw name (camelCase/snake_case → spaced Title Case). Use everywhere labels render (chips, dropdown, table headers, chart series names) while queries keep raw names.
+2) Filter chips: use readableTextColor(brand.primary) instead of hardcoded #fff.
+3) Sort + limit: a compact "Sort by <measure> ↓ · Top 20/50/100" control pair wired into buildExploreQuery's order_by/limit, URL-persisted via the existing parsers.
+4) Loading: dim the results table (opacity .5) while loading instead of only the header text.
+5) Escape key closes nothing today — add key handling so Escape clears focus/no-ops gracefully (and closes the day-picker popover if this component ever hosts one).
+Update lib/explore tests for the sort/limit query building and the label prettifier. Typecheck, suite, build, commit, push.
+```
+
+---
+
+**Chunk 36 — Range presets + picker polish + tab keyboard nav** _(F7, F9)_
+
+*Prompt:*
+```
+Controls polish: 1) Add "This month" and "Last month" presets to RANGE_PRESETS in app/lib/range.ts (calendar-month windows via date-fns startOfMonth/endOfMonth, clamped to today; keys "tm"/"lm"), flowing through resolveRange, searchParams PRESET_IDS, and DashboardControls buttons — comparison "prior period" for them = previous calendar month, prior-year = same month last year; add range.test.ts cases. 2) Day-picker: Escape closes the popover (keydown handler alongside the backdrop), and theme react-day-picker to the design system in globals.css (square corners — override its border-radius vars, brand-primary selection, Montserrat). 3) View tabs in DashboardBody.tsx: ArrowLeft/ArrowRight move focus+selection per WAI-ARIA tabs pattern. Typecheck, suite, build, commit, push.
+```
+
+---
+
+**Chunk 37 — KPI icon coverage + narratives for AI/SEO** _(F10)_
+
+*Prompt:*
+```
+1) app/components/Icons.tsx maps stat labels to Tabler icons but the newer KPIs fall through to the default: add mappings for AI Score (IconSparkles), AI-referred sessions (IconRobot or IconMessageChatbot), Backlinks (IconLink), Index coverage (IconListCheck), Not indexed (IconListX or similar), Crawl errors (IconBug), Pages in index (IconFiles), Avg. session duration (IconClock), Conversions (IconTargetArrow) — verify each exists in @tabler/icons-react and pick close alternatives where not.
+2) app/lib/narrative.ts builds the summary only from generic stat deltas — extend it to surface notable AI/SEO facts when present: AI Score grade + AI sessions trend when AI-referred sessions delta is significant, crawl errors > 0 as a caution item, backlinks total on first mention. Keep it rule-based, ≤ 4 items, tests in narrative.test.ts updated.
+Typecheck, suite, build, commit, push.
+```
+
+---
+
 ## 5. Suggested order
 
 ```
 Phase 0 (correctness):        1 → 2 → 3 → 4 → 5        ← do first, in order
-Phase 1 (QC):                 6, 7, 8, 9, 10           ← any order, parallelizable
+Quick trust wins:             30, 33, 7                ← tiny; any time, even before Phase 0
+Phase 1 (QC):                 6, 8, 9, 10              ← any order, parallelizable
+Phase 6 (UX):                 31, 32 (after 2), 34, 35, 36, 37   ← 32 depends on Chunk 2
 Phase 2 (live data):          11, 12, 13               ← as human inputs (H2–H5) arrive
 Phase 3 (product):            14 → 15, then 16–19      ← 14 is the high-value one
 Phase 4 (backend):            20 → 21 → 22 → {23, 24, 25} → 26
 Phase 5 (ops):                27 anytime (early is better) · 28 if H8 says gate · 29 last
 ```
 
-Rationale: Phase 0 first because compare/custom-range numbers are **wrong** on live data today and caching protects quota the moment more sources go live. Chunk 27 (CI) is cheap insurance — fine to run it right after Phase 0. Chunk 22 must precede any real data in the lake.
+Rationale: Phase 0 first because compare/custom-range numbers are **wrong** on live data today and caching protects quota the moment more sources go live. Chunks 30 + 33 are the two fastest trust fixes in the plan (client-visible dev copy; public client roster) — do them the same day. Chunk 27 (CI) is cheap insurance — fine to run it right after Phase 0. Chunk 32 waits for Chunk 2 (both touch compare rendering). Chunk 22 must precede any real data in the lake.
 
 ## 6. Env var checklist (Vercel, production)
 
