@@ -258,3 +258,42 @@ h3 {
     break-inside: avoid;
   }
 }
+
+/* --- Self-hosted fonts (next/font) — keep this block at the end ----------- */
+/* layout.tsx self-hosts League Spartan / Fira Sans / Montserrat via
+   next/font/google and exposes them as CSS variables. The rules above (and the
+   compiled Tabler CSS) reference the plain family names, which no longer load
+   from the CDN — these later-in-file overrides re-point every reference at the
+   bundled fonts, with the original names kept as fallbacks. */
+:root {
+  --tblr-font-sans-serif: var(--font-montserrat, "Montserrat"), system-ui,
+    -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+body,
+.stat-value,
+.rdp-root {
+  font-family: var(--font-montserrat, "Montserrat"), system-ui, -apple-system,
+    "Segoe UI", Roboto, sans-serif;
+}
+.page-title,
+.h1,
+.h2,
+.h3,
+h1,
+h2,
+h3,
+.af-header-title,
+.section-title {
+  font-family: var(--font-league-spartan, "League Spartan"),
+    var(--tblr-font-sans-serif);
+}
+.text-subtitle,
+.card-subtitle,
+.subheader,
+.view-tabs .nav-link,
+.af-header-sub,
+.rdp-caption_label,
+.rdp-weekday,
+.narrative-headline {
+  font-family: var(--font-fira-sans, "Fira Sans"), var(--tblr-font-sans-serif);
+}

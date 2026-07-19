@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- ArtForm mark: square ink tile, white "A", pink crossbar. -->
+  <rect width="64" height="64" fill="#333333"/>
+  <path d="M14 54 L32 8 L50 54" fill="none" stroke="#ffffff" stroke-width="9"/>
+  <rect x="22" y="38" width="20" height="7" fill="#e41679"/>
+</svg>

@@ -23,8 +23,22 @@ export async function generateMetadata({
   params: { client: string };
 }): Promise<Metadata> {
   const client = getClientBySlug(params.client);
+  if (!client) return { title: "Dashboard not found" };
+  const title = `${client.name} · Performance`;
+  const description = "Performance dashboard · ArtForm";
   return {
-    title: client ? `${client.name} · Performance` : "Dashboard not found",
+    title,
+    description,
+    // Social unfurls carry only the client name — never metrics or data.
+    // No OG image on purpose: an image would need to be text-free to avoid
+    // leaking client data, and a link without one unfurls cleanly.
+    openGraph: {
+      title,
+      description,
+      siteName: "ArtForm Dashboards",
+      type: "website",
+    },
+    twitter: { card: "summary", title, description },
   };
 }
 
