@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isPlaceholderSiteUrl, isPlaceholderId } from "./placeholder";
+import { isPlaceholderSiteUrl, isPlaceholderId, isPlaceholderAccountId } from "./placeholder";
 
 describe("isPlaceholderSiteUrl", () => {
   it("flags *.example placeholders", () => {
@@ -26,5 +26,24 @@ describe("isPlaceholderId", () => {
     expect(isPlaceholderId("310586485")).toBe(false);
     expect(isPlaceholderId("395344759")).toBe(false);
     expect(isPlaceholderId("123-456-7890")).toBe(false);
+  });
+});
+
+describe("isPlaceholderAccountId", () => {
+  it("flags the registry's 5000000xx LinkedIn filler block", () => {
+    expect(isPlaceholderAccountId("500000000")).toBe(true);
+    expect(isPlaceholderAccountId("500000003")).toBe(true);
+    expect(isPlaceholderAccountId("500000006")).toBe(true);
+    expect(isPlaceholderAccountId("500000099")).toBe(true);
+  });
+  it("also flags everything isPlaceholderId flags", () => {
+    expect(isPlaceholderAccountId("00000")).toBe(true);
+    expect(isPlaceholderAccountId("")).toBe(true);
+    expect(isPlaceholderAccountId(undefined)).toBe(true);
+  });
+  it("allows real account ids", () => {
+    expect(isPlaceholderAccountId("512345678")).toBe(false); // outside the filler block
+    expect(isPlaceholderAccountId("500000100")).toBe(false);
+    expect(isPlaceholderAccountId("98765432")).toBe(false);
   });
 });

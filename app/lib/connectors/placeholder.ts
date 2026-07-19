@@ -27,3 +27,14 @@ export function isPlaceholderId(id: string | undefined): boolean {
   const d = id.replace(/\D/g, "");
   return d === "" || d.startsWith("0");
 }
+
+/**
+ * The registry's filler LinkedIn sponsored-account ids are sequential
+ * "5000000xx" values (500000000–500000006 today). Real LinkedIn account ids
+ * are effectively arbitrary, so we only flag that exact filler block (plus
+ * anything isPlaceholderId already catches, e.g. leading zeros / empty).
+ */
+export function isPlaceholderAccountId(id: string | undefined): boolean {
+  if (isPlaceholderId(id)) return true;
+  return /^5000000\d{2}$/.test(id!.replace(/\D/g, ""));
+}

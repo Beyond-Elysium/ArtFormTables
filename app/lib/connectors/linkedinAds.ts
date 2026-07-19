@@ -12,6 +12,7 @@
  */
 import "server-only";
 import type { Connector, ConnectorContext, Panel } from "./types";
+import { isPlaceholderAccountId } from "./placeholder";
 import { mockDelta, mockSeries, rng } from "./mock";
 import { num, pct, rangeDates } from "./util";
 
@@ -167,7 +168,11 @@ export const linkedinAdsConnector: Connector<LinkedInConfig> = {
   isLive: () => hasToken(),
   async fetch(config, ctx) {
     const base = { sourceId: "linkedin-ads", label: "LinkedIn Ads", category: "Advertising" };
-    if (!hasToken()) return { ...base, panels: fetchMock(config, ctx), isMock: true };
+    // The registry's 5000000xx account ids are filler — the moment a
+    // LINKEDIN_ACCESS_TOKEN is set they'd fire doomed live calls and log 4xx
+    // noise. Serve mock directly until a real account id is configured.
+    if (!hasToken() || isPlaceholderAccountId(config.accountId))
+      return { ...base, panels: fetchMock(config, ctx), isMock: true };
     try {
       return { ...base, panels: await fetchLive(config, ctx), isMock: false };
     } catch (err) {
