@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { indexHealthPanels, searchConsoleConnector } from "./searchConsole";
+import { indexHealthPanels, pagePath, queryPageRows, searchConsoleConnector } from "./searchConsole";
 import { bingWebmasterConnector, seoPanels } from "./bingWebmaster";
 import { mergeResults } from "./merge";
 import type { BreakdownPanel, ConnectorResult, StatPanel } from "./types";
@@ -15,6 +15,21 @@ describe("searchConsole mock output", () => {
     // keyword breakdown carries position/CTR in the sublabel
     const kw = res.panels.find((p) => p.kind === "breakdown" && (p as BreakdownPanel).title === "Keyword breakdown") as BreakdownPanel | undefined;
     expect(kw?.rows[0]?.sublabel).toMatch(/Pos .* CTR/);
+  });
+
+  it("includes the query→page pairing breakdown", async () => {
+    const res = await searchConsoleConnector.fetch({ siteUrl: "https://demo.example/" }, ctx);
+    const pairs = res.panels.find(
+      (p) => p.kind === "breakdown" && (p as BreakdownPanel).title === "Keywords by page",
+    ) as BreakdownPanel | undefined;
+    expect(pairs).toBeTruthy();
+    expect(pairs?.rows.length).toBeGreaterThan(0);
+    expect(pairs?.rows.length).toBeLessThanOrEqual(10);
+    // sublabel = "page-path · Pos X.X · N impr" (path only, no scheme/host)
+    expect(pairs?.rows[0]?.sublabel).toMatch(/^\/\S* · Pos \d+\.\d · [\d,]+ impr$/);
+    // Sorted by clicks, descending.
+    const values = pairs?.rows.map((r) => r.value) ?? [];
+    expect([...values].sort((a, b) => b - a)).toEqual(values);
   });
 
   it("index-health stats participate in key-based compare merging", async () => {
@@ -39,6 +54,34 @@ describe("searchConsole mock output", () => {
     }
     const notIndexed = merged.panels.find((p) => p.kind === "stat" && p.label === "Not indexed") as StatPanel;
     expect(notIndexed.invertDelta).toBe(true);
+  });
+});
+
+describe("query→page helpers", () => {
+  it("pagePath trims URLs to path (+query), passing non-URLs through", () => {
+    expect(pagePath("https://acme.com/blog/guide")).toBe("/blog/guide");
+    expect(pagePath("https://acme.com/")).toBe("/");
+    expect(pagePath("https://acme.com/search?q=x")).toBe("/search?q=x");
+    expect(pagePath("(unknown)")).toBe("(unknown)");
+  });
+
+  it("queryPageRows keeps the top 10 pairs by clicks with the display sublabel", () => {
+    const rows = Array.from({ length: 25 }, (_, i) => ({
+      keys: [`query ${i}`, `https://acme.com/page-${i}`],
+      clicks: i,
+      impressions: i * 20,
+      position: 3.14,
+    }));
+    const out = queryPageRows(rows);
+    expect(out).toHaveLength(10);
+    expect(out[0]).toEqual({
+      label: "query 24",
+      value: 24,
+      sublabel: "/page-24 · Pos 3.1 · 480 impr",
+    });
+    // Strictly descending by clicks.
+    const values = out.map((r) => r.value);
+    expect([...values].sort((a, b) => b - a)).toEqual(values);
   });
 });
 
