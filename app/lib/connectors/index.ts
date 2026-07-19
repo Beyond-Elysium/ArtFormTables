@@ -5,6 +5,7 @@
  * provider by listing a source of that `type` in the client registry.
  */
 import "server-only";
+import { unstable_cache } from "next/cache";
 import pLimit from "p-limit";
 import type { Client } from "@/config/clients";
 import {
@@ -96,7 +97,10 @@ export function connectorFor(type: string): Connector | undefined {
 const MAX_CONCURRENT_SOURCES = 6;
 
 /** Fetch every configured source for a client over one window, in parallel. */
-async function fetchWindow(client: Client, w: Window): Promise<ConnectorResult[]> {
+async function fetchWindowUncached(client: Client, w: Window): Promise<ConnectorResult[]> {
+  // Fires only on cache misses (or via the uncached debug path) — repeated
+  // page loads of the same window should NOT repeat this line.
+  console.log(`[connectors] fetching window ${w.key} for ${client.slug}`);
   const ctx: ConnectorContext = {
     range: w.key,
     days: w.days,
@@ -143,13 +147,36 @@ async function fetchWindow(client: Client, w: Window): Promise<ConnectorResult[]
 }
 
 /**
- * Fetch a client's dashboard data for a resolved range. When a comparison
- * window is requested, fetches it too and merges it in generically (no
- * connector changes needed): stats gain a `compareValue` + recomputed delta,
- * and time series gain a dashed "previous" overlay aligned on the same axis.
- * Merging is key-based (see ./merge) because panel lists are conditional.
+ * Cached per-window provider fetch.
+ *
+ * Why the page's `export const revalidate = 3600` doesn't cover this: reading
+ * `searchParams` makes the dashboard route dynamic (no full-route cache), GA4's
+ * gRPC client bypasses Next's fetch cache entirely, and the REST connectors use
+ * `cache: "no-store"`. So without this wrapper every page view re-hits every
+ * provider API. `unstable_cache` memoizes the normalized ConnectorResult[] in
+ * the data cache instead, keyed by:
+ *   - client slug + window key (start_end) — one entry per client per window;
+ *   - a JSON digest of `client.sources` — editing a source's config in the
+ *     registry changes the key and invalidates immediately.
+ * Tagged `client:<slug>` so a future revalidateTag can purge one client.
+ *
+ * The mock timeseries date-relabeling above is deterministic given the window,
+ * so it's safe to run inside the cached function: a cache hit returns points
+ * already relabeled onto that exact window's dates.
  */
-export async function fetchClientData(
+function fetchWindowCached(client: Client, w: Window): Promise<ConnectorResult[]> {
+  const sourcesDigest = JSON.stringify(client.sources);
+  return unstable_cache(
+    () => fetchWindowUncached(client, w),
+    ["connector-window", client.slug, w.key, sourcesDigest],
+    { revalidate: 3600, tags: [`client:${client.slug}`] },
+  )();
+}
+
+type FetchWindow = (client: Client, w: Window) => Promise<ConnectorResult[]>;
+
+async function fetchClientDataWith(
+  fetchWindow: FetchWindow,
   client: Client,
   resolved: ResolvedRange,
 ): Promise<ConnectorResult[]> {
@@ -158,6 +185,32 @@ export async function fetchClientData(
 
   const comparison = await fetchWindow(client, resolved.compare);
   return mergeResults(primary, comparison, windowDates(resolved.window));
+}
+
+/**
+ * Fetch a client's dashboard data for a resolved range (provider calls served
+ * from a 1-hour cache — see fetchWindowCached). When a comparison window is
+ * requested, fetches it too and merges it in generically (no connector changes
+ * needed): stats gain a `compareValue` + recomputed delta, and time series
+ * gain a dashed "previous" overlay aligned on the same axis. Merging is
+ * key-based (see ./merge) because panel lists are conditional.
+ */
+export async function fetchClientData(
+  client: Client,
+  resolved: ResolvedRange,
+): Promise<ConnectorResult[]> {
+  return fetchClientDataWith(fetchWindowCached, client, resolved);
+}
+
+/**
+ * Uncached variant for diagnostics (/api/debug/[client]): always hits the
+ * providers so it reports the real live/demo state and current errors.
+ */
+export async function fetchClientDataUncached(
+  client: Client,
+  resolved: ResolvedRange,
+): Promise<ConnectorResult[]> {
+  return fetchClientDataWith(fetchWindowUncached, client, resolved);
 }
 
 export * from "./types";
