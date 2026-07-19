@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useQueryStates } from "nuqs";
 import { DayPicker, type DateRange } from "react-day-picker";
 import { format, parseISO } from "date-fns";
@@ -40,6 +40,17 @@ export function DashboardControls({
   });
 
   const [showCustom, setShowCustom] = useState(false);
+
+  // Escape closes the day-picker popover (companion to the click-away backdrop).
+  useEffect(() => {
+    if (!showCustom) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowCustom(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [showCustom]);
+
   const [selected, setSelected] = useState<DateRange | undefined>(() => {
     try {
       return { from: parseISO(start), to: parseISO(end) };
