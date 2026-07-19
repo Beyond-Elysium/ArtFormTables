@@ -85,7 +85,13 @@ export interface ConnectorContext {
   range: string;
   /** Number of days in the window. */
   days: number;
-  /** Inclusive window bounds (YYYY-MM-DD); available for live connectors. */
+  /**
+   * Inclusive window bounds (YYYY-MM-DD). Live connectors MUST fetch exactly
+   * this window when both are present (see lib/connectors/dates.ts —
+   * `resolveWindow`/`previousWindow`); trailing-`days` windows ending today are
+   * only the fallback when bounds are absent. This is what makes custom ranges
+   * and comparison windows fetch the right dates on live data.
+   */
   start?: string;
   end?: string;
 }

@@ -15,6 +15,7 @@
 import "server-only";
 import type { Connector, ConnectorContext, ConnectorResult, Panel } from "./types";
 import { isPlaceholderId } from "./placeholder";
+import { previousWindow, resolveWindow } from "./dates";
 import { mockDelta, mockSeries, rng } from "./mock";
 
 interface AdsConfig {
@@ -98,12 +99,6 @@ function digits(s: string): string {
   return s.replace(/\D/g, "");
 }
 
-function dateNDaysAgo(n: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  return d.toISOString().slice(0, 10);
-}
-
 function pct(curr: number, prev: number): number {
   if (prev === 0) return curr === 0 ? 0 : 100;
   return ((curr - prev) / prev) * 100;
@@ -155,10 +150,14 @@ async function fetchLive(config: AdsConfig, ctx: ConnectorContext): Promise<Pane
   const customerId = digits(config.customerId);
   const token = await getAccessToken();
 
-  const start = dateNDaysAgo(ctx.days - 1);
-  const end = dateNDaysAgo(0);
-  const prevStart = dateNDaysAgo(ctx.days * 2 - 1);
-  const prevEnd = dateNDaysAgo(ctx.days);
+  // Honor the explicit window; the delta baseline is the immediately-preceding
+  // window of equal length.
+  const w = resolveWindow(ctx);
+  const p = previousWindow(w);
+  const start = w.start;
+  const end = w.end;
+  const prevStart = p.start;
+  const prevEnd = p.end;
 
   // Current period: per-campaign, per-day (drives totals, timeseries, breakdown).
   const currentRows = await searchStream(

@@ -9,6 +9,7 @@ import "server-only";
 import type { Connector, ConnectorContext, ConnectorResult, Panel } from "./types";
 import { googleAccessToken, hasGoogleAuth } from "./googleAuth";
 import { isPlaceholderSiteUrl } from "./placeholder";
+import { clampWindowEnd, dateNDaysAgo, resolveWindow } from "./dates";
 import { mockDelta, mockSeries, rng } from "./mock";
 
 interface ScConfig {
@@ -18,11 +19,8 @@ interface ScConfig {
 
 const SCOPE = "https://www.googleapis.com/auth/webmasters.readonly";
 
-function dateNDaysAgo(n: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  return d.toISOString().slice(0, 10);
-}
+/** GSC search-analytics data is typically final only ~2 days back. */
+const GSC_LATENCY_DAYS = 2;
 
 async function query(siteUrl: string, body: unknown): Promise<{ rows?: any[] }> {
   const token = await googleAccessToken([SCOPE]);
@@ -106,8 +104,11 @@ function indexHealthPanels(sitemaps: SitemapEntry[]): Panel[] {
 }
 
 async function fetchLive(config: ScConfig, ctx: ConnectorContext): Promise<Panel[]> {
-  const startDate = dateNDaysAgo(ctx.days);
-  const endDate = dateNDaysAgo(1);
+  // Honor the explicit window; clamp the end to today-2 so the not-yet-final
+  // trailing GSC buckets don't read as zeros and drag totals down.
+  const w = clampWindowEnd(resolveWindow(ctx), dateNDaysAgo(GSC_LATENCY_DAYS));
+  const startDate = w.start;
+  const endDate = w.end;
 
   const [totals, byDate, queries, pages] = await Promise.all([
     query(config.siteUrl, { startDate, endDate, dimensions: [] }),

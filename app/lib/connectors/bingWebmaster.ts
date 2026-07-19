@@ -17,6 +17,7 @@
 import "server-only";
 import type { Connector, ConnectorContext, ConnectorResult, Panel } from "./types";
 import { isPlaceholderSiteUrl } from "./placeholder";
+import { filterByWindow, resolveWindow, type DateWindow } from "./dates";
 import { mockSeries, rng } from "./mock";
 
 interface BingConfig {
@@ -32,10 +33,14 @@ async function fetchLive(config: BingConfig, ctx: ConnectorContext): Promise<Pan
   const base = "https://ssl.bing.com/webmaster/api.svc/json";
   const q = `apikey=${encodeURIComponent(key)}&siteUrl=${encodeURIComponent(config.siteUrl)}`;
 
+  // Bing's stats endpoints return a fixed history — slice it to the requested
+  // window by date rather than taking the last N entries.
+  const w = resolveWindow(ctx);
+
   const [trafficRes, queryRes, crawl, links] = await Promise.all([
     fetch(`${base}/GetRankAndTrafficStats?${q}`, { cache: "no-store" }),
     fetch(`${base}/GetQueryStats?${q}`, { cache: "no-store" }),
-    fetchCrawl(base, q, ctx.days),
+    fetchCrawl(base, q, w),
     fetchLinks(base, q),
   ]);
   if (!trafficRes.ok) throw new Error(`Bing ${trafficRes.status}: ${await trafficRes.text()}`);
@@ -45,13 +50,14 @@ async function fetchLive(config: BingConfig, ctx: ConnectorContext): Promise<Pan
 
   // Bing returns ASP.NET-style { d: [...] } with /Date(ms)/ strings.
   const stats: any[] = traffic.d ?? [];
-  const ts = stats
-    .slice(-ctx.days)
-    .map((s) => ({
+  const ts = filterByWindow(
+    stats.map((s) => ({
       x: parseAspDate(s.Date),
       clicks: Number(s.Clicks ?? 0),
       impressions: Number(s.Impressions ?? 0),
-    }));
+    })),
+    w,
+  );
   const clicks = ts.reduce((a, b) => a + b.clicks, 0);
   const impressions = ts.reduce((a, b) => a + b.impressions, 0);
 
@@ -74,12 +80,21 @@ interface LinksSummary {
 }
 
 /** GetCrawlStats → aggregate crawl errors, robots-blocked, pages in index. */
-async function fetchCrawl(base: string, q: string, days: number): Promise<CrawlSummary | null> {
+async function fetchCrawl(base: string, q: string, w: DateWindow): Promise<CrawlSummary | null> {
   try {
     const res = await fetch(`${base}/GetCrawlStats?${q}`, { cache: "no-store" });
     if (!res.ok) return null;
     const json = await res.json();
-    const rows: any[] = (json.d ?? []).slice(-days);
+    const all: any[] = json.d ?? [];
+    // Prefer slicing the history by the window's dates; fall back to the last
+    // N entries only when rows carry no usable Date field at all.
+    const hasDates = all.some((r) => r.Date != null);
+    const rows: any[] = hasDates
+      ? all.filter((r) => {
+          const d = parseAspDate(r.Date ?? "");
+          return d >= w.start && d <= w.end;
+        })
+      : all.slice(-w.days);
     let crawlErrors = 0;
     let blocked = 0;
     let inIndex = 0;

@@ -16,6 +16,7 @@ import {
   serviceAccountJson,
 } from "./googleAuth";
 import { isPlaceholderId } from "./placeholder";
+import { previousWindow, resolveWindow } from "./dates";
 import { AI_SOURCE_TOKENS, computeAiScore, matchAiSource, type AiScore, type AiSignals } from "./aiSources";
 import { mockDelta, mockSeries, rng } from "./mock";
 
@@ -56,9 +57,13 @@ async function fetchLive(
 ): Promise<Panel[]> {
   const ga = await getClient();
   const property = `properties/${config.propertyId}`;
-  const days = ctx.days;
-  const curr = { startDate: `${days}daysAgo`, endDate: "today" };
-  const prev = { startDate: `${days * 2}daysAgo`, endDate: `${days + 1}daysAgo` };
+  // Honor the explicit window (custom ranges, comparison windows). The
+  // connector's own previous period — used for the per-stat deltas — is the
+  // immediately-preceding window of equal length.
+  const w = resolveWindow(ctx);
+  const p0 = previousWindow(w);
+  const curr = { startDate: w.start, endDate: w.end };
+  const prev = { startDate: p0.start, endDate: p0.end };
 
   const [overview] = await ga.runReport({
     property,
