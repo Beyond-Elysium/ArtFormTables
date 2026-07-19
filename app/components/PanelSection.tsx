@@ -39,7 +39,7 @@ export function PanelSection({
 
       {result.error && (
         <div className="text-secondary small mb-2">
-          Live fetch unavailable — showing sample data.
+          Sample data shown while this source is being connected.
         </div>
       )}
 

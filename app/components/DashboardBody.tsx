@@ -104,7 +104,7 @@ export function DashboardBody({
         <div className="empty">
           <p className="empty-title">No data sources in this view</p>
           <p className="empty-subtitle text-secondary">
-            Add sources to this client in <code>config/clients.ts</code>.
+            Data sources for this view are still being set up.
           </p>
         </div>
       )}

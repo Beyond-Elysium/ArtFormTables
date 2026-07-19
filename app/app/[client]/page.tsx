@@ -51,6 +51,8 @@ export default async function ClientDashboard({
   });
   // Print mode (used by the PDF renderer): show every source, hide UI chrome.
   const printMode = searchParams.print === "1" || searchParams.print === "true";
+  // Internal mode (?internal=1): reveal dev hints that clients must never see.
+  const internalMode = searchParams.internal === "1";
 
   // Build a report link that carries the currently-viewed range/comparison.
   const reportParams = new URLSearchParams();
@@ -73,10 +75,16 @@ export default async function ClientDashboard({
       ? "vs prior year"
       : `vs prior ${resolved.window.days}d`;
   const narrative = buildNarrative(results, deltaSuffix);
-  const updated = new Date().toLocaleString("en-US", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
+  // Always label the refresh time explicitly as UTC (the server's timezone) so
+  // it never reads as a wrong local time. e.g. "Jul 19, 14:05 UTC".
+  const updated = `${new Date().toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "UTC",
+  })} UTC`;
 
   return (
     <div
@@ -160,9 +168,17 @@ export default async function ClientDashboard({
 
             {anyMock && (
               <div className="alert mock-banner mb-3" role="alert">
-                <strong>Demo data.</strong> One or more sources have no live
-                credentials configured — showing deterministic sample metrics. See{" "}
-                <code>app/README.md</code> to connect live data.
+                <strong>Sample data.</strong> Some of these metrics are
+                illustrative — shown while the source is being connected.
+                {internalMode && (
+                  <>
+                    {" "}
+                    <span className="text-secondary">
+                      (internal: missing live credentials — see{" "}
+                      <code>app/README.md</code>)
+                    </span>
+                  </>
+                )}
               </div>
             )}
 
