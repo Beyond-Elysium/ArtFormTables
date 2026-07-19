@@ -10,7 +10,12 @@
  * Required env (see .env.example):
  *   GOOGLE_ADS_DEVELOPER_TOKEN, GOOGLE_ADS_CLIENT_ID, GOOGLE_ADS_CLIENT_SECRET,
  *   GOOGLE_ADS_OAUTH_REFRESH_TOKEN, optional GOOGLE_ADS_LOGIN_CUSTOMER_ID (MCC),
- *   optional GOOGLE_ADS_API_VERSION (defaults to v18).
+ *   optional GOOGLE_ADS_API_VERSION (defaults to v24).
+ *
+ * Ads API versions sunset roughly a year after release (monthly release cycle
+ * since 2026) — when the default here ages out, live Ads silently degrades to
+ * mock. Check https://developers.google.com/google-ads/api/docs/sunset-dates
+ * and bump the default (or set GOOGLE_ADS_API_VERSION) before sunset.
  */
 import "server-only";
 import type { Connector, ConnectorContext, ConnectorResult, Panel } from "./types";
@@ -64,7 +69,9 @@ function hasAdsCredentials(): boolean {
  * Live: OAuth refresh-token exchange + GAQL searchStream
  * ------------------------------------------------------------------ */
 
-const API_VERSION = process.env.GOOGLE_ADS_API_VERSION || "v18";
+// Newest stable major version as of 2026-07 (v24 released 2026-04-22; v25 is
+// still rolling out). v20 and earlier are sunset.
+const API_VERSION = process.env.GOOGLE_ADS_API_VERSION || "v24";
 
 let cachedToken: { value: string; expiresAt: number } | null = null;
 
@@ -133,7 +140,20 @@ async function searchStream(
     { method: "POST", headers, body: JSON.stringify({ query }), cache: "no-store" },
   );
   if (!res.ok) {
-    throw new Error(`Google Ads ${res.status}: ${await res.text()}`);
+    const body = await res.text();
+    // A retired/unknown API version 404s (unknown URL) or errors mentioning
+    // the version — surface an actionable message instead of a cryptic 4xx.
+    if (
+      res.status === 404 ||
+      /UNSUPPORTED_VERSION|version\s+is\s+(deprecated|sunset|no longer supported)/i.test(body)
+    ) {
+      throw new Error(
+        `Google Ads ${res.status}: API version "${API_VERSION}" appears retired or unknown. ` +
+          `Set GOOGLE_ADS_API_VERSION to a currently-supported version ` +
+          `(https://developers.google.com/google-ads/api/docs/sunset-dates). Response: ${body}`,
+      );
+    }
+    throw new Error(`Google Ads ${res.status}: ${body}`);
   }
   // searchStream returns an array of batches: [{ results: [...] }, ...]
   const data = (await res.json()) as { results?: AdsRow[] }[] | { results?: AdsRow[] };
