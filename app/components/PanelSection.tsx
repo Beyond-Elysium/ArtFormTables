@@ -1,4 +1,8 @@
-import type { ConnectorResult, BreakdownPanel } from "@/lib/connectors/types";
+import type {
+  ConnectorResult,
+  BreakdownPanel,
+  TimeseriesPanel,
+} from "@/lib/connectors/types";
 import { formatValue } from "@/lib/format";
 import { readableTextColor } from "@/lib/contrast";
 import { StatCard } from "@/components/StatCard";
@@ -73,7 +77,11 @@ export function PanelSection({
             if (p.kind === "timeseries") {
               return (
                 <div className="col-lg-8" key={i}>
-                  <div className="card h-100">
+                  <div
+                    className="card h-100"
+                    role="group"
+                    aria-label={timeseriesAriaLabel(p)}
+                  >
                     <div className="card-header d-block">
                       <h3 className="card-title mb-0">{p.title}</h3>
                       {p.subtitle && (
@@ -87,9 +95,15 @@ export function PanelSection({
                 </div>
               );
             }
+            // Tables carry their own semantics; charts get a summary label.
+            const chartLabel = p.display === "table" ? undefined : breakdownAriaLabel(p);
             return (
               <div className="col-lg-4" key={i}>
-                <div className="card h-100">
+                <div
+                  className="card h-100"
+                  role={chartLabel ? "group" : undefined}
+                  aria-label={chartLabel}
+                >
                   <div className="card-header d-block">
                     <h3 className="card-title mb-0">{p.title}</h3>
                     {p.subtitle && (
@@ -115,6 +129,21 @@ export function PanelSection({
       )}
     </section>
   );
+}
+
+/** Screen-reader summary for a timeseries chart card: title, series, points. */
+function timeseriesAriaLabel(p: TimeseriesPanel): string {
+  const names = p.series.map((s) => s.name).join(", ");
+  const points = p.series[0]?.points.length ?? 0;
+  return `${p.title}. Line chart of ${names} over ${points} data points.`;
+}
+
+/** Screen-reader summary for a bar/donut chart card: title, kind, item count. */
+function breakdownAriaLabel(p: BreakdownPanel): string {
+  const kind = p.display === "bar" ? "Bar" : "Donut";
+  const top = p.rows[0];
+  const topText = top ? ` Largest: ${top.label}.` : "";
+  return `${p.title}. ${kind} chart of ${p.rows.length} items.${topText}`;
 }
 
 function BreakdownTable({ panel }: { panel: BreakdownPanel }) {
