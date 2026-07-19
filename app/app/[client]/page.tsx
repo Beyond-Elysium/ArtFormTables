@@ -29,6 +29,8 @@ export async function generateMetadata({
   return {
     title,
     description,
+    // Public-by-URL by design, but never search-indexable.
+    robots: { index: false, follow: false },
     // Social unfurls carry only the client name — never metrics or data.
     // No OG image on purpose: an image would need to be text-free to avoid
     // leaking client data, and a link without one unfurls cleanly.

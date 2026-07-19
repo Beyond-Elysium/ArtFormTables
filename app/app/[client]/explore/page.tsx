@@ -19,7 +19,11 @@ export async function generateMetadata({
   params: { client: string };
 }): Promise<Metadata> {
   const client = getClientBySlug(params.client);
-  return { title: client ? `${client.name} · Explore` : "Dashboard not found" };
+  return {
+    title: client ? `${client.name} · Explore` : "Dashboard not found",
+    // Public-by-URL by design, but never search-indexable.
+    robots: { index: false, follow: false },
+  };
 }
 
 export default function ExplorePage({
