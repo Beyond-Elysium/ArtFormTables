@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryStates } from "nuqs";
-import { parseAsArrayOf, parseAsString } from "nuqs";
+import { parseAsArrayOf, parseAsInteger, parseAsString } from "nuqs";
 import { IconX, IconFilterOff, IconTable, IconChartBar } from "@tabler/icons-react";
 import type { Branding } from "@/components/Charts";
 import { BarChart, TimeseriesChart } from "@/components/Charts";
@@ -14,15 +14,18 @@ import {
   filtersFromRow,
   isTimeseries,
   toggleFilter,
+  LIMIT_OPTIONS,
   type ExploreFilter,
 } from "@/lib/explore";
+import { fieldLabel, modelLabel } from "@/lib/semanticLabels";
+import { readableTextColor } from "@/lib/contrast";
 import { formatNumber } from "@/lib/format";
 
 type ModelMap = Record<string, SemanticModelSchema>;
 
 // All Explore state lives in the URL (shallow: the client re-queries the proxy
 // itself, so there's no server component to re-run). This keeps every view —
-// model, group-bys, measures, cross-filters, range — shareable via the link.
+// model, group-bys, measures, cross-filters, range, sort/limit — shareable.
 const exploreParsers = {
   model: parseAsString.withDefault(""),
   dims: parseAsArrayOf(parseAsString).withDefault([]),
@@ -30,6 +33,8 @@ const exploreParsers = {
   filters: parseAsString.withDefault(""),
   from: parseAsString.withDefault(""),
   to: parseAsString.withDefault(""),
+  sort: parseAsString.withDefault(""),
+  top: parseAsInteger.withDefault(50),
 };
 
 /** Format a measure cell: integers compactly, ratios/small values with decimals. */
@@ -43,7 +48,7 @@ function formatCell(value: unknown): string {
 }
 
 export function ExploreClient({ brand }: { brand: Branding }) {
-  const [{ model, dims, measures, filters, from, to }, setState] = useQueryStates(
+  const [{ model, dims, measures, filters, from, to, sort, top }, setState] = useQueryStates(
     exploreParsers,
     { shallow: true, scroll: false, history: "push" },
   );
@@ -110,6 +115,8 @@ export function ExploreClient({ brand }: { brand: Branding }) {
       from,
       to,
       timeDimension,
+      sortBy: sort || undefined,
+      limit: top,
     });
     const ctrl = new AbortController();
     setLoading(true);
@@ -138,7 +145,7 @@ export function ExploreClient({ brand }: { brand: Branding }) {
       });
     return () => ctrl.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeModel, dims.join(","), measures.join(","), filters, from, to, schema]);
+  }, [activeModel, dims.join(","), measures.join(","), filters, from, to, sort, top, schema]);
 
   const applyFilters = useCallback(
     (next: ExploreFilter[]) => setState({ filters: encodeFilters(next) || null }),
@@ -187,7 +194,7 @@ export function ExploreClient({ brand }: { brand: Branding }) {
   const tsSeries = useMemo(() => {
     if (!showTimeseries || !timeDimension) return [];
     return measures.map((m) => ({
-      name: m,
+      name: fieldLabel(m),
       points: rows.map((r) => ({ x: String(r[timeDimension]), y: Number(r[m] ?? 0) })),
     }));
   }, [rows, showTimeseries, timeDimension, measures]);
@@ -206,7 +213,15 @@ export function ExploreClient({ brand }: { brand: Branding }) {
   }
 
   return (
-    <div>
+    // Escape clears focus from whatever control is active (graceful no-op —
+    // the range popover lives in DashboardControls and closes itself).
+    <div
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          (document.activeElement as HTMLElement | null)?.blur?.();
+        }
+      }}
+    >
       {/* Query builder */}
       <div className="card mb-3">
         <div className="card-body">
@@ -220,7 +235,7 @@ export function ExploreClient({ brand }: { brand: Branding }) {
               >
                 {modelNames.map((n) => (
                   <option key={n} value={n}>
-                    {n}
+                    {modelLabel(n)}
                   </option>
                 ))}
               </select>
@@ -237,8 +252,9 @@ export function ExploreClient({ brand }: { brand: Branding }) {
                       dimensions.includes(d) ? "btn-primary" : "btn-outline-primary"
                     }`}
                     onClick={() => toggleDim(d)}
+                    title={d}
                   >
-                    {d}
+                    {fieldLabel(d)}
                     {d === timeDimension ? " ⏱" : ""}
                   </button>
                 ))}
@@ -256,8 +272,9 @@ export function ExploreClient({ brand }: { brand: Branding }) {
                       measures.includes(m) ? "btn-primary" : "btn-outline-primary"
                     }`}
                     onClick={() => toggleMeasure(m)}
+                    title={m}
                   >
-                    {m}
+                    {fieldLabel(m)}
                   </button>
                 ))}
               </div>
@@ -281,6 +298,42 @@ export function ExploreClient({ brand }: { brand: Branding }) {
                 onChange={(e) => setState({ to: e.target.value || null })}
               />
             </div>
+
+            {/* Sort-by-measure + Top-N row cap (categorical views only). */}
+            {!showTimeseries && measures.length > 0 && (
+              <div className="col-12 col-md-4">
+                <label className="form-label subheader" htmlFor="explore-sort">
+                  Sort &amp; rows
+                </label>
+                <div className="d-flex gap-2">
+                  <select
+                    id="explore-sort"
+                    className="form-select"
+                    value={sort && measures.includes(sort) ? sort : measures[0] ?? ""}
+                    onChange={(e) => setState({ sort: e.target.value || null })}
+                  >
+                    {measures.map((m) => (
+                      <option key={m} value={m}>
+                        Sort by {fieldLabel(m)} ↓
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    className="form-select"
+                    style={{ width: "auto" }}
+                    aria-label="Row limit"
+                    value={(LIMIT_OPTIONS as readonly number[]).includes(top) ? top : 50}
+                    onChange={(e) => setState({ top: Number(e.target.value) })}
+                  >
+                    {LIMIT_OPTIONS.map((n) => (
+                      <option key={n} value={n}>
+                        Top {n}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -298,11 +351,11 @@ export function ExploreClient({ brand }: { brand: Branding }) {
             key={`${f.field}:${f.value}`}
             type="button"
             className="badge explore-chip d-inline-flex align-items-center gap-1"
-            style={{ background: brand.primary, color: "#fff" }}
+            style={{ background: brand.primary, color: readableTextColor(brand.primary) }}
             onClick={() => applyFilters(toggleFilter(parsedFilters, f.field, f.value))}
             title="Remove filter"
           >
-            {f.field} = {f.value}
+            {fieldLabel(f.field)} = {f.value}
             <IconX size={13} stroke={2.5} />
           </button>
         ))}
@@ -328,7 +381,7 @@ export function ExploreClient({ brand }: { brand: Branding }) {
         <div className="card-header d-flex align-items-center">
           <IconChartBar size={18} className="me-2" />
           <h3 className="section-title m-0">
-            {showTimeseries ? "Trend" : primaryDim ? `By ${primaryDim}` : "Chart"}
+            {showTimeseries ? "Trend" : primaryDim ? `By ${fieldLabel(primaryDim)}` : "Chart"}
           </h3>
           {loading && <span className="ms-auto text-secondary small">Loading…</span>}
         </div>
@@ -350,7 +403,7 @@ export function ExploreClient({ brand }: { brand: Branding }) {
           )}
           {!showTimeseries && primaryDim && barRows.length > 0 && (
             <div className="text-secondary small mt-2">
-              Click a bar to filter on {primaryDim}.
+              Click a bar to filter on {fieldLabel(primaryDim).toLowerCase()}.
             </div>
           )}
         </div>
@@ -363,13 +416,18 @@ export function ExploreClient({ brand }: { brand: Branding }) {
           <h3 className="section-title m-0">Results</h3>
           <span className="ms-auto text-secondary small">{rows.length} rows</span>
         </div>
-        <div className="table-responsive">
+        {/* Dim (don't blank) the table while a query is in flight. */}
+        <div
+          className="table-responsive"
+          aria-busy={loading}
+          style={{ opacity: loading ? 0.5 : 1, transition: "opacity .15s" }}
+        >
           <table className="table table-vcenter card-table">
             <thead>
               <tr>
                 {(result?.columns ?? []).map((c) => (
-                  <th key={c} className={dimensions.includes(c) ? "" : "text-end"}>
-                    {c}
+                  <th key={c} className={dimensions.includes(c) ? "" : "text-end"} title={c}>
+                    {fieldLabel(c)}
                   </th>
                 ))}
               </tr>

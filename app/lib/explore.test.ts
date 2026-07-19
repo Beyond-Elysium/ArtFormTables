@@ -48,6 +48,42 @@ describe("buildExploreQuery", () => {
   });
 });
 
+describe("buildExploreQuery sort + limit", () => {
+  const multi = { ...base, measures: ["users", "sessions"] };
+
+  it("sorts by the chosen measure descending", () => {
+    const q = buildExploreQuery({ ...multi, sortBy: "sessions" });
+    expect(q.orderBy).toEqual([["sessions", "desc"]]);
+  });
+
+  it("ignores a stale sortBy that is no longer a selected measure", () => {
+    const q = buildExploreQuery({ ...multi, sortBy: "revenue" });
+    expect(q.orderBy).toEqual([["users", "desc"]]);
+  });
+
+  it("applies the Top-N row cap to categorical views", () => {
+    expect(buildExploreQuery({ ...multi, limit: 20 }).limit).toBe(20);
+    expect(buildExploreQuery({ ...multi, limit: 100 }).limit).toBe(100);
+  });
+
+  it("defaults to the 500-row ceiling and clamps out-of-range caps", () => {
+    expect(buildExploreQuery(multi).limit).toBe(500);
+    expect(buildExploreQuery({ ...multi, limit: 9999 }).limit).toBe(500);
+    expect(buildExploreQuery({ ...multi, limit: 0 }).limit).toBe(500);
+  });
+
+  it("timeseries views keep time ordering and the full window", () => {
+    const q = buildExploreQuery({
+      ...multi,
+      dimensions: ["date"],
+      sortBy: "sessions",
+      limit: 20,
+    });
+    expect(q.orderBy).toEqual([["date", "asc"]]);
+    expect(q.limit).toBe(500);
+  });
+});
+
 describe("isTimeseries", () => {
   it("is true only when grouped by the time dimension", () => {
     expect(isTimeseries({ dimensions: ["date"], timeDimension: "date" })).toBe(true);
