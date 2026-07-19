@@ -278,7 +278,15 @@ async function fetchAiInsights(
   }
 }
 
-function aiPanels(
+/**
+ * Panel shapes for the AI block (shared by live and mock). When the period has
+ * zero AI-referred sessions the score still computes (reads 0/D) but the
+ * caption explains the empty state instead of a bare "Grade D · 0.0%", and the
+ * pages/assistants breakdowns are skipped rather than rendered empty.
+ *
+ * Exported for tests.
+ */
+export function aiPanels(
   score: AiScore,
   aiSessions: number,
   pages: { label: string; value: number; sublabel?: string }[],
@@ -290,7 +298,10 @@ function aiPanels(
       label: "AI Score",
       value: score.score,
       format: "number",
-      caption: `Grade ${score.grade} · ${(score.share * 100).toFixed(1)}% of sessions from AI`,
+      caption:
+        aiSessions === 0
+          ? "No AI-referred traffic detected this period"
+          : `Grade ${score.grade} · ${(score.share * 100).toFixed(1)}% of sessions from AI`,
     },
     {
       kind: "stat",
@@ -300,6 +311,7 @@ function aiPanels(
       delta: score.trendPct,
     },
   ];
+  if (aiSessions === 0) return panels;
   if (pages.length > 0) {
     panels.push({
       kind: "breakdown",

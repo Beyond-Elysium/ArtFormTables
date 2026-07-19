@@ -70,6 +70,19 @@ async function fetchSitemaps(siteUrl: string): Promise<SitemapEntry[]> {
  * Exported for tests.
  */
 export function indexHealthPanels(sitemaps: SitemapEntry[]): Panel[] {
+  // Site verified but no sitemaps submitted: say so instead of silently
+  // rendering a misleading 0% coverage (or nothing at all).
+  if (sitemaps.length === 0) {
+    return [
+      {
+        kind: "stat",
+        label: "Sitemaps",
+        value: 0,
+        format: "number",
+        caption: "No sitemaps submitted in Search Console",
+      },
+    ];
+  }
   let submitted = 0;
   let indexed = 0;
   let errors = 0;

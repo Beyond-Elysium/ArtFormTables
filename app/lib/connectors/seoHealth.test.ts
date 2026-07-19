@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { searchConsoleConnector } from "./searchConsole";
-import { bingWebmasterConnector } from "./bingWebmaster";
+import { indexHealthPanels, searchConsoleConnector } from "./searchConsole";
+import { bingWebmasterConnector, seoPanels } from "./bingWebmaster";
 import { mergeResults } from "./merge";
 import type { BreakdownPanel, ConnectorResult, StatPanel } from "./types";
 
@@ -39,6 +39,47 @@ describe("searchConsole mock output", () => {
     }
     const notIndexed = merged.panels.find((p) => p.kind === "stat" && p.label === "Not indexed") as StatPanel;
     expect(notIndexed.invertDelta).toBe(true);
+  });
+});
+
+describe("searchConsole empty states", () => {
+  it("explains an empty sitemaps list instead of rendering 0% coverage", () => {
+    const panels = indexHealthPanels([]);
+    expect(panels).toHaveLength(1);
+    const stat = panels[0] as StatPanel;
+    expect(stat.kind).toBe("stat");
+    expect(stat.label).toBe("Sitemaps");
+    expect(stat.value).toBe(0);
+    expect(stat.caption).toBe("No sitemaps submitted in Search Console");
+  });
+
+  it("still renders full index-health panels when sitemaps exist", () => {
+    const panels = indexHealthPanels([
+      { path: "https://demo.example/sitemap.xml", errors: 0, warnings: 0, contents: [{ submitted: 100, indexed: 90 }] },
+    ]);
+    const labels = panels.filter((p) => p.kind === "stat").map((p) => (p as StatPanel).label);
+    expect(labels).toEqual(["Index coverage", "Not indexed", "Crawl errors"]);
+  });
+});
+
+describe("bingWebmaster empty states", () => {
+  it("flags a likely-unverified site (zero backlinks AND no crawl data)", () => {
+    const panels = seoPanels(null, { total: 0, topPages: [] });
+    const backlinks = panels.find((p) => p.kind === "stat" && (p as StatPanel).label === "Backlinks") as StatPanel;
+    expect(backlinks.value).toBe(0);
+    expect(backlinks.caption).toBe("Site not yet verified in Bing Webmaster?");
+  });
+
+  it("renders a real zero as-is when crawl data is present", () => {
+    const panels = seoPanels(
+      { crawlErrors: 3, blocked: 1, inIndex: 250 },
+      { total: 0, topPages: [] },
+    );
+    const backlinks = panels.find((p) => p.kind === "stat" && (p as StatPanel).label === "Backlinks") as StatPanel;
+    expect(backlinks.value).toBe(0);
+    expect(backlinks.caption).toBe("Inbound links (Bing)");
+    const labels = panels.filter((p) => p.kind === "stat").map((p) => (p as StatPanel).label);
+    expect(labels).toContain("Crawl errors");
   });
 });
 
