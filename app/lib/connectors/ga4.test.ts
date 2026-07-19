@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { aiPanels, ga4Connector } from "./ga4";
+import { aiPanels, conversionPanels, ga4Connector } from "./ga4";
 import { computeAiScore } from "./aiSources";
+import type { BreakdownPanel, TimeseriesPanel } from "./types";
 
 // With no Google credentials present the connector serves mock data; assert the
 // default AI insight panels ride along so every GA4 dashboard shows them.
@@ -56,6 +57,56 @@ describe("ga4Connector mock output", () => {
       .map((p) => (p as { title: string }).title);
     expect(titles).not.toContain("AI-referred pages");
     expect(titles).not.toContain("AI assistants");
+  });
+});
+
+describe("ga4 conversions", () => {
+  it("mock output includes the conversion panels", async () => {
+    const res = await ga4Connector.fetch({ propertyId: "310586485" }, { range: "28d", days: 28 });
+    const statLabels = res.panels.filter((p) => p.kind === "stat").map((p) => p.label);
+    expect(statLabels).toContain("Conversions");
+    expect(statLabels).toContain("Conversion rate");
+
+    const rate = res.panels.find((p) => p.kind === "stat" && p.label === "Conversion rate");
+    if (rate && rate.kind === "stat") {
+      expect(rate.format).toBe("percent");
+      expect(rate.value).toBeGreaterThan(0);
+      expect(rate.value).toBeLessThan(1);
+    }
+
+    const ts = res.panels.find(
+      (p) => p.kind === "timeseries" && (p as TimeseriesPanel).title === "Conversions over time",
+    ) as TimeseriesPanel | undefined;
+    expect(ts).toBeTruthy();
+    expect(ts?.series[0]?.points.length).toBe(28);
+
+    const events = res.panels.find(
+      (p) => p.kind === "breakdown" && (p as BreakdownPanel).title === "Top converting events",
+    ) as BreakdownPanel | undefined;
+    expect(events).toBeTruthy();
+    expect(events?.rows.length).toBeGreaterThan(0);
+    expect(events?.rows.length).toBeLessThanOrEqual(8);
+    // Sorted by count, descending.
+    const values = events?.rows.map((r) => r.value) ?? [];
+    expect([...values].sort((a, b) => b - a)).toEqual(values);
+  });
+
+  it("conversionPanels reports a property with no key events honestly", () => {
+    const panels = conversionPanels({
+      conversions: 0,
+      rate: 0,
+      deltas: {},
+      ts: [{ x: "2026-07-01", y: 0 }],
+      events: [],
+    });
+    expect(panels).toHaveLength(1);
+    const stat = panels[0];
+    expect(stat.kind).toBe("stat");
+    if (stat.kind === "stat") {
+      expect(stat.label).toBe("Conversions");
+      expect(stat.value).toBe(0);
+      expect(stat.caption).toBe("No key events configured in GA4");
+    }
   });
 });
 
