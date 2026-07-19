@@ -11,9 +11,8 @@ import {
   type Connector,
   type ConnectorContext,
   type ConnectorResult,
-  type Panel,
 } from "./types";
-import { pct } from "./util";
+import { mergeResults } from "./merge";
 import { windowDates, type ResolvedRange, type Window } from "@/lib/range";
 import { ga4Connector } from "./ga4";
 import { searchConsoleConnector } from "./searchConsole";
@@ -148,6 +147,7 @@ async function fetchWindow(client: Client, w: Window): Promise<ConnectorResult[]
  * window is requested, fetches it too and merges it in generically (no
  * connector changes needed): stats gain a `compareValue` + recomputed delta,
  * and time series gain a dashed "previous" overlay aligned on the same axis.
+ * Merging is key-based (see ./merge) because panel lists are conditional.
  */
 export async function fetchClientData(
   client: Client,
@@ -157,43 +157,7 @@ export async function fetchClientData(
   if (!resolved.compare) return primary;
 
   const comparison = await fetchWindow(client, resolved.compare);
-  const primaryDates = windowDates(resolved.window);
-
-  return primary.map((result, ri) => {
-    const comp = comparison[ri];
-    if (!comp) return result;
-    return {
-      ...result,
-      panels: result.panels.map((panel, pi) =>
-        mergePanel(panel, comp.panels[pi], primaryDates),
-      ),
-    };
-  });
-}
-
-/** Merge a comparison panel into a primary panel of the same shape. */
-function mergePanel(primary: Panel, comp: Panel | undefined, axis: string[]): Panel {
-  if (!comp || comp.kind !== primary.kind) return primary;
-
-  if (primary.kind === "stat" && comp.kind === "stat") {
-    return {
-      ...primary,
-      compareValue: comp.value,
-      delta: pct(primary.value, comp.value),
-    };
-  }
-
-  if (primary.kind === "timeseries" && comp.kind === "timeseries") {
-    // Overlay each comparison line as dashed, aligned on the primary axis.
-    const overlay = comp.series.map((s) => ({
-      name: `${s.name} (prev)`,
-      dashed: true,
-      points: s.points.map((pt, i) => ({ x: axis[i] ?? pt.x, y: pt.y })),
-    }));
-    return { ...primary, series: [...primary.series, ...overlay] };
-  }
-
-  return primary;
+  return mergeResults(primary, comparison, windowDates(resolved.window));
 }
 
 export * from "./types";
