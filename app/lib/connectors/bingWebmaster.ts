@@ -130,11 +130,27 @@ async function fetchLinks(base: string, q: string): Promise<LinksSummary | null>
   }
 }
 
-/** Crawl-health + backlink panels (shared by live and mock). */
-function seoPanels(crawl: CrawlSummary | null, links: LinksSummary | null): Panel[] {
+/**
+ * Crawl-health + backlink panels (shared by live and mock).
+ *
+ * Ok-but-empty responses are ambiguous: zero backlinks alongside a missing
+ * crawl report almost always means the site isn't verified in Bing Webmaster
+ * yet, so the Backlinks stat says so instead of presenting a confident 0.
+ * A real zero (crawl data present) renders as-is.
+ *
+ * Exported for tests.
+ */
+export function seoPanels(crawl: CrawlSummary | null, links: LinksSummary | null): Panel[] {
   const panels: Panel[] = [];
   if (links) {
-    panels.push({ kind: "stat", label: "Backlinks", value: links.total, format: "compact", caption: "Inbound links (Bing)" });
+    const likelyUnverified = links.total === 0 && crawl === null;
+    panels.push({
+      kind: "stat",
+      label: "Backlinks",
+      value: links.total,
+      format: "compact",
+      caption: likelyUnverified ? "Site not yet verified in Bing Webmaster?" : "Inbound links (Bing)",
+    });
   }
   if (crawl) {
     panels.push({

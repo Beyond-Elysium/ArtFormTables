@@ -58,8 +58,31 @@ async function fetchSitemaps(siteUrl: string): Promise<SitemapEntry[]> {
   return data.sitemap ?? [];
 }
 
-/** Roll sitemap entries up into index/crawl-health panels. */
-function indexHealthPanels(sitemaps: SitemapEntry[]): Panel[] {
+/**
+ * Roll sitemap entries up into index/crawl-health panels.
+ *
+ * These stats carry no delta of their own (the sitemaps API is point-in-time),
+ * but they participate in comparison merging: merge.ts matches stats by label
+ * and attaches compareValue + delta when compare mode is on. That's why
+ * "Not indexed" / "Crawl errors" keep `invertDelta` — when a delta does arrive
+ * via merging, a rise must render as bad.
+ *
+ * Exported for tests.
+ */
+export function indexHealthPanels(sitemaps: SitemapEntry[]): Panel[] {
+  // Site verified but no sitemaps submitted: say so instead of silently
+  // rendering a misleading 0% coverage (or nothing at all).
+  if (sitemaps.length === 0) {
+    return [
+      {
+        kind: "stat",
+        label: "Sitemaps",
+        value: 0,
+        format: "number",
+        caption: "No sitemaps submitted in Search Console",
+      },
+    ];
+  }
   let submitted = 0;
   let indexed = 0;
   let errors = 0;
@@ -110,11 +133,19 @@ async function fetchLive(config: ScConfig, ctx: ConnectorContext): Promise<Panel
   const startDate = w.start;
   const endDate = w.end;
 
-  const [totals, byDate, queries, pages] = await Promise.all([
+  const [totals, byDate, queries, pages, queryPages] = await Promise.all([
     query(config.siteUrl, { startDate, endDate, dimensions: [] }),
     query(config.siteUrl, { startDate, endDate, dimensions: ["date"] }),
     query(config.siteUrl, { startDate, endDate, dimensions: ["query"], rowLimit: 20 }),
     query(config.siteUrl, { startDate, endDate, dimensions: ["page"], rowLimit: 10 }),
+    // Query→page pairing is additive and isolated: a failure here must never
+    // drop the core search panels.
+    query(config.siteUrl, { startDate, endDate, dimensions: ["query", "page"], rowLimit: 250 }).catch(
+      (err) => {
+        console.error(`[search-console] query→page pairs unavailable for ${config.siteUrl}:`, err);
+        return { rows: [] as any[] };
+      },
+    ),
   ]);
 
   const t = totals.rows?.[0] ?? { clicks: 0, impressions: 0, ctr: 0, position: 0 };
@@ -129,6 +160,7 @@ async function fetchLive(config: ScConfig, ctx: ConnectorContext): Promise<Panel
     ts,
     (queries.rows ?? []).map((r) => keywordRow(r.keys?.[0], r.clicks, r.impressions, r.ctr, r.position)),
     (pages.rows ?? []).map((r) => ({ label: r.keys?.[0], value: r.clicks })),
+    queryPageRows(queryPages.rows ?? []),
   );
 
   // Index/crawl health is isolated: a sitemaps failure never drops the core
@@ -140,6 +172,56 @@ async function fetchLive(config: ScConfig, ctx: ConnectorContext): Promise<Panel
     console.error(`[search-console] sitemaps unavailable for ${config.siteUrl}:`, err);
   }
   return [...core, ...health];
+}
+
+/**
+ * Trim a page URL to its path (+ query string) for display. Non-URL strings
+ * (already-relative paths, "(unknown)") pass through unchanged.
+ *
+ * Exported for tests.
+ */
+export function pagePath(url: string): string {
+  try {
+    const u = new URL(url);
+    return `${u.pathname}${u.search}` || "/";
+  } catch {
+    return url;
+  }
+}
+
+interface QueryPageApiRow {
+  keys?: string[];
+  clicks?: number;
+  impressions?: number;
+  position?: number;
+}
+
+/**
+ * Top query→page pairs by clicks: label = the query, sublabel =
+ * "page-path · Pos X.X · N impr", value = clicks. Rows arrive from the
+ * Search Analytics API already unique per (query, page); we sort by clicks
+ * and keep the top 10.
+ *
+ * Exported for tests.
+ */
+export function queryPageRows(
+  rows: QueryPageApiRow[],
+): { label: string; value: number; sublabel: string }[] {
+  return rows
+    .map((r) => ({
+      query: r.keys?.[0] ?? "(unknown)",
+      page: pagePath(r.keys?.[1] ?? ""),
+      clicks: Number(r.clicks ?? 0),
+      impressions: Number(r.impressions ?? 0),
+      position: Number(r.position ?? 0),
+    }))
+    .sort((a, b) => b.clicks - a.clicks)
+    .slice(0, 10)
+    .map((r) => ({
+      label: r.query,
+      value: r.clicks,
+      sublabel: `${r.page} · Pos ${r.position.toFixed(1)} · ${Math.round(r.impressions).toLocaleString()} impr`,
+    }));
 }
 
 /** A keyword row: clicks as the value, with position/CTR/impressions beneath. */
@@ -184,6 +266,21 @@ function fetchMock(config: ScConfig, ctx: ConnectorContext): Panel[] {
     .map((label) => ({ label, value: Math.floor(clicks * (0.04 + rand() * 0.2)) }))
     .sort((a, b) => b.value - a.value);
 
+  // Pair queries with plausible pages so demo dashboards show the
+  // query→page breakdown; same builder as live for parity.
+  const pairPaths = ["/", "/products", "/blog/guide", "/pricing", "/reviews"];
+  const pairs = queryPageRows(
+    terms.map((term, i) => {
+      const c = 1 + Math.floor(clicks * (0.015 + rand() * 0.1));
+      return {
+        keys: [term, `https://demo-site.example${pairPaths[i % pairPaths.length]}`],
+        clicks: c,
+        impressions: Math.max(c, Math.floor(c * (8 + rand() * 25))),
+        position: 1 + rand() * 20,
+      };
+    }),
+  );
+
   // Synthesize a sitemap so demo dashboards show index/crawl health too.
   const submitted = 200 + Math.floor(rand() * 4000);
   const indexed = Math.floor(submitted * (0.75 + rand() * 0.24));
@@ -193,7 +290,7 @@ function fetchMock(config: ScConfig, ctx: ConnectorContext): Panel[] {
     { path: `${config.siteUrl}sitemap.xml`, errors, warnings, contents: [{ submitted, indexed }] },
   ];
 
-  return [...buildPanels({ clicks, impressions, ctr, position }, ts, queries, pages), ...indexHealthPanels(mockSitemaps)];
+  return [...buildPanels({ clicks, impressions, ctr, position }, ts, queries, pages, pairs), ...indexHealthPanels(mockSitemaps)];
 }
 
 function buildPanels(
@@ -201,8 +298,9 @@ function buildPanels(
   ts: { x: string; clicks: number; impressions: number }[],
   queries: { label: string; value: number; sublabel?: string }[],
   pages: { label: string; value: number }[],
+  queryPages: { label: string; value: number; sublabel?: string }[] = [],
 ): Panel[] {
-  return [
+  const panels: Panel[] = [
     { kind: "stat", label: "Clicks", value: m.clicks, format: "compact" },
     { kind: "stat", label: "Impressions", value: m.impressions, format: "compact" },
     { kind: "stat", label: "CTR", value: m.ctr, format: "percent" },
@@ -218,6 +316,17 @@ function buildPanels(
     { kind: "breakdown", title: "Keyword breakdown", subtitle: "Top search queries — clicks, position & CTR", display: "table", valueLabel: "Clicks", rows: queries },
     { kind: "breakdown", title: "Top landing pages", display: "table", valueLabel: "Clicks", rows: pages },
   ];
+  if (queryPages.length > 0) {
+    panels.push({
+      kind: "breakdown",
+      title: "Keywords by page",
+      subtitle: "Which page ranks for which query — top pairs by clicks",
+      display: "table",
+      valueLabel: "Clicks",
+      rows: queryPages,
+    });
+  }
+  return panels;
 }
 
 export const searchConsoleConnector: Connector<ScConfig> = {

@@ -98,7 +98,9 @@ const clientDefs = [
     sources: [
       { type: "ga4", config: { propertyId: "302989852" } },
       // BBBNP CISR/IRI — separate GA4 property; candidate for its own view later.
-      { type: "ga4", label: "BBBNP CISR/IRI", config: { propertyId: "499713205" } },
+      // aiInsights:false — the secondary property's section should not repeat
+      // the full AI block (AI Score etc.) under the main property's.
+      { type: "ga4", label: "BBBNP CISR/IRI", config: { propertyId: "499713205", aiInsights: false } },
       { type: "search-console", config: { siteUrl: "https://bbbprograms.org/" } },
       { type: "bing-webmaster", config: { siteUrl: "https://bbbprograms.org/" } },
       { type: "google-ads", config: { customerId: "000-000-0000", currency: "USD" } },

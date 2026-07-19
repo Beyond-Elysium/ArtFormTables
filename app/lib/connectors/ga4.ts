@@ -22,6 +22,12 @@ import { mockDelta, mockSeries, rng } from "./mock";
 
 interface Ga4Config {
   propertyId: string;
+  /**
+   * Include the AI-insights block (AI Score, AI-referred sessions/pages/
+   * assistants). Defaults to true; set false on secondary properties (e.g.
+   * BBBNP CISR/IRI) whose section should not repeat the full AI block.
+   */
+  aiInsights?: boolean;
 }
 
 let client: import("@google-analytics/data").BetaAnalyticsDataClient | null =
@@ -135,6 +141,7 @@ async function fetchLive(
       sessions: pct(c[1], p[1]),
       pageviews: pct(c[2], p[2]),
       engagement: pct(c[3], p[3]),
+      avgDur: pct(c[4], p[4]),
     },
     tsPoints,
     sources,
@@ -142,10 +149,156 @@ async function fetchLive(
     pages.map((r) => ({ label: r.sublabel || r.label, value: r.value, sublabel: r.label })),
   );
 
-  // AI insights are additive and isolated: if these extra reports fail (e.g. a
-  // property that rejects a dimension) the core dashboard still renders live.
-  const ai = await fetchAiInsights(ga, property, curr, prev, c[1], c[3]);
-  return [...corePanels, ...ai];
+  // Conversions and AI insights are additive and isolated: if these extra
+  // reports fail (e.g. a property that rejects a metric/dimension) the core
+  // dashboard still renders live.
+  // Secondary properties can opt out of the AI block via `aiInsights: false`.
+  const conversions = await fetchConversions(ga, property, curr, prev);
+  const ai =
+    config.aiInsights === false
+      ? []
+      : await fetchAiInsights(ga, property, curr, prev, c[1], c[3]);
+  return [...corePanels, ...conversions, ...ai];
+}
+
+/* ------------------------------------------------------------------ *
+ * Conversions (GA4 key events)
+ * ------------------------------------------------------------------ */
+
+/**
+ * Key-event reporting: total conversions + session conversion rate (with
+ * period-over-period deltas), a daily conversions line, and the top converting
+ * events. Isolated like the AI block — any failure returns [] and the core
+ * panels still render.
+ */
+async function fetchConversions(
+  ga: Ga,
+  property: string,
+  curr: Range,
+  prev: Range,
+): Promise<Panel[]> {
+  try {
+    // Totals over both windows in one report (dateRange comes back as a
+    // dimension, same pattern as the overview report).
+    const [totals] = await ga.runReport({
+      property,
+      dateRanges: [curr, prev],
+      metrics: [{ name: "keyEvents" }, { name: "sessionKeyEventRate" }],
+    });
+    const valsFor = (i: number): [number, number] => {
+      const r = (totals.rows ?? []).find(
+        (row) => row.dimensionValues?.[0]?.value === `date_range_${i}`,
+      );
+      const m = r?.metricValues ?? [];
+      return [Number(m[0]?.value ?? 0), Number(m[1]?.value ?? 0)];
+    };
+    const [conversions, rate] = valsFor(0);
+    const [prevConversions, prevRate] = valsFor(1);
+
+    const [tsRes] = await ga.runReport({
+      property,
+      dateRanges: [curr],
+      dimensions: [{ name: "date" }],
+      metrics: [{ name: "keyEvents" }],
+      orderBys: [{ dimension: { dimensionName: "date" } }],
+    });
+    const ts = (tsRes.rows ?? []).map((row) => {
+      const d = row.dimensionValues?.[0]?.value ?? "";
+      return {
+        x: `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`,
+        y: Number(row.metricValues?.[0]?.value ?? 0),
+      };
+    });
+
+    // keyEvents per eventName is nonzero only for events marked as key events,
+    // so filtering value > 0 leaves exactly the converting events.
+    const [evRes] = await ga.runReport({
+      property,
+      dateRanges: [curr],
+      dimensions: [{ name: "eventName" }],
+      metrics: [{ name: "keyEvents" }],
+      orderBys: [{ metric: { metricName: "keyEvents" }, desc: true }],
+      limit: 8,
+    });
+    const events = (evRes.rows ?? [])
+      .map((row) => ({
+        label: row.dimensionValues?.[0]?.value ?? "(not set)",
+        value: Number(row.metricValues?.[0]?.value ?? 0),
+      }))
+      .filter((r) => r.value > 0);
+
+    return conversionPanels({
+      conversions,
+      rate,
+      deltas: { conversions: pct(conversions, prevConversions), rate: pct(rate, prevRate) },
+      ts,
+      events,
+    });
+  } catch (err) {
+    console.error("[ga4] conversions unavailable:", err);
+    return [];
+  }
+}
+
+export interface ConversionInputs {
+  /** Total key events in the window. */
+  conversions: number;
+  /** Share of sessions with a key event (0..1). */
+  rate: number;
+  deltas: { conversions?: number; rate?: number };
+  ts: { x: string; y: number }[];
+  events: { label: string; value: number }[];
+}
+
+/**
+ * Panel shapes for the conversions block (shared by live and mock). A property
+ * with no key events configured gets a single honest "Conversions: 0" stat
+ * instead of an empty rate/timeseries/breakdown block.
+ *
+ * Exported for tests.
+ */
+export function conversionPanels(m: ConversionInputs): Panel[] {
+  if (m.conversions === 0 && m.events.length === 0) {
+    return [
+      {
+        kind: "stat",
+        label: "Conversions",
+        value: 0,
+        format: "compact",
+        caption: "No key events configured in GA4",
+      },
+    ];
+  }
+  const panels: Panel[] = [
+    { kind: "stat", label: "Conversions", value: m.conversions, format: "compact", delta: m.deltas.conversions },
+    {
+      kind: "stat",
+      label: "Conversion rate",
+      value: m.rate,
+      format: "percent",
+      delta: m.deltas.rate,
+      caption: "Sessions with a key event",
+    },
+  ];
+  if (m.ts.length > 0) {
+    panels.push({
+      kind: "timeseries",
+      title: "Conversions over time",
+      subtitle: "Key events per day",
+      series: [{ name: "Conversions", points: m.ts }],
+    });
+  }
+  if (m.events.length > 0) {
+    panels.push({
+      kind: "breakdown",
+      title: "Top converting events",
+      subtitle: "Key events by count",
+      display: "table",
+      valueLabel: "Key events",
+      rows: m.events,
+    });
+  }
+  return panels;
 }
 
 /* ------------------------------------------------------------------ *
@@ -267,7 +420,15 @@ async function fetchAiInsights(
   }
 }
 
-function aiPanels(
+/**
+ * Panel shapes for the AI block (shared by live and mock). When the period has
+ * zero AI-referred sessions the score still computes (reads 0/D) but the
+ * caption explains the empty state instead of a bare "Grade D · 0.0%", and the
+ * pages/assistants breakdowns are skipped rather than rendered empty.
+ *
+ * Exported for tests.
+ */
+export function aiPanels(
   score: AiScore,
   aiSessions: number,
   pages: { label: string; value: number; sublabel?: string }[],
@@ -279,7 +440,10 @@ function aiPanels(
       label: "AI Score",
       value: score.score,
       format: "number",
-      caption: `Grade ${score.grade} · ${(score.share * 100).toFixed(1)}% of sessions from AI`,
+      caption:
+        aiSessions === 0
+          ? "No AI-referred traffic detected this period"
+          : `Grade ${score.grade} · ${(score.share * 100).toFixed(1)}% of sessions from AI`,
     },
     {
       kind: "stat",
@@ -289,6 +453,7 @@ function aiPanels(
       delta: score.trendPct,
     },
   ];
+  if (aiSessions === 0) return panels;
   if (pages.length > 0) {
     panels.push({
       kind: "breakdown",
@@ -343,12 +508,36 @@ function fetchMock(config: Ga4Config, ctx: ConnectorContext): Panel[] {
 
   const corePanels = buildPanels(
     { users, sessions, pageviews, engagement, avgDur },
-    { users: mockDelta(rand), sessions: mockDelta(rand), pageviews: mockDelta(rand), engagement: mockDelta(rand) },
+    { users: mockDelta(rand), sessions: mockDelta(rand), pageviews: mockDelta(rand), engagement: mockDelta(rand), avgDur: mockDelta(rand) },
     tsPoints,
     sources,
     devices,
     pages,
   );
+
+  // Synthesize plausible conversion data so demo dashboards show the feature.
+  const convRate = 0.015 + rand() * 0.05; // 1.5%–6.5% of sessions convert
+  const conversions = Math.max(1, Math.floor(sessions * convRate));
+  const convTs = tsPoints.map((pt) => ({
+    x: pt.x,
+    y: Math.floor(pt.sessions * convRate * (0.6 + rand() * 0.8)),
+  }));
+  const eventNames = ["form_submit", "contact_click", "phone_call", "newsletter_signup", "file_download", "quote_request"];
+  const nEvents = 3 + Math.floor(rand() * 3);
+  const convEvents = eventNames
+    .slice(0, nEvents)
+    .map((label, i) => ({ label, value: Math.max(1, Math.floor(conversions * (0.4 - i * 0.06))) }))
+    .sort((a, b) => b.value - a.value);
+  const convPanels = conversionPanels({
+    conversions,
+    rate: convRate,
+    deltas: { conversions: mockDelta(rand), rate: mockDelta(rand) },
+    ts: convTs,
+    events: convEvents,
+  });
+
+  // Secondary properties can opt out of the AI block (see Ga4Config).
+  if (config.aiInsights === false) return [...corePanels, ...convPanels];
 
   // Synthesize plausible AI-referral data so demo dashboards show the feature.
   const aiShare = 0.008 + rand() * 0.03; // ~0.8%–3.8% of sessions
@@ -382,12 +571,12 @@ function fetchMock(config: Ga4Config, ctx: ConnectorContext): Panel[] {
     distinctPages,
   });
 
-  return [...corePanels, ...aiPanels(score, aiSessions, pageRows, assistantRows)];
+  return [...corePanels, ...convPanels, ...aiPanels(score, aiSessions, pageRows, assistantRows)];
 }
 
 function buildPanels(
   m: { users: number; sessions: number; pageviews: number; engagement: number; avgDur: number },
-  d: { users: number; sessions: number; pageviews: number; engagement: number },
+  d: { users: number; sessions: number; pageviews: number; engagement: number; avgDur: number },
   ts: { x: string; users: number; sessions: number }[],
   sources: { label: string; value: number }[],
   devices: { label: string; value: number }[],
@@ -398,6 +587,7 @@ function buildPanels(
     { kind: "stat", label: "Sessions", value: m.sessions, format: "compact", delta: d.sessions },
     { kind: "stat", label: "Pageviews", value: m.pageviews, format: "compact", delta: d.pageviews },
     { kind: "stat", label: "Engagement rate", value: m.engagement, format: "percent", delta: d.engagement },
+    { kind: "stat", label: "Avg. session duration", value: m.avgDur, format: "duration", delta: d.avgDur },
     {
       kind: "timeseries",
       title: "Traffic over time",
