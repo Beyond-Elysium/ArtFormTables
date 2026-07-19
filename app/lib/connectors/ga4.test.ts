@@ -26,4 +26,34 @@ describe("ga4Connector mock output", () => {
       expect(aiScore.caption).toMatch(/Grade [A-D]/);
     }
   });
+
+  it("renders the avg. session duration stat with a delta", async () => {
+    const res = await ga4Connector.fetch({ propertyId: "310586485" }, { range: "28d", days: 28 });
+    const dur = res.panels.find((p) => p.kind === "stat" && p.label === "Avg. session duration");
+    expect(dur).toBeTruthy();
+    if (dur && dur.kind === "stat") {
+      expect(dur.format).toBe("duration");
+      expect(dur.value).toBeGreaterThan(0);
+      expect(typeof dur.delta).toBe("number");
+    }
+  });
+
+  it("skips the AI block when the source sets aiInsights: false", async () => {
+    const res = await ga4Connector.fetch(
+      { propertyId: "499713205", aiInsights: false },
+      { range: "28d", days: 28 },
+    );
+    const statLabels = res.panels.filter((p) => p.kind === "stat").map((p) => p.label);
+    // Core panels intact...
+    expect(statLabels).toContain("Users");
+    expect(statLabels).toContain("Avg. session duration");
+    // ...but no AI panels.
+    expect(statLabels).not.toContain("AI Score");
+    expect(statLabels).not.toContain("AI-referred sessions");
+    const titles = res.panels
+      .filter((p) => p.kind === "breakdown")
+      .map((p) => (p as { title: string }).title);
+    expect(titles).not.toContain("AI-referred pages");
+    expect(titles).not.toContain("AI assistants");
+  });
 });

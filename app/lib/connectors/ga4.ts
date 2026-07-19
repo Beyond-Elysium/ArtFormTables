@@ -22,6 +22,12 @@ import { mockDelta, mockSeries, rng } from "./mock";
 
 interface Ga4Config {
   propertyId: string;
+  /**
+   * Include the AI-insights block (AI Score, AI-referred sessions/pages/
+   * assistants). Defaults to true; set false on secondary properties (e.g.
+   * BBBNP CISR/IRI) whose section should not repeat the full AI block.
+   */
+  aiInsights?: boolean;
 }
 
 let client: import("@google-analytics/data").BetaAnalyticsDataClient | null =
@@ -135,6 +141,7 @@ async function fetchLive(
       sessions: pct(c[1], p[1]),
       pageviews: pct(c[2], p[2]),
       engagement: pct(c[3], p[3]),
+      avgDur: pct(c[4], p[4]),
     },
     tsPoints,
     sources,
@@ -144,7 +151,11 @@ async function fetchLive(
 
   // AI insights are additive and isolated: if these extra reports fail (e.g. a
   // property that rejects a dimension) the core dashboard still renders live.
-  const ai = await fetchAiInsights(ga, property, curr, prev, c[1], c[3]);
+  // Secondary properties can opt out via `aiInsights: false` in the registry.
+  const ai =
+    config.aiInsights === false
+      ? []
+      : await fetchAiInsights(ga, property, curr, prev, c[1], c[3]);
   return [...corePanels, ...ai];
 }
 
@@ -343,12 +354,15 @@ function fetchMock(config: Ga4Config, ctx: ConnectorContext): Panel[] {
 
   const corePanels = buildPanels(
     { users, sessions, pageviews, engagement, avgDur },
-    { users: mockDelta(rand), sessions: mockDelta(rand), pageviews: mockDelta(rand), engagement: mockDelta(rand) },
+    { users: mockDelta(rand), sessions: mockDelta(rand), pageviews: mockDelta(rand), engagement: mockDelta(rand), avgDur: mockDelta(rand) },
     tsPoints,
     sources,
     devices,
     pages,
   );
+
+  // Secondary properties can opt out of the AI block (see Ga4Config).
+  if (config.aiInsights === false) return corePanels;
 
   // Synthesize plausible AI-referral data so demo dashboards show the feature.
   const aiShare = 0.008 + rand() * 0.03; // ~0.8%–3.8% of sessions
@@ -387,7 +401,7 @@ function fetchMock(config: Ga4Config, ctx: ConnectorContext): Panel[] {
 
 function buildPanels(
   m: { users: number; sessions: number; pageviews: number; engagement: number; avgDur: number },
-  d: { users: number; sessions: number; pageviews: number; engagement: number },
+  d: { users: number; sessions: number; pageviews: number; engagement: number; avgDur: number },
   ts: { x: string; users: number; sessions: number }[],
   sources: { label: string; value: number }[],
   devices: { label: string; value: number }[],
@@ -398,6 +412,7 @@ function buildPanels(
     { kind: "stat", label: "Sessions", value: m.sessions, format: "compact", delta: d.sessions },
     { kind: "stat", label: "Pageviews", value: m.pageviews, format: "compact", delta: d.pageviews },
     { kind: "stat", label: "Engagement rate", value: m.engagement, format: "percent", delta: d.engagement },
+    { kind: "stat", label: "Avg. session duration", value: m.avgDur, format: "duration", delta: d.avgDur },
     {
       kind: "timeseries",
       title: "Traffic over time",

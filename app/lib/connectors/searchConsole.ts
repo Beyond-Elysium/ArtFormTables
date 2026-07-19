@@ -58,8 +58,18 @@ async function fetchSitemaps(siteUrl: string): Promise<SitemapEntry[]> {
   return data.sitemap ?? [];
 }
 
-/** Roll sitemap entries up into index/crawl-health panels. */
-function indexHealthPanels(sitemaps: SitemapEntry[]): Panel[] {
+/**
+ * Roll sitemap entries up into index/crawl-health panels.
+ *
+ * These stats carry no delta of their own (the sitemaps API is point-in-time),
+ * but they participate in comparison merging: merge.ts matches stats by label
+ * and attaches compareValue + delta when compare mode is on. That's why
+ * "Not indexed" / "Crawl errors" keep `invertDelta` — when a delta does arrive
+ * via merging, a rise must render as bad.
+ *
+ * Exported for tests.
+ */
+export function indexHealthPanels(sitemaps: SitemapEntry[]): Panel[] {
   let submitted = 0;
   let indexed = 0;
   let errors = 0;
