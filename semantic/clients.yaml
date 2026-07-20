@@ -1,0 +1,44 @@
+# Client registry for the Python extractors (slug -> provider ids).
+#
+# !! KEEP IN SYNC with app/config/clients.ts (the Next app's registry). !!
+# That file is TypeScript, so the extractors cannot read it directly; when a
+# client is added/removed or a GA4 property changes there, mirror the change
+# here (and vice versa). Slugs must match the app's slugs exactly — they become
+# the `client` column in the Parquet lake and the dashboard's client filter.
+#
+# Fields per client:
+#   ga4_property            GA4 property id (numeric, as a string) — extract_ga4.py
+#   google_ads_customer_id  Google Ads customer id, digits or 123-456-7890 form —
+#                           extract_google_ads.py. All currently unknown; fill in
+#                           per client as Ads access is granted (template below).
+clients:
+  artform:
+    ga4_property: "310586485"
+    # google_ads_customer_id: "000-000-0000"
+  bbbnp:
+    ga4_property: "302989852"
+    # google_ads_customer_id: "000-000-0000"
+  bbbnp-cisr:
+    ga4_property: "499713205"
+    # google_ads_customer_id: "000-000-0000"
+  isea:
+    ga4_property: "333478304"
+    # google_ads_customer_id: "000-000-0000"
+  maximus:
+    ga4_property: "302350399"
+    # google_ads_customer_id: "000-000-0000"
+  miami-federal:
+    ga4_property: "521857796"
+    # google_ads_customer_id: "000-000-0000"
+  moveinterstate:
+    ga4_property: "223367126"
+    # google_ads_customer_id: "000-000-0000"
+  sigma-defense:
+    ga4_property: "298141839"
+    # google_ads_customer_id: "000-000-0000"
+  winterscale:
+    ga4_property: "398292533"
+    # google_ads_customer_id: "000-000-0000"
+  govcon-ideators:
+    ga4_property: "395344759"
+    # google_ads_customer_id: "000-000-0000"

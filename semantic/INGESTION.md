@@ -193,3 +193,83 @@ python rollups.py
 Observed: idempotent re-runs hold at **6120 rows** (identical content hash);
 `ga4_monthly` totals equal daily `ga4` totals to the cent; the acme store spans
 **2023-01-01 → 2026-07-07** across the old backfill and the recent incremental.
+
+## 6. Live extraction — GA4 (`extract_ga4.py`)
+
+The first real extractor: pulls daily GA4 metrics per client straight into the
+lake via the same idempotent `ingest.upsert()` path, source **`ga4`**, grain
+`client x date x channel`:
+
+| lake column | GA4 Data API name | note |
+|---|---|---|
+| `date` | `date` dimension | `YYYYMMDD` → ISO `YYYY-MM-DD` |
+| `channel` | `sessionDefaultChannelGroup` | |
+| `sessions` | `sessions` | |
+| `users` | `totalUsers` | |
+| `page_views` | `screenPageViews` | |
+| `conversions` | `keyEvents` | keyEvents ARE GA4's conversions |
+| `engaged_sessions` | `sessions × engagementRate` | stored additively; `specs/ga4.yaml` re-derives `engagement_rate = sum(engaged)/sum(sessions)` so the ratio is correct at any grain |
+
+Clients → GA4 property ids live in **`clients.yaml`** (keep in sync with
+`app/config/clients.ts`; slugs must match the app's exactly).
+
+### Credentials (never commit these)
+
+The same Google OAuth Web client + refresh token the Next app uses, with the
+Analytics scope:
+
+```sh
+export GOOGLE_OAUTH_CLIENT_ID=…        # OAuth Web client id
+export GOOGLE_OAUTH_CLIENT_SECRET=…
+export GOOGLE_OAUTH_REFRESH_TOKEN=…    # refresh token authorized for GA4
+```
+
+The extractor exchanges the refresh token for an access token and calls the GA4
+Data API REST `runReport` directly — no SDK. On the VM, put these in
+`/etc/artform-semantic.env` (mode `0600`, root-owned), which the systemd unit
+loads (see §8). `data/` and `store/` are git-ignored, so neither credentials nor
+extracted client data can land in git.
+
+### Runbook
+
+```sh
+cd semantic && source .venv/bin/activate    # or your interpreter of choice
+
+# Initial backfill — last 365 days, all clients in clients.yaml
+python extract_ga4.py
+
+# Daily incremental — last 7 days through yesterday (absorbs GA4 restatements)
+python extract_ga4.py --incremental
+
+# One client / explicit window (re-running any window is idempotent)
+python extract_ga4.py --client artform --since 2025-01-01 --until 2025-06-30
+
+# Then refresh rollups
+python rollups.py
+```
+
+Quota behavior: sleeps `--sleep` seconds (default 2) between properties and
+retries HTTP 429/5xx with exponential backoff (honors `Retry-After`).
+
+### Demo data vs live data — don't mix
+
+The demo seeders (`seed.py`, `sample_data.py`) emit extra columns
+(`device`, `country`, `revenue`) that the live extractor doesn't. `models.py`
+unions all `data/**/ga4.parquet` files with a strict schema, so a lake that
+mixes demo and live files will fail to load. On a real deployment, clear the
+demo lake first:
+
+```sh
+rm -rf data store   # then run the backfill
+```
+
+Querying a demo-only column (e.g. `revenue`) against a live-only lake fails for
+that measure alone; everything else works — the spec documents which columns are
+live vs demo-only.
+
+### Offline verification
+
+The transform from API JSON to lake rows (`traffic_rows`) is a pure function,
+unit-tested against a canned `runReport` fixture
+(`tests/fixtures/ga4_runreport.json`) — run `pytest -q -m "not live"`. Only the
+HTTP calls themselves require real credentials.
