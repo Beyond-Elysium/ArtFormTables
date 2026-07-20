@@ -1,3 +1,5 @@
+"use client";
+
 import type {
   ConnectorResult,
   BreakdownPanel,
@@ -5,6 +7,7 @@ import type {
 } from "@/lib/connectors/types";
 import { formatValue } from "@/lib/format";
 import { readableTextColor } from "@/lib/contrast";
+import { breakdownCsv, csvFilename, timeseriesCsv } from "@/lib/csv";
 import { StatCard } from "@/components/StatCard";
 import { TimeseriesChart, DonutChart, BarChart, type Branding } from "@/components/Charts";
 
@@ -16,11 +19,14 @@ export function PanelSection({
   result,
   brand,
   deltaSuffix,
+  windowLabel,
 }: {
   result: ConnectorResult;
   brand: Branding;
   /** Trailing context for KPI deltas, e.g. "vs prior 30d". */
   deltaSuffix?: string;
+  /** Human label for the active date window (used in CSV export filenames). */
+  windowLabel?: string;
 }) {
   const stats = result.panels.filter((p) => p.kind === "stat");
   const rest = result.panels.filter((p) => p.kind !== "stat");
@@ -82,11 +88,18 @@ export function PanelSection({
                     role="group"
                     aria-label={timeseriesAriaLabel(p)}
                   >
-                    <div className="card-header d-block">
-                      <h3 className="card-title mb-0">{p.title}</h3>
-                      {p.subtitle && (
-                        <div className="text-secondary small">{p.subtitle}</div>
-                      )}
+                    <div className="card-header d-flex align-items-start">
+                      <div>
+                        <h3 className="card-title mb-0">{p.title}</h3>
+                        {p.subtitle && (
+                          <div className="text-secondary small">{p.subtitle}</div>
+                        )}
+                      </div>
+                      <CsvButton
+                        panelTitle={p.title}
+                        filename={csvFilename(result.label, p.title, windowLabel)}
+                        buildCsv={() => timeseriesCsv(p.series)}
+                      />
                     </div>
                     <div className="card-body">
                       <TimeseriesChart series={p.series} brand={brand} />
@@ -104,10 +117,19 @@ export function PanelSection({
                   role={chartLabel ? "group" : undefined}
                   aria-label={chartLabel}
                 >
-                  <div className="card-header d-block">
-                    <h3 className="card-title mb-0">{p.title}</h3>
-                    {p.subtitle && (
-                      <div className="text-secondary small">{p.subtitle}</div>
+                  <div className="card-header d-flex align-items-start">
+                    <div>
+                      <h3 className="card-title mb-0">{p.title}</h3>
+                      {p.subtitle && (
+                        <div className="text-secondary small">{p.subtitle}</div>
+                      )}
+                    </div>
+                    {p.display === "table" && (
+                      <CsvButton
+                        panelTitle={p.title}
+                        filename={csvFilename(result.label, p.title, windowLabel)}
+                        buildCsv={() => breakdownCsv(p.rows, p.valueLabel)}
+                      />
                     )}
                   </div>
                   {p.display === "table" ? (
@@ -129,6 +151,46 @@ export function PanelSection({
       )}
     </section>
   );
+}
+
+/**
+ * Small ghost "CSV" button in a panel card header: serializes the panel's data
+ * client-side (no server round-trip) and triggers a download. Hidden in print
+ * mode so it never appears in PDF reports.
+ */
+function CsvButton({
+  panelTitle,
+  filename,
+  buildCsv,
+}: {
+  panelTitle: string;
+  filename: string;
+  buildCsv: () => string;
+}) {
+  return (
+    <button
+      type="button"
+      className="btn btn-sm btn-ghost-secondary ms-auto d-print-none"
+      title="Download as CSV"
+      aria-label={`Download ${panelTitle} as CSV`}
+      onClick={() => downloadCsv(filename, buildCsv())}
+    >
+      CSV
+    </button>
+  );
+}
+
+/** Trigger a browser download of `csv` under `filename`. */
+function downloadCsv(filename: string, csv: string) {
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
 
 /** Screen-reader summary for a timeseries chart card: title, series, points. */

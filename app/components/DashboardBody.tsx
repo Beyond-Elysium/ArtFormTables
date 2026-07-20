@@ -24,12 +24,15 @@ export function DashboardBody({
   results,
   brand,
   deltaSuffix,
+  windowLabel,
   views,
   showAll = false,
 }: {
   results: ConnectorResult[];
   brand: Branding;
   deltaSuffix?: string;
+  /** Human label for the active date window (used in CSV export filenames). */
+  windowLabel?: string;
   /** Custom named views from the client registry (rendered before categories). */
   views?: ClientView[];
   /** Render every source and hide the view tabs (used for PDF reports). */
@@ -135,6 +138,7 @@ export function DashboardBody({
             result={result}
             brand={brand}
             deltaSuffix={deltaSuffix}
+            windowLabel={windowLabel}
           />
         ))
       ) : (
