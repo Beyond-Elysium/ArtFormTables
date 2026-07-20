@@ -16,6 +16,7 @@ import {
 import { mergeResults } from "./merge";
 import { windowDates, type ResolvedRange, type Window } from "@/lib/range";
 import { ga4Connector } from "./ga4";
+import { gsheetsConnector } from "./gsheets";
 import { searchConsoleConnector } from "./searchConsole";
 import { googleAdsConnector } from "./googleAds";
 import { bingWebmasterConnector } from "./bingWebmaster";
@@ -53,6 +54,7 @@ import { airtableConnector } from "./airtable";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const connectors: Record<string, Connector<any>> = {
   [ga4Connector.type]: ga4Connector,
+  [gsheetsConnector.type]: gsheetsConnector,
   [searchConsoleConnector.type]: searchConsoleConnector,
   [googleAdsConnector.type]: googleAdsConnector,
   [bingWebmasterConnector.type]: bingWebmasterConnector,

@@ -98,6 +98,7 @@ live. "Cost/access" flags the ones with friction.
 | --- | --- | --- | --- |
 | Google Analytics 4 | `ga4` | Google OAuth / service acct | **Free** |
 | Search Console | `search-console` | Google OAuth / service acct | **Free** |
+| Google Sheets | `gsheets` | Google OAuth / service acct (`spreadsheets.readonly` scope) | **Free** — universal token-free ingestion |
 | Plausible | `plausible` | `PLAUSIBLE_API_KEY` | Paid / self-host |
 | Matomo | `matomo` | `MATOMO_TOKEN` (+ base url) | Free (self-host) |
 
@@ -175,8 +176,13 @@ paid integrations for organic social. Strategy:
 3. **Avoid** scraping (ToS/brittle/IP-bans) and reseller/aggregator tokens
    (Phyllo/Ayrshare/Metricool) unless you already pay for the tool.
 
-> **Proposed, not yet built:** a `gsheets` connector (`config: { spreadsheetId,
-> tab, range }`) as the universal token-free ingestion path.
+> **Built:** the `gsheets` connector (`config: { spreadsheetId, tab?, range?,
+> label? }`) is the universal token-free ingestion path — see
+> [`lib/connectors/gsheets.ts`](./lib/connectors/gsheets.ts) for the expected
+> sheet shape (row 1 headers; a `date` column makes numeric columns a time
+> series, otherwise rows render as a breakdown table). It reads via the shared
+> Google credential: grant the `spreadsheets.readonly` scope when minting the
+> refresh token, and give the consenting account view access to the sheet.
 
 ### Advanced analytics (BI) — semantic layer
 For **cross-filtering, drill-downs, dynamic calculations, and NLQ** (branded UI,

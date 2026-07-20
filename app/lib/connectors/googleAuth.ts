@@ -1,11 +1,16 @@
 /**
  * Shared Google auth for connectors that use the agency's Google credentials
- * (GA4, Search Console). Supports two methods, preferring OAuth when present:
+ * (GA4, Search Console, Google Sheets). Supports two methods, preferring OAuth
+ * when present:
  *
  *   - OAuth Web client: GOOGLE_OAUTH_CLIENT_ID / _SECRET / _REFRESH_TOKEN.
- *     The refresh token carries the scopes granted at consent (grant both
- *     Analytics + Search Console read-only when minting it).
- *   - Service account: GA_SERVICE_ACCOUNT_KEY (raw or base64 JSON).
+ *     The refresh token carries the scopes granted at consent — grant every
+ *     scope the connectors need when minting it:
+ *       https://www.googleapis.com/auth/analytics.readonly
+ *       https://www.googleapis.com/auth/webmasters.readonly
+ *       https://www.googleapis.com/auth/spreadsheets.readonly  (gsheets)
+ *   - Service account: GA_SERVICE_ACCOUNT_KEY (raw or base64 JSON). Scopes are
+ *     requested per call via `googleAccessToken(scopes)`.
  */
 import "server-only";
 import { GoogleAuth, OAuth2Client } from "google-auth-library";
