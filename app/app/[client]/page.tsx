@@ -202,6 +202,7 @@ export default async function ClientDashboard({
               results={results}
               brand={brand}
               deltaSuffix={deltaSuffix}
+              views={client.views}
               showAll={printMode}
             />
 

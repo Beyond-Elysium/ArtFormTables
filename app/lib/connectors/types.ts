@@ -69,6 +69,11 @@ export type Panel = StatPanel | TimeseriesPanel | BreakdownPanel;
 export interface ConnectorResult {
   /** Stable id for the source instance (connector type by default). */
   sourceId: string;
+  /**
+   * Connector type of the registry source (set by the orchestrator; connectors
+   * themselves don't fill it). Lets custom views select sources by type.
+   */
+  type?: string;
   /** Human label shown as the section heading. */
   label: string;
   /** Grouping/category, e.g. "Analytics", "Search", "Advertising". */

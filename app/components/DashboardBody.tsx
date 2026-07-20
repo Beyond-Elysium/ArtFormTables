@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ConnectorResult } from "@/lib/connectors/types";
 import type { Branding } from "@/components/Charts";
+import { filterForView, type ClientView } from "@/lib/views";
 import { PanelSection } from "@/components/PanelSection";
 
 const OVERVIEW = "Overview";
@@ -10,10 +11,11 @@ const OVERVIEW = "Overview";
 const slugifyTab = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
 /**
- * Renders a client's sources with view tabs. "Overview" shows everything; each
- * additional tab is a data category (Analytics, Advertising, Payments, …),
- * derived automatically from the sources. Switching views is instant — no
- * refetch — because all data is already on the page.
+ * Renders a client's sources with view tabs. "Overview" shows everything;
+ * any custom named views from the client registry come next (e.g. BBBNP's
+ * "CISR/IRI"), followed by the data categories (Analytics, Advertising,
+ * Payments, …) derived automatically from the sources. Switching views is
+ * instant — no refetch — because all data is already on the page.
  *
  * The active view is mirrored to the URL hash so it survives a range/compare
  * change (which remounts this component) and stays shareable.
@@ -22,25 +24,35 @@ export function DashboardBody({
   results,
   brand,
   deltaSuffix,
+  views,
   showAll = false,
 }: {
   results: ConnectorResult[];
   brand: Branding;
   deltaSuffix?: string;
+  /** Custom named views from the client registry (rendered before categories). */
+  views?: ClientView[];
   /** Render every source and hide the view tabs (used for PDF reports). */
   showAll?: boolean;
 }) {
-  // Categories in first-seen order.
-  const categories = useMemo(() => {
-    const seen: string[] = [];
-    for (const r of results) if (!seen.includes(r.category)) seen.push(r.category);
-    return seen;
-  }, [results]);
+  const customViews = useMemo(() => views ?? [], [views]);
 
-  const tabs = useMemo(
-    () => (categories.length > 1 ? [OVERVIEW, ...categories] : [OVERVIEW]),
-    [categories],
-  );
+  // Categories in first-seen order. A custom view with the same name as a
+  // category takes the tab; drop the colliding category to avoid duplicates.
+  const categories = useMemo(() => {
+    const viewNames = new Set(customViews.map((v) => v.name));
+    const seen: string[] = [];
+    for (const r of results)
+      if (!seen.includes(r.category) && !viewNames.has(r.category)) seen.push(r.category);
+    return seen;
+  }, [results, customViews]);
+
+  const tabs = useMemo(() => {
+    const viewNames = customViews.map((v) => v.name);
+    return viewNames.length > 0 || categories.length > 1
+      ? [OVERVIEW, ...viewNames, ...categories]
+      : [OVERVIEW];
+  }, [customViews, categories]);
 
   const [active, setActive] = useState(OVERVIEW);
 
@@ -61,10 +73,16 @@ export function DashboardBody({
     window.history.replaceState(null, "", t === OVERVIEW ? window.location.pathname + window.location.search : `#${hash}`);
   }
 
-  const visible =
-    showAll || current === OVERVIEW
-      ? results
-      : results.filter((r) => r.category === current);
+  // What one tab shows: everything (Overview), a custom view's selection, or a
+  // category's sources.
+  function resultsForTab(t: string): ConnectorResult[] {
+    if (t === OVERVIEW) return results;
+    const view = customViews.find((v) => v.name === t);
+    if (view) return filterForView(results, view);
+    return results.filter((r) => r.category === t);
+  }
+
+  const visible = showAll ? results : resultsForTab(current);
 
   // WAI-ARIA tabs pattern: ArrowLeft/ArrowRight (plus Home/End) move both
   // focus and selection; inactive tabs sit outside the tab order (roving
@@ -102,9 +120,7 @@ export function DashboardBody({
               >
                 {t}
                 <span className="badge bg-secondary-lt ms-2">
-                  {t === OVERVIEW
-                    ? results.length
-                    : results.filter((r) => r.category === t).length}
+                  {resultsForTab(t).length}
                 </span>
               </button>
             </li>

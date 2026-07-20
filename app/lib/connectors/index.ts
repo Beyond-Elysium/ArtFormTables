@@ -114,7 +114,8 @@ async function fetchWindowUncached(client: Client, w: Window): Promise<Connector
         const connector = connectors[source.type];
         if (!connector) {
           return {
-            sourceId: `${source.type}-${i}`,
+            sourceId: source.id ?? `${source.type}-${i}`,
+            type: source.type,
             label: source.label ?? source.type,
             category: "Unknown",
             panels: [],
@@ -125,7 +126,10 @@ async function fetchWindowUncached(client: Client, w: Window): Promise<Connector
         const result = await connector.fetch(source.config, ctx);
         return {
           ...result,
-          sourceId: `${result.sourceId}-${i}`,
+          // An explicit registry `id` is the durable identity (custom views
+          // reference it); otherwise fall back to the positional suffix.
+          sourceId: source.id ?? `${result.sourceId}-${i}`,
+          type: source.type,
           label: source.label ?? result.label,
         };
       }),

@@ -34,11 +34,38 @@ const clientBrandSchema = z.object({
 const clientSourceSchema = z.object({
   /** Connector type, e.g. "ga4" | "search-console" | "google-ads". */
   type: z.string().min(1),
+  /**
+   * Optional stable id for this source instance. Without it a source gets a
+   * positional id (`<type>-<index>` — see lib/connectors/index.ts), which
+   * shifts when sources are reordered. Give a source an explicit id when
+   * something needs to reference it durably (e.g. a custom view's `sourceIds`).
+   */
+  id: z.string().regex(/^[a-z0-9-]+$/, "source id must be lowercase letters, digits or hyphens").optional(),
   /** Optional override for the section heading. */
   label: z.string().optional(),
   /** Connector-specific configuration. */
   config: z.record(z.string(), z.unknown()).default({}),
 });
+
+/**
+ * A custom named dashboard view: a tab (rendered after Overview, before the
+ * auto category tabs) that shows only the sources it selects. Selects by
+ * source id (`sourceIds`, matching an explicit source `id` or the positional
+ * `<type>-<index>` fallback) and/or by connector type (`types`); a source
+ * matching either selector is included.
+ */
+const clientViewSchema = z
+  .object({
+    /** Tab label, e.g. "CISR/IRI". */
+    name: z.string().min(1),
+    /** Source ids to include (explicit `id` or positional `<type>-<index>`). */
+    sourceIds: z.array(z.string().min(1)).optional(),
+    /** Connector types to include, e.g. ["ga4"]. */
+    types: z.array(z.string().min(1)).optional(),
+  })
+  .refine((v) => (v.sourceIds?.length ?? 0) > 0 || (v.types?.length ?? 0) > 0, {
+    message: "a view needs at least one selector: sourceIds and/or types",
+  });
 
 const reportSchema = z.object({
   /** Email recipients for scheduled PDF reports. */
@@ -54,6 +81,8 @@ const clientSchema = z.object({
   name: z.string().min(1),
   sources: z.array(clientSourceSchema),
   brand: clientBrandSchema.optional(),
+  /** Optional custom named views (extra tabs after Overview). */
+  views: z.array(clientViewSchema).optional(),
   /** Optional scheduled-report settings. */
   report: reportSchema.optional(),
 });
@@ -65,11 +94,40 @@ const clientsSchema = z.array(clientSchema).superRefine((list, ctx) => {
       ctx.addIssue({ code: "custom", message: `duplicate slug "${c.slug}"` });
     }
     seen.add(c.slug);
+
+    // Effective source ids: explicit `id` or the positional fallback the
+    // orchestrator assigns (`<type>-<index>`). Views must reference real ones —
+    // a typo should fail the build, not silently render an empty tab.
+    const effectiveIds = c.sources.map((s, i) => s.id ?? `${s.type}-${i}`);
+    const dupes = effectiveIds.filter((id, i) => effectiveIds.indexOf(id) !== i);
+    for (const d of dupes) {
+      ctx.addIssue({ code: "custom", message: `client "${c.slug}": duplicate source id "${d}"` });
+    }
+    const types = new Set(c.sources.map((s) => s.type));
+    for (const v of c.views ?? []) {
+      for (const id of v.sourceIds ?? []) {
+        if (!effectiveIds.includes(id)) {
+          ctx.addIssue({
+            code: "custom",
+            message: `client "${c.slug}": view "${v.name}" references unknown source id "${id}"`,
+          });
+        }
+      }
+      for (const t of v.types ?? []) {
+        if (!types.has(t)) {
+          ctx.addIssue({
+            code: "custom",
+            message: `client "${c.slug}": view "${v.name}" references unknown source type "${t}"`,
+          });
+        }
+      }
+    }
   }
 });
 
 export type ClientBrand = z.infer<typeof clientBrandSchema>;
 export type ClientSource = z.infer<typeof clientSourceSchema>;
+export type ClientView = z.infer<typeof clientViewSchema>;
 export type ClientReport = z.infer<typeof reportSchema>;
 export type Client = z.infer<typeof clientSchema>;
 
@@ -95,12 +153,15 @@ const clientDefs = [
     slug: "bbbnp",
     name: "BBB National Programs",
     brand: { primary: "#333333", accent: "#426fb6" },
+    // The CISR/IRI GA4 property gets its own named tab via the explicit
+    // source id + view below.
+    views: [{ name: "CISR/IRI", sourceIds: ["ga4-cisr"] }],
     sources: [
       { type: "ga4", config: { propertyId: "302989852" } },
-      // BBBNP CISR/IRI — separate GA4 property; candidate for its own view later.
+      // BBBNP CISR/IRI — separate GA4 property with its own "CISR/IRI" view.
       // aiInsights:false — the secondary property's section should not repeat
       // the full AI block (AI Score etc.) under the main property's.
-      { type: "ga4", label: "BBBNP CISR/IRI", config: { propertyId: "499713205", aiInsights: false } },
+      { type: "ga4", id: "ga4-cisr", label: "BBBNP CISR/IRI", config: { propertyId: "499713205", aiInsights: false } },
       { type: "search-console", config: { siteUrl: "https://bbbprograms.org/" } },
       { type: "bing-webmaster", config: { siteUrl: "https://bbbprograms.org/" } },
       { type: "google-ads", config: { customerId: "000-000-0000", currency: "USD" } },
