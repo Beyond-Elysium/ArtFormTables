@@ -147,6 +147,7 @@ const clientDefs = [
       { type: "google-ads", config: { customerId: "000-000-0000", currency: "USD" } },
       { type: "linkedin-ads", config: { accountId: "500000000", currency: "USD" } },
       { type: "mailchimp", config: {} },
+      { type: "hubspot", config: { tokenEnv: "HUBSPOT_TOKEN_ARTFORM" } },
     ],
   },
   {
@@ -166,6 +167,7 @@ const clientDefs = [
       { type: "bing-webmaster", config: { siteUrl: "https://bbbprograms.org/" } },
       { type: "google-ads", config: { customerId: "000-000-0000", currency: "USD" } },
       { type: "mailchimp", config: {} },
+      { type: "hubspot", config: { tokenEnv: "HUBSPOT_TOKEN_BBBNP" } },
     ],
   },
   {
@@ -189,6 +191,7 @@ const clientDefs = [
       { type: "search-console", config: { siteUrl: "https://maximus.com/" } },
       { type: "bing-webmaster", config: { siteUrl: "https://maximus.com/" } },
       { type: "linkedin-ads", config: { accountId: "500000002", currency: "USD" } },
+      { type: "hubspot", config: { tokenEnv: "HUBSPOT_TOKEN_MAXIMUS" } },
     ],
   },
   {
@@ -197,8 +200,8 @@ const clientDefs = [
     brand: { primary: "#426fb6", accent: "#98d7eb" },
     sources: [
       { type: "ga4", config: { propertyId: "521857796" } },
-      { type: "search-console", config: { siteUrl: "https://miamifederal.example/" } },
-      { type: "bing-webmaster", config: { siteUrl: "https://miamifederal.example/" } },
+      { type: "search-console", config: { siteUrl: "https://miamifed.com/" } },
+      { type: "bing-webmaster", config: { siteUrl: "https://miamifed.com/" } },
       { type: "google-ads", config: { customerId: "000-000-0000", currency: "USD" } },
     ],
   },
@@ -219,8 +222,8 @@ const clientDefs = [
     brand: { primary: "#333333", accent: "#426fb6" },
     sources: [
       { type: "ga4", config: { propertyId: "298141839" } },
-      { type: "search-console", config: { siteUrl: "https://sigmadefense.example/" } },
-      { type: "bing-webmaster", config: { siteUrl: "https://sigmadefense.example/" } },
+      { type: "search-console", config: { siteUrl: "https://sigmadefense.com/" } },
+      { type: "bing-webmaster", config: { siteUrl: "https://sigmadefense.com/" } },
       { type: "linkedin-ads", config: { accountId: "500000003", currency: "USD" } },
     ],
   },
@@ -230,8 +233,8 @@ const clientDefs = [
     brand: { primary: "#333333", accent: "#98d7eb" },
     sources: [
       { type: "ga4", config: { propertyId: "398292533" } },
-      { type: "search-console", config: { siteUrl: "https://winterscale.example/" } },
-      { type: "bing-webmaster", config: { siteUrl: "https://winterscale.example/" } },
+      { type: "search-console", config: { siteUrl: "https://winterscale.com/" } },
+      { type: "bing-webmaster", config: { siteUrl: "https://winterscale.com/" } },
       { type: "linkedin-ads", config: { accountId: "500000005", currency: "USD" } },
     ],
   },
@@ -241,8 +244,8 @@ const clientDefs = [
     brand: { primary: "#333333", accent: "#e41679" },
     sources: [
       { type: "ga4", config: { propertyId: "395344759" } },
-      { type: "search-console", config: { siteUrl: "https://govconideators.example/" } },
-      { type: "bing-webmaster", config: { siteUrl: "https://govconideators.example/" } },
+      { type: "search-console", config: { siteUrl: "https://govconideators.com/" } },
+      { type: "bing-webmaster", config: { siteUrl: "https://govconideators.com/" } },
       { type: "linkedin-ads", config: { accountId: "500000006", currency: "USD" } },
       { type: "hubspot", config: {} },
     ],
