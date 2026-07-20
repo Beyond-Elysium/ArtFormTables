@@ -27,13 +27,20 @@ CLI
     python extract_ga4.py                     # backfill: last 365 days, all clients
     python extract_ga4.py --incremental       # last 7 days through yesterday
     python extract_ga4.py --client artform --since 2025-01-01 --until 2025-06-30
+    python extract_ga4.py --skip-ai           # traffic table only (no ai_traffic)
 
 Idempotent: re-running any window replaces exactly that (client, source, window)
 slice (see ingest.py), so overlapping/backfill/incremental runs never duplicate.
 Quota-friendly: sleeps between properties, retries 429/5xx with backoff.
 
-The API-response -> rows transforms (`traffic_rows`, …) are pure functions,
-unit-tested against canned fixtures in tests/ — no network.
+Each client also gets a daily **ai_traffic** table (source "ai_traffic", model
+"ai" via specs/ai.yaml): ai_sessions, total_sessions, ai_engaged,
+distinct_ai_sources, distinct_ai_pages — the stored signals behind the AI Score
+trendline. AI referrals are detected with the token list in ai_tokens.py
+(mirrors app/lib/connectors/aiSources.ts).
+
+The API-response -> rows transforms (`traffic_rows`, `ai_daily_rows`, …) are
+pure functions, unit-tested against canned fixtures in tests/ — no network.
 """
 
 from __future__ import annotations
@@ -52,6 +59,7 @@ import pandas as pd
 import yaml
 
 import ingest
+from ai_tokens import AI_SOURCE_TOKENS, match_ai_source
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CLIENTS_YAML = os.path.join(HERE, "clients.yaml")
@@ -60,6 +68,7 @@ TOKEN_URL = "https://oauth2.googleapis.com/token"
 GA4_BASE = "https://analyticsdata.googleapis.com/v1beta"
 
 SOURCE = "ga4"                # lake source for the traffic table
+AI_SOURCE = "ai_traffic"      # lake source for the daily AI-referral table (specs/ai.yaml)
 PAGE_SIZE = 100_000           # GA4 caps limit at 250k; stay comfortably under
 MAX_RETRIES = 5
 BACKOFF_BASE_S = 5.0
@@ -224,19 +233,110 @@ def traffic_request(since: str, until: str) -> dict:
     }
 
 
+def ai_request(since: str, until: str) -> dict:
+    """date x sessionSource x landing page, server-side filtered to AI hosts.
+
+    Mirrors app/lib/connectors/ga4.ts: the dimension filter keeps low-volume AI
+    rows from being truncated by a row cap before we can count them. Matching is
+    still re-verified row-by-row via ai_tokens.match_ai_source (belt & braces —
+    a contains-filter can catch non-AI hosts embedding a token).
+    """
+    return {
+        "dateRanges": [{"startDate": since, "endDate": until}],
+        "dimensions": [
+            {"name": "date"},
+            {"name": "sessionSource"},
+            {"name": "landingPagePlusQueryString"},
+        ],
+        "metrics": [{"name": "sessions"}, {"name": "engagedSessions"}],
+        "dimensionFilter": {
+            "orGroup": {
+                "expressions": [
+                    {"filter": {
+                        "fieldName": "sessionSource",
+                        "stringFilter": {
+                            "matchType": "CONTAINS",
+                            "value": tok,
+                            "caseSensitive": False,
+                        },
+                    }}
+                    for tok in AI_SOURCE_TOKENS
+                ],
+            },
+        },
+    }
+
+
+def ai_daily_rows(ai_payload: dict, totals_by_date: dict[str, int]) -> list[dict]:
+    """AI report payload + {date: total_sessions} -> daily ai_traffic rows.
+
+    One row per date with the stored AI-score signals (see specs/ai.yaml):
+    ai_sessions, total_sessions, ai_engaged, distinct_ai_sources,
+    distinct_ai_pages. Dates with traffic but no AI referrals are zero-filled so
+    the trendline is continuous.
+    """
+    per_day: dict[str, dict] = {}
+    for rec in report_records(ai_payload):
+        matched = match_ai_source(rec.get("sessionSource"))
+        if matched is None:
+            continue  # contains-filter false positive
+        d = iso_date(rec.get("date", ""))
+        agg = per_day.setdefault(d, {"ai_sessions": 0, "ai_engaged": 0,
+                                     "sources": set(), "pages": set()})
+        agg["ai_sessions"] += _int(rec.get("sessions"))
+        agg["ai_engaged"] += _int(rec.get("engagedSessions"))
+        agg["sources"].add(matched[0])
+        page = rec.get("landingPagePlusQueryString") or ""
+        if page:
+            agg["pages"].add(page)
+
+    dates = sorted(set(totals_by_date) | set(per_day))
+    rows = []
+    for d in dates:
+        agg = per_day.get(d, {"ai_sessions": 0, "ai_engaged": 0, "sources": set(), "pages": set()})
+        rows.append({
+            "date": d,
+            "ai_sessions": agg["ai_sessions"],
+            "total_sessions": int(totals_by_date.get(d, 0)),
+            "ai_engaged": agg["ai_engaged"],
+            "distinct_ai_sources": len(agg["sources"]),
+            "distinct_ai_pages": len(agg["pages"]),
+        })
+    return rows
+
+
+def totals_from_traffic(rows: list[dict]) -> dict[str, int]:
+    """Traffic lake rows -> {date: total sessions across channels}."""
+    totals: dict[str, int] = {}
+    for r in rows:
+        totals[r["date"]] = totals.get(r["date"], 0) + int(r["sessions"])
+    return totals
+
+
 # --------------------------------------------------------------------------- #
 # Extraction driver
 # --------------------------------------------------------------------------- #
 
 def extract_client(token: str, slug: str, property_id: str,
-                   since: str, until: str) -> None:
+                   since: str, until: str, skip_ai: bool = False) -> None:
     payload = run_report(token, property_id, traffic_request(since, until))
     rows = traffic_rows(payload)
     if not rows:
         print(f"[extract-ga4] {slug}: 0 traffic rows for {since}..{until} — nothing ingested")
+    else:
+        res = ingest.upsert(slug, SOURCE, since, until, pd.DataFrame(rows))
+        print(f"[extract-ga4] {slug}/{SOURCE} [{since}..{until}]: "
+              f"+{res['rows_in']} rows -> {res['rows_total']} total ({res['path']})")
+
+    if skip_ai:
         return
-    res = ingest.upsert(slug, SOURCE, since, until, pd.DataFrame(rows))
-    print(f"[extract-ga4] {slug}/{SOURCE} [{since}..{until}]: "
+    ai_payload = run_report(token, property_id, ai_request(since, until))
+    ai_rows = ai_daily_rows(ai_payload, totals_from_traffic(rows))
+    if not ai_rows:
+        print(f"[extract-ga4] {slug}: 0 ai_traffic rows for {since}..{until} — nothing ingested")
+        return
+    res = ingest.upsert(slug, AI_SOURCE, since, until, pd.DataFrame(ai_rows))
+    print(f"[extract-ga4] {slug}/{AI_SOURCE} [{since}..{until}]: "
           f"+{res['rows_in']} rows -> {res['rows_total']} total ({res['path']})")
 
 
@@ -262,6 +362,8 @@ def main() -> None:
                     help=f"shortcut: last {INCREMENTAL_DAYS} days through yesterday")
     ap.add_argument("--sleep", type=float, default=2.0,
                     help="seconds to sleep between properties (GA4 quota kindness; default 2)")
+    ap.add_argument("--skip-ai", action="store_true",
+                    help="only extract the traffic table (skip the ai_traffic table)")
     args = ap.parse_args()
 
     since, until = resolve_window(args.since, args.until, args.incremental)
@@ -280,7 +382,7 @@ def main() -> None:
             continue
         if i > 0 and args.sleep > 0:
             time.sleep(args.sleep)
-        extract_client(token, slug, prop, since, until)
+        extract_client(token, slug, prop, since, until, skip_ai=args.skip_ai)
     print("[extract-ga4] done")
 
 

@@ -273,3 +273,33 @@ The transform from API JSON to lake rows (`traffic_rows`) is a pure function,
 unit-tested against a canned `runReport` fixture
 (`tests/fixtures/ga4_runreport.json`) — run `pytest -q -m "not live"`. Only the
 HTTP calls themselves require real credentials.
+
+## 7. AI traffic history — source `ai_traffic`, model `ai`
+
+Every `extract_ga4.py` run (unless `--skip-ai`) also builds a **daily AI-referral
+table** per client — the stored signals behind the dashboard's AI Score
+trendline — into `data/<client>/ai_traffic.parquet`, one row per day:
+
+| column | meaning |
+|---|---|
+| `ai_sessions` | sessions whose `sessionSource` matches an AI assistant |
+| `total_sessions` | all sessions that day (share denominator) |
+| `ai_engaged` | engaged sessions among the AI-referred ones |
+| `distinct_ai_sources` | distinct assistants that referred ≥ 1 session that day |
+| `distinct_ai_pages` | distinct landing pages receiving AI referrals that day |
+
+Detection uses the token list in **`ai_tokens.py`** — a mirror of
+`app/lib/connectors/aiSources.ts` (keep them in sync; both files carry a sync
+comment). The GA4 request applies the token list as a server-side
+`sessionSource CONTAINS` filter (so low-volume AI rows aren't truncated by a row
+cap), then every returned row is re-verified with `match_ai_source()` to drop
+contains-filter false positives.
+
+`specs/ai.yaml` exposes model **`ai`** (dims `client`, `date`; the five measures
+plus derived `ai_share`, `ai_engagement_rate`). Additive measures sum exactly at
+any grain; the distinct counts are day-level signals — summing them across a
+week over-counts repeat assistants, so period-level score computations should
+treat them as day-level (max/avg), which the app's weekly AI Score does.
+
+Transforms (`ai_daily_rows`, token matching) are fixture-tested offline:
+`tests/fixtures/ga4_ai_report.json`, `tests/test_ai_tokens.py`.
