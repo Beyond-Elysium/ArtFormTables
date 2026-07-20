@@ -61,6 +61,7 @@ def generate(client: str, start: str, end: str) -> pd.DataFrame:
                     )
                     if users <= 0:
                         continue
+                    sessions = int(users * (1.2 + r * 0.3))
                     rows.append(
                         {
                             "client": client,
@@ -69,7 +70,10 @@ def generate(client: str, start: str, end: str) -> pd.DataFrame:
                             "device": dev,
                             "country": co,
                             "users": users,
-                            "sessions": int(users * (1.2 + r * 0.3)),
+                            "sessions": sessions,
+                            # mirror the live extractor's columns (specs/ga4.yaml)
+                            "page_views": int(sessions * (1.4 + r)),
+                            "engaged_sessions": int(sessions * (0.4 + r * 0.4)),
                             "conversions": int(users * (0.01 + r * 0.03)),
                             "revenue": round(users * (0.5 + r * 2.5), 2),
                         }

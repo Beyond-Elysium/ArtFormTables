@@ -1,0 +1,30 @@
+# ArtForm semantic lake — daily pipeline (oneshot; scheduled by the .timer).
+#
+# Install (see INGESTION.md §8 for the full runbook):
+#   1. Adjust WorkingDirectory/ExecStart if the repo lives elsewhere than
+#      /opt/ArtFormTables, and User= to the account that owns the checkout.
+#   2. Put credentials in /etc/artform-semantic.env (root:root, chmod 0600):
+#        GOOGLE_OAUTH_CLIENT_ID=…
+#        GOOGLE_OAUTH_CLIENT_SECRET=…
+#        GOOGLE_OAUTH_REFRESH_TOKEN=…
+#        # optional, for ad spend: GOOGLE_ADS_DEVELOPER_TOKEN=…
+#        # optional: SEMANTIC_RELOAD_CMD=systemctl restart artform-semantic
+#   3. sudo cp deploy/semantic-pipeline.{service,timer} /etc/systemd/system/
+#      sudo systemctl daemon-reload
+#      sudo systemctl enable --now semantic-pipeline.timer
+
+[Unit]
+Description=ArtForm semantic lake daily pipeline (extract -> rollups -> health)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+# The account that owns the repo checkout + venv (adjust to your VM):
+User=root
+WorkingDirectory=/opt/ArtFormTables/semantic
+EnvironmentFile=/etc/artform-semantic.env
+ExecStart=/usr/bin/env bash /opt/ArtFormTables/semantic/pipeline.sh
+# Extraction is network + light CPU; don't starve the query service.
+Nice=10
+TimeoutStartSec=2h

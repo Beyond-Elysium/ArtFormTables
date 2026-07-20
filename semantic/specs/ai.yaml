@@ -1,0 +1,30 @@
+# AI-referral history model — the stored signals behind the AI Score trendline.
+#
+# extract_ga4.py writes one row per client per day into
+# data/<client>/ai_traffic.parquet (source "ai_traffic"): sessions referred by
+# AI assistants (ChatGPT, Perplexity, Gemini, …; token list in ai_tokens.py,
+# mirrored from app/lib/connectors/aiSources.ts).
+#
+# Measure semantics:
+#   ai_sessions / total_sessions / ai_engaged — additive; sum exactly at any
+#     grain (weekly AI share = sum(ai_sessions)/sum(total_sessions)).
+#   distinct_ai_sources / distinct_ai_pages — per-DAY distinct counts, summed.
+#     Summing day-level distincts over a week over-counts repeat sources; the
+#     app's weekly score computation treats them as day-level signals
+#     (e.g. max/avg per period), not true period-level distincts.
+model: ai
+source: "data/**/ai_traffic.parquet"
+description: "Daily AI-assistant referral signals per client (AI Score history)"
+time_dimension: date
+dimensions:
+  client: _.client
+  date: _.date
+measures:
+  ai_sessions: _.ai_sessions.sum()
+  total_sessions: _.total_sessions.sum()
+  ai_engaged: _.ai_engaged.sum()
+  distinct_ai_sources: _.distinct_ai_sources.sum()
+  distinct_ai_pages: _.distinct_ai_pages.sum()
+  # Dynamic calculations — correct at any grain:
+  ai_share: _.ai_sessions.sum() / _.total_sessions.sum()
+  ai_engagement_rate: _.ai_engaged.sum() / _.ai_sessions.sum()

@@ -38,6 +38,7 @@ def build(days: int = 90, seed: int = 7) -> pd.DataFrame:
                     users = int(base * dm * cm * (0.6 if weekend else 1.0) * (0.7 + random.random() * 0.6))
                     if users <= 0:
                         continue
+                    sessions = int(users * (1.2 + random.random() * 0.3))
                     rows.append(
                         {
                             "date": d,
@@ -45,7 +46,11 @@ def build(days: int = 90, seed: int = 7) -> pd.DataFrame:
                             "device": dev,
                             "country": co,
                             "users": users,
-                            "sessions": int(users * (1.2 + random.random() * 0.3)),
+                            "sessions": sessions,
+                            # page_views / engaged_sessions mirror the live
+                            # extractor's columns (specs/ga4.yaml measures).
+                            "page_views": int(sessions * (1.4 + random.random())),
+                            "engaged_sessions": int(sessions * (0.4 + random.random() * 0.4)),
                             "conversions": int(users * (0.01 + random.random() * 0.03)),
                             "revenue": round(users * random.uniform(0.5, 3.0), 2),
                         }
