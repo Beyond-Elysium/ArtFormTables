@@ -5,7 +5,8 @@ how auth is set up, the full provider catalog, and the recommendations we've
 landed on. **Keep this updated** as connections change (see the checklist at the
 end). For *building* a new connector, jump to [Authoring a new connector](#authoring-a-new-connector).
 
-Related docs: [DEPLOY.md](./DEPLOY.md) (run/ship), [REPORTS.md](./REPORTS.md)
+Related docs: [ONBOARDING.md](./ONBOARDING.md) (add-a-client checklist),
+[DEPLOY.md](./DEPLOY.md) (run/ship), [REPORTS.md](./REPORTS.md)
 (PDF/email), and the debug endpoint `GET /api/debug/<slug>` (live vs demo status
 per source — uncached).
 
