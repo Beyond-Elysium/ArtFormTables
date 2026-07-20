@@ -4,6 +4,7 @@ import { IconChartHistogram } from "@tabler/icons-react";
 import { createSearchParamsCache } from "nuqs/server";
 import { getClientBySlug } from "@/config/clients";
 import { fetchClientData } from "@/lib/connectors";
+import { fetchAiTrendPanel } from "@/lib/aiTrend";
 import { resolveRange, formatWindow } from "@/lib/range";
 import { dashboardParsers } from "@/lib/searchParams";
 import { readableTextColor } from "@/lib/contrast";
@@ -80,6 +81,13 @@ export default async function ClientDashboard({
   const reportHref = `/api/report/${client.slug}${reportQs ? `?${reportQs}` : ""}`;
 
   const results = await fetchClientData(client, resolved);
+  // AI Score trend from the semantic lake (weekly, client-scoped): shown inside
+  // the GA4 section when the `ai` model has rows; silently absent otherwise.
+  const aiTrend = await fetchAiTrendPanel(client.slug, resolved.window).catch(() => null);
+  if (aiTrend) {
+    const ga4 = results.find((r) => r.sourceId.startsWith("ga4"));
+    (ga4 ?? results[0])?.panels.push(aiTrend);
+  }
   const brand = { ...DEFAULT_BRAND, ...client.brand };
   const anyMock = results.some((r) => r.isMock);
 

@@ -1,0 +1,24 @@
+# Caddy reverse proxy for the ArtForm semantic service (finding S1).
+#
+# Caddy terminates TLS with automatic certificates (Let's Encrypt/ZeroSSL —
+# issued and renewed with zero config) and forwards to the FastAPI app, which
+# should bind ONLY to localhost (SEMANTIC_BIND_HOST=127.0.0.1, the default).
+# Result: token + metrics never cross the wire unencrypted, and the app port
+# is never directly reachable from the internet.
+#
+# Install (Debian/Ubuntu): see the "Hardening" section in README.md.
+# Deploy this file to /etc/caddy/Caddyfile and `systemctl reload caddy`.
+#
+# Requirements for auto-HTTPS:
+#   - DNS A record: semantic.artformagency.com -> <VM public IP>
+#   - Ports 80 + 443 open to the internet (80 is needed for the ACME challenge)
+
+semantic.artformagency.com {
+	# Everything proxies to the FastAPI service on localhost.
+	reverse_proxy 127.0.0.1:8899
+
+	# Don't leak stack details on proxy-level errors.
+	handle_errors {
+		respond "{err.status_code} {err.status_text}" {err.status_code}
+	}
+}

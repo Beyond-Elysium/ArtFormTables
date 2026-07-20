@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   buildExploreQuery,
+  clientScopeDecision,
   encodeFilters,
   decodeFilters,
+  forceClientFilter,
+  isModelExplorable,
   toggleFilter,
   filtersFromRow,
   isTimeseries,
@@ -81,6 +84,80 @@ describe("buildExploreQuery sort + limit", () => {
     });
     expect(q.orderBy).toEqual([["date", "asc"]]);
     expect(q.limit).toBe(500);
+  });
+});
+
+describe("forceClientFilter", () => {
+  const q = { model: "ga4", dimensions: ["channel"], measures: ["users"] };
+
+  it("appends the client equality filter", () => {
+    expect(forceClientFilter(q, "acme").filters).toEqual([
+      { field: "client", op: "=", value: "acme" },
+    ]);
+  });
+
+  it("overwrites any caller-supplied client filter (no spoofing)", () => {
+    const spoofed = {
+      ...q,
+      filters: [
+        { field: "client", op: "=" as const, value: "other-client" },
+        { field: "client", op: "in" as const, value: ["a", "b"] },
+        { field: "device", op: "=" as const, value: "mobile" },
+      ],
+    };
+    expect(forceClientFilter(spoofed, "acme").filters).toEqual([
+      { field: "device", op: "=", value: "mobile" },
+      { field: "client", op: "=", value: "acme" },
+    ]);
+  });
+
+  it("does not mutate the input query", () => {
+    const spoofed = { ...q, filters: [{ field: "client", value: "other" }] };
+    forceClientFilter(spoofed, "acme");
+    expect(spoofed.filters).toEqual([{ field: "client", value: "other" }]);
+  });
+});
+
+describe("clientScopeDecision", () => {
+  const schemas = {
+    ga4: { dimensions: ["client", "date", "channel"] },
+    blended: { dimensions: ["date", "channel"] },
+  };
+
+  it("scopes models that carry a client dimension", () => {
+    expect(clientScopeDecision("ga4", schemas)).toEqual({ action: "scope" });
+  });
+
+  it("rejects models without a client dimension (empty allowlist)", () => {
+    const d = clientScopeDecision("blended", schemas);
+    expect(d.action).toBe("reject");
+    if (d.action === "reject") expect(d.status).toBe(400);
+  });
+
+  it("forwards models without a client dimension when allowlisted", () => {
+    expect(clientScopeDecision("blended", schemas, ["blended"])).toEqual({
+      action: "forward",
+    });
+  });
+
+  it("rejects unknown models", () => {
+    const d = clientScopeDecision("nope", schemas);
+    expect(d.action).toBe("reject");
+    if (d.action === "reject") expect(d.status).toBe(404);
+  });
+
+  it("rejects everything when the schema is unavailable (deny by default)", () => {
+    const d = clientScopeDecision("ga4", null);
+    expect(d.action).toBe("reject");
+    if (d.action === "reject") expect(d.status).toBe(502);
+  });
+});
+
+describe("isModelExplorable", () => {
+  it("mirrors the server policy", () => {
+    expect(isModelExplorable("ga4", { dimensions: ["client", "date"] })).toBe(true);
+    expect(isModelExplorable("blended", { dimensions: ["date"] })).toBe(false);
+    expect(isModelExplorable("blended", { dimensions: ["date"] }, ["blended"])).toBe(true);
   });
 });
 

@@ -3,17 +3,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryStates } from "nuqs";
 import { parseAsArrayOf, parseAsInteger, parseAsString } from "nuqs";
-import { IconX, IconFilterOff, IconTable, IconChartBar } from "@tabler/icons-react";
+import { IconX, IconFilterOff, IconTable, IconChartBar, IconSparkles } from "@tabler/icons-react";
 import type { Branding } from "@/components/Charts";
 import { BarChart, TimeseriesChart } from "@/components/Charts";
-import type { SemanticModelSchema, SemanticResult } from "@/lib/semantic";
+import type { SemanticModelSchema, SemanticQuery, SemanticResult } from "@/lib/semantic";
 import {
   buildExploreQuery,
   decodeFilters,
   encodeFilters,
   filtersFromRow,
+  isModelExplorable,
   isTimeseries,
   toggleFilter,
+  CLIENT_FIELD,
   LIMIT_OPTIONS,
   type ExploreFilter,
 } from "@/lib/explore";
@@ -47,7 +49,10 @@ function formatCell(value: unknown): string {
   return value.toLocaleString("en-US", { maximumFractionDigits: 2 });
 }
 
-export function ExploreClient({ brand }: { brand: Branding }) {
+// `client` is the page's slug: it rides along on every /api/semantic POST so
+// the server can force the client filter (E5). It is never a visible/editable
+// filter in this UI.
+export function ExploreClient({ brand, client }: { brand: Branding; client: string }) {
   const [{ model, dims, measures, filters, from, to, sort, top }, setState] = useQueryStates(
     exploreParsers,
     { shallow: true, scroll: false, history: "push" },
@@ -59,7 +64,98 @@ export function ExploreClient({ brand }: { brand: Branding }) {
   const [loading, setLoading] = useState(false);
   const [queryError, setQueryError] = useState<string | null>(null);
 
-  const parsedFilters = useMemo(() => decodeFilters(filters), [filters]);
+  // The client-scope filter is server-forced and never user-visible: strip any
+  // hand-edited `client` filter from the URL state (the server overwrites it
+  // regardless).
+  const parsedFilters = useMemo(
+    () => decodeFilters(filters).filter((f) => f.field !== CLIENT_FIELD),
+    [filters],
+  );
+
+  // ---- NLQ ("Ask") ---------------------------------------------------------
+  // Hidden entirely unless the server reports the endpoint is configured
+  // (ANTHROPIC_API_KEY + semantic service). The answer arrives as a validated
+  // semantic query; we write it into the URL state, so the normal query effect
+  // fetches and renders it through the existing chart/table.
+  const [nlqReady, setNlqReady] = useState(false);
+  const [question, setQuestion] = useState("");
+  const [asking, setAsking] = useState(false);
+  const [nlqError, setNlqError] = useState<string | null>(null);
+  const [nlqAnswer, setNlqAnswer] = useState<{
+    question: string;
+    query: SemanticQuery;
+    explanation?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/nlq")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { configured?: boolean } | null) => {
+        if (alive && d?.configured) setNlqReady(true);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  async function ask() {
+    const q = question.trim();
+    if (!q || asking) return;
+    setAsking(true);
+    setNlqError(null);
+    try {
+      const r = await fetch("/api/nlq", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ client, question: q }),
+      });
+      const payload = (await r.json().catch(() => null)) as {
+        query?: SemanticQuery;
+        explanation?: string;
+        error?: string;
+      } | null;
+      if (!r.ok || !payload?.query) {
+        throw new Error(payload?.error ?? `ask failed (${r.status})`);
+      }
+      applyNlqQuery(payload.query);
+      setNlqAnswer({ question: q, query: payload.query, explanation: payload.explanation });
+    } catch (e) {
+      setNlqError(String((e as Error).message ?? e));
+    } finally {
+      setAsking(false);
+    }
+  }
+
+  /** Fill the explore controls (URL state) from a validated semantic query. */
+  function applyNlqQuery(q: SemanticQuery) {
+    seeded.current = true; // don't let the default-seeding effect fight the answer
+    const eqFilters: ExploreFilter[] = (q.filters ?? [])
+      .filter(
+        (f) =>
+          f.field !== CLIENT_FIELD &&
+          (f.op ?? "=") === "=" &&
+          (typeof f.value === "string" || typeof f.value === "number"),
+      )
+      .map((f) => ({ field: f.field, value: String(f.value) }));
+    const firstOrder = q.orderBy?.[0];
+    const sortMeasure =
+      firstOrder && firstOrder[1] === "desc" && (q.measures ?? []).includes(firstOrder[0])
+        ? firstOrder[0]
+        : null;
+    setState({
+      model: q.model,
+      dims: q.dimensions?.length ? q.dimensions : null,
+      measures: q.measures?.length ? q.measures : null,
+      filters: encodeFilters(eqFilters) || null,
+      from: q.timeRange?.start ?? null,
+      to: q.timeRange?.end ?? null,
+      sort: sortMeasure,
+      top:
+        q.limit && (LIMIT_OPTIONS as readonly number[]).includes(q.limit) ? q.limit : null,
+    });
+  }
   const seeded = useRef(false);
 
   // Load the model schema through the token-injecting proxy (no credential here).
@@ -81,10 +177,19 @@ export function ExploreClient({ brand }: { brand: Branding }) {
     };
   }, []);
 
-  const modelNames = models ? Object.keys(models) : [];
+  // Only offer models the server will actually run for this client (client-
+  // partitioned or explicitly shared) — mirrors the server-side policy.
+  const modelNames = models
+    ? Object.keys(models).filter((n) => isModelExplorable(n, models[n]))
+    : [];
   const activeModel = model || modelNames[0] || "";
   const schema = models?.[activeModel] ?? null;
   const timeDimension = schema?.time_dimension ?? null;
+  // The scoping dimension is server-territory: never a group-by option.
+  const schemaDims = useMemo(
+    () => (schema ? schema.dimensions.filter((d) => d !== CLIENT_FIELD) : []),
+    [schema],
+  );
 
   // Seed a sensible first view once the schema loads (timeseries of the first
   // measure) — written to the URL so the selection is reflected + shareable.
@@ -94,7 +199,7 @@ export function ExploreClient({ brand }: { brand: Branding }) {
     if (!model || dims.length === 0 || measures.length === 0) {
       setState({
         model: activeModel,
-        dims: dims.length ? dims : timeDimension ? [timeDimension] : schema.dimensions.slice(0, 1),
+        dims: dims.length ? dims : timeDimension ? [timeDimension] : schemaDims.slice(0, 1),
         measures: measures.length ? measures : schema.measures.slice(0, 1),
       });
     }
@@ -124,7 +229,8 @@ export function ExploreClient({ brand }: { brand: Branding }) {
     fetch("/api/semantic", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(q),
+      // `client` names the page's slug so the server can force the scope filter.
+      body: JSON.stringify({ ...q, client }),
       signal: ctrl.signal,
     })
       .then(async (r) => {
@@ -155,9 +261,10 @@ export function ExploreClient({ brand }: { brand: Branding }) {
   function selectModel(next: string) {
     seeded.current = false; // re-seed defaults for the new model's schema
     const s = models?.[next];
+    const sDims = s?.dimensions.filter((d) => d !== CLIENT_FIELD) ?? [];
     setState({
       model: next,
-      dims: s?.time_dimension ? [s.time_dimension] : s?.dimensions.slice(0, 1) ?? [],
+      dims: s?.time_dimension ? [s.time_dimension] : sDims.slice(0, 1),
       measures: s?.measures.slice(0, 1) ?? [],
       filters: null,
     });
@@ -222,6 +329,56 @@ export function ExploreClient({ brand }: { brand: Branding }) {
         }
       }}
     >
+      {/* Ask (NLQ) — only when the server says it's configured */}
+      {nlqReady && (
+        <div className="card mb-3">
+          <div className="card-body">
+            <form
+              className="d-flex gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void ask();
+              }}
+            >
+              <span className="d-flex align-items-center text-secondary">
+                <IconSparkles size={18} stroke={2} />
+              </span>
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Ask: e.g. 'sessions by channel last 90 days'"
+                aria-label="Ask a question about this data"
+                value={question}
+                maxLength={500}
+                onChange={(e) => setQuestion(e.target.value)}
+              />
+              <button type="submit" className="btn btn-primary" disabled={asking || !question.trim()}>
+                {asking ? "Asking…" : "Ask"}
+              </button>
+            </form>
+            {nlqError && (
+              <div className="text-danger small mt-2">{nlqError}</div>
+            )}
+            {nlqAnswer && !nlqError && (
+              <div className="mt-2 small">
+                {nlqAnswer.explanation && (
+                  <span className="text-secondary">{nlqAnswer.explanation} </span>
+                )}
+                {/* Transparency: the exact query the question became. */}
+                <details className="mt-1">
+                  <summary className="text-secondary" style={{ cursor: "pointer" }}>
+                    Show generated query
+                  </summary>
+                  <pre className="mb-0 mt-1" style={{ whiteSpace: "pre-wrap" }}>
+                    {JSON.stringify(nlqAnswer.query, null, 2)}
+                  </pre>
+                </details>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Query builder */}
       <div className="card mb-3">
         <div className="card-body">
@@ -244,7 +401,7 @@ export function ExploreClient({ brand }: { brand: Branding }) {
             <div className="col-12 col-md-5">
               <label className="form-label subheader">Group by</label>
               <div className="d-flex flex-wrap gap-1">
-                {schema?.dimensions.map((d) => (
+                {schemaDims.map((d) => (
                   <button
                     key={d}
                     type="button"

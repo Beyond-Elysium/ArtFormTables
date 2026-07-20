@@ -194,6 +194,31 @@ data; next steps (real per-client extracts, cross-filter UI, Claude-powered NLQ)
 are in the semantic README. **Smart Narratives** already ship in-app
 (`lib/narrative.ts`).
 
+**Client scoping (server-enforced):** every `/api/semantic` query must name the
+requesting page's `client` slug (validated against `config/clients.ts`), and the
+server force-injects a `client = <slug>` filter — overwriting anything the
+browser sent — before the query reaches the semantic service
+(`runSemanticQuery` in [`lib/semantic.ts`](./lib/semantic.ts); pure policy
+helpers + tests in [`lib/explore.ts`](./lib/explore.ts)). Models without a
+`client` dimension are rejected (400) unless allowlisted in
+`SHARED_SEMANTIC_MODELS` (deny-by-default, currently empty). `GET
+/api/semantic/models` stays unscoped on purpose: it returns schema *names*, not
+client data. So the shared bearer token can never be used to read another
+client's rows, even with a hand-crafted request.
+
+**NLQ — "ask your dashboard" (built, needs `ANTHROPIC_API_KEY`):** the Explore
+page shows an **Ask** box when both the semantic service and `ANTHROPIC_API_KEY`
+are configured (`GET /api/nlq` → `{configured}`). `POST /api/nlq
+{client, question}` has Claude (`claude-sonnet-5`) translate the question into a
+semantic query against the live `/models` schemas, then **strictly validates**
+the result with zod (unknown models/fields rejected — LLM output is never
+trusted), forces the same `client = <slug>` filter as `/api/semantic`, executes
+via `runSemanticQuery`, and returns `{query, result, explanation}`. The UI fills
+the explore controls from the returned query (URL state) and shows the generated
+query for transparency. Fully branded/server-side (Path A): the Anthropic key
+never reaches the browser. Pure translation/validation logic + tests live in
+`app/api/nlq/translate.ts`.
+
 ### AI referrals & the AI Score
 Every GA4 dashboard ships, **by default**, with AI-visibility panels — the
 GEO / answer-engine question agencies increasingly field ("how much is AI
