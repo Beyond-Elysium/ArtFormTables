@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryStates } from "nuqs";
 import { parseAsArrayOf, parseAsInteger, parseAsString } from "nuqs";
-import { IconX, IconFilterOff, IconTable, IconChartBar } from "@tabler/icons-react";
+import { IconX, IconFilterOff, IconTable, IconChartBar, IconSparkles } from "@tabler/icons-react";
 import type { Branding } from "@/components/Charts";
 import { BarChart, TimeseriesChart } from "@/components/Charts";
-import type { SemanticModelSchema, SemanticResult } from "@/lib/semantic";
+import type { SemanticModelSchema, SemanticQuery, SemanticResult } from "@/lib/semantic";
 import {
   buildExploreQuery,
   decodeFilters,
@@ -71,6 +71,91 @@ export function ExploreClient({ brand, client }: { brand: Branding; client: stri
     () => decodeFilters(filters).filter((f) => f.field !== CLIENT_FIELD),
     [filters],
   );
+
+  // ---- NLQ ("Ask") ---------------------------------------------------------
+  // Hidden entirely unless the server reports the endpoint is configured
+  // (ANTHROPIC_API_KEY + semantic service). The answer arrives as a validated
+  // semantic query; we write it into the URL state, so the normal query effect
+  // fetches and renders it through the existing chart/table.
+  const [nlqReady, setNlqReady] = useState(false);
+  const [question, setQuestion] = useState("");
+  const [asking, setAsking] = useState(false);
+  const [nlqError, setNlqError] = useState<string | null>(null);
+  const [nlqAnswer, setNlqAnswer] = useState<{
+    question: string;
+    query: SemanticQuery;
+    explanation?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/nlq")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { configured?: boolean } | null) => {
+        if (alive && d?.configured) setNlqReady(true);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  async function ask() {
+    const q = question.trim();
+    if (!q || asking) return;
+    setAsking(true);
+    setNlqError(null);
+    try {
+      const r = await fetch("/api/nlq", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ client, question: q }),
+      });
+      const payload = (await r.json().catch(() => null)) as {
+        query?: SemanticQuery;
+        explanation?: string;
+        error?: string;
+      } | null;
+      if (!r.ok || !payload?.query) {
+        throw new Error(payload?.error ?? `ask failed (${r.status})`);
+      }
+      applyNlqQuery(payload.query);
+      setNlqAnswer({ question: q, query: payload.query, explanation: payload.explanation });
+    } catch (e) {
+      setNlqError(String((e as Error).message ?? e));
+    } finally {
+      setAsking(false);
+    }
+  }
+
+  /** Fill the explore controls (URL state) from a validated semantic query. */
+  function applyNlqQuery(q: SemanticQuery) {
+    seeded.current = true; // don't let the default-seeding effect fight the answer
+    const eqFilters: ExploreFilter[] = (q.filters ?? [])
+      .filter(
+        (f) =>
+          f.field !== CLIENT_FIELD &&
+          (f.op ?? "=") === "=" &&
+          (typeof f.value === "string" || typeof f.value === "number"),
+      )
+      .map((f) => ({ field: f.field, value: String(f.value) }));
+    const firstOrder = q.orderBy?.[0];
+    const sortMeasure =
+      firstOrder && firstOrder[1] === "desc" && (q.measures ?? []).includes(firstOrder[0])
+        ? firstOrder[0]
+        : null;
+    setState({
+      model: q.model,
+      dims: q.dimensions?.length ? q.dimensions : null,
+      measures: q.measures?.length ? q.measures : null,
+      filters: encodeFilters(eqFilters) || null,
+      from: q.timeRange?.start ?? null,
+      to: q.timeRange?.end ?? null,
+      sort: sortMeasure,
+      top:
+        q.limit && (LIMIT_OPTIONS as readonly number[]).includes(q.limit) ? q.limit : null,
+    });
+  }
   const seeded = useRef(false);
 
   // Load the model schema through the token-injecting proxy (no credential here).
@@ -244,6 +329,56 @@ export function ExploreClient({ brand, client }: { brand: Branding; client: stri
         }
       }}
     >
+      {/* Ask (NLQ) — only when the server says it's configured */}
+      {nlqReady && (
+        <div className="card mb-3">
+          <div className="card-body">
+            <form
+              className="d-flex gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void ask();
+              }}
+            >
+              <span className="d-flex align-items-center text-secondary">
+                <IconSparkles size={18} stroke={2} />
+              </span>
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Ask: e.g. 'sessions by channel last 90 days'"
+                aria-label="Ask a question about this data"
+                value={question}
+                maxLength={500}
+                onChange={(e) => setQuestion(e.target.value)}
+              />
+              <button type="submit" className="btn btn-primary" disabled={asking || !question.trim()}>
+                {asking ? "Asking…" : "Ask"}
+              </button>
+            </form>
+            {nlqError && (
+              <div className="text-danger small mt-2">{nlqError}</div>
+            )}
+            {nlqAnswer && !nlqError && (
+              <div className="mt-2 small">
+                {nlqAnswer.explanation && (
+                  <span className="text-secondary">{nlqAnswer.explanation} </span>
+                )}
+                {/* Transparency: the exact query the question became. */}
+                <details className="mt-1">
+                  <summary className="text-secondary" style={{ cursor: "pointer" }}>
+                    Show generated query
+                  </summary>
+                  <pre className="mb-0 mt-1" style={{ whiteSpace: "pre-wrap" }}>
+                    {JSON.stringify(nlqAnswer.query, null, 2)}
+                  </pre>
+                </details>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Query builder */}
       <div className="card mb-3">
         <div className="card-body">
