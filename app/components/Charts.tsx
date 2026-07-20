@@ -10,10 +10,39 @@ const CHART_HEIGHT = 300;
 
 // Reserve the chart's height while the (client-only) bundle loads to avoid
 // layout shift, and show a subtle skeleton.
-const ReactApexChart = dynamic(() => import("react-apexcharts"), {
-  ssr: false,
-  loading: () => <div className="chart-skeleton" style={{ height: CHART_HEIGHT }} />,
-});
+const ReactApexChart = dynamic(
+  async () => {
+    // Guard ApexCharts.destroy(): unmounting a chart whose async render()
+    // hasn't finished yet (e.g. the URL-hash view restore switches tabs right
+    // after load, or a fast user tab switch) throws from clearDomElements
+    // (`globals.dom.Paper` is still undefined) and takes down the whole page.
+    // The chart is being discarded anyway, so a failed teardown is harmless.
+    const [{ default: ApexCharts }, mod] = await Promise.all([
+      import("apexcharts"),
+      import("react-apexcharts"),
+    ]);
+    const proto = ApexCharts.prototype as unknown as {
+      destroy: () => void;
+      __afSafeDestroy?: boolean;
+    };
+    if (!proto.__afSafeDestroy) {
+      proto.__afSafeDestroy = true;
+      const orig = proto.destroy;
+      proto.destroy = function () {
+        try {
+          orig.call(this);
+        } catch {
+          // Chart never finished mounting — nothing to tear down.
+        }
+      };
+    }
+    return mod;
+  },
+  {
+    ssr: false,
+    loading: () => <div className="chart-skeleton" style={{ height: CHART_HEIGHT }} />,
+  }
+);
 
 export interface Branding {
   primary: string;

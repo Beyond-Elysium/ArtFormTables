@@ -59,6 +59,18 @@ export function DashboardControls({
     }
   });
 
+  // Single calendar month on narrow screens — two months overflow a phone
+  // viewport. SSR-safe (defaults to two, resolves after mount) and live.
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("(max-width: 639.98px)");
+    setNarrow(mq.matches);
+    const onChange = (e: MediaQueryListEvent) => setNarrow(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
   function selectPreset(id: RangePresetId) {
     if (id === "custom") {
       setShowCustom((s) => !s);
@@ -82,25 +94,31 @@ export function DashboardControls({
 
   return (
     <div
-      className="d-flex flex-wrap align-items-center gap-2 position-relative"
+      className="d-flex flex-wrap align-items-center gap-2 position-relative flex-grow-1"
       aria-busy={isPending}
-      style={{ opacity: isPending ? 0.6 : 1, transition: "opacity .15s" }}
+      style={{ opacity: isPending ? 0.6 : 1, transition: "opacity .15s", minWidth: 0 }}
     >
-      <div className="btn-group" role="group" aria-label="Date range">
-        {RANGE_PRESETS.map((p) => {
-          const active = p.id === "custom" ? showCustom || preset === "custom" : p.id === preset;
-          return (
-            <button
-              key={p.id}
-              type="button"
-              className={`btn btn-sm ${active ? "btn-primary" : "btn-outline-primary"}`}
-              onClick={() => selectPreset(p.id)}
-              aria-expanded={p.id === "custom" ? showCustom : undefined}
-            >
-              {p.label}
-            </button>
-          );
-        })}
+      {/* Thin top progress bar while the server refetches for a new range /
+          comparison — the sticky controls stay interactive, this signals work. */}
+      {isPending && <div className="route-progress" aria-hidden="true" />}
+
+      <div className="range-presets">
+        <div className="btn-group" role="group" aria-label="Date range">
+          {RANGE_PRESETS.map((p) => {
+            const active = p.id === "custom" ? showCustom || preset === "custom" : p.id === preset;
+            return (
+              <button
+                key={p.id}
+                type="button"
+                className={`btn btn-sm ${active ? "btn-primary" : "btn-outline-primary"}`}
+                onClick={() => selectPreset(p.id)}
+                aria-expanded={p.id === "custom" ? showCustom : undefined}
+              >
+                {p.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {showCustom && (
@@ -119,7 +137,7 @@ export function DashboardControls({
                 onSelect={setSelected}
                 defaultMonth={selected?.from ?? today}
                 disabled={{ after: today }}
-                numberOfMonths={2}
+                numberOfMonths={narrow ? 1 : 2}
                 showOutsideDays
               />
               <div className="d-flex justify-content-between align-items-center mt-2 border-top pt-2">
