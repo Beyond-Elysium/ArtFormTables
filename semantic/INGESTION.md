@@ -374,3 +374,69 @@ python health_check.py --source ga4 --source ai_traffic --require-clients \
 Note: the FastAPI query service caches models at startup — after the first
 backfill (new specs/parquets), restart it (`systemctl restart artform-semantic`
 or set `SEMANTIC_RELOAD_CMD` so the pipeline does it).
+
+## 9. Live extraction — Google Ads spend (`extract_google_ads.py`)
+
+Pulls daily ad spend per client into source **`ad_spend`** via REST
+`googleAds:searchStream` (GAQL over `FROM campaign`, no SDK) — the missing half
+of the blended CAC/ROAS/CTR model. Grain `client x date x platform x campaign`,
+columns exactly matching the demo `ad_spend` (`seed_blended.py`) so
+`build_blended.py` / `specs/blended.yaml` work unchanged:
+
+| lake column | Ads API name |
+|---|---|
+| `date` | `segments.date` |
+| `platform` | constant `"Google"` (→ channel via `PLATFORM_CHANNEL`) |
+| `campaign` | `campaign.name` |
+| `impressions` / `clicks` | `metrics.impressions` / `metrics.clicks` |
+| `spend` | `metrics.cost_micros / 1e6` |
+| `conversions` | `metrics.conversions` (fractional — stored as float) |
+
+### Credentials + configuration
+
+Same OAuth client/refresh token as GA4 (the refresh token must also carry the
+AdWords scope) plus the Ads-specific env — fallbacks mirror the Next app's
+`googleAds.ts`:
+
+```sh
+export GOOGLE_ADS_DEVELOPER_TOKEN=…                # required for live runs
+# optional overrides; fall back to the GOOGLE_OAUTH_* trio:
+export GOOGLE_ADS_CLIENT_ID=… GOOGLE_ADS_CLIENT_SECRET=… GOOGLE_ADS_OAUTH_REFRESH_TOKEN=…
+export GOOGLE_ADS_LOGIN_CUSTOMER_ID=…              # optional (MCC)
+export GOOGLE_ADS_API_VERSION=v24                  # default; versions sunset ~yearly
+```
+
+Per-client customer ids: `clients.yaml` → `google_ads_customer_id` (digits or
+`123-456-7890` form). **All are currently unknown** — a commented template sits
+under each client; uncomment + fill as Ads access is granted. Until then the
+extractor (and its `pipeline.sh` step) prints a notice and exits 0.
+
+### Runbook
+
+```sh
+python extract_google_ads.py                        # backfill: last 365 days
+python extract_google_ads.py --incremental          # daily window (pipeline.sh step 2)
+python extract_google_ads.py --client artform --since 2026-01-01 --until 2026-06-30
+python build_blended.py && python rollups.py        # refresh the blend + rollups
+python verify_blended.py                            # KPIs vs independent re-join
+python health_check.py --source ad_spend            # once Ads is configured
+```
+
+`pipeline.sh` runs ads extraction after GA4, then `build_blended.py`, and adds
+`ad_spend` to the health checks automatically once a developer token + at least
+one customer id are configured.
+
+### Blending on a live lake — two caveats
+
+- `build_blended.py` / `verify_blended.py` union **both** lake layouts (demo
+  `data/<source>.parquet` + per-client `data/<client>/<source>.parquet`), and a
+  missing `orders` source no longer breaks the build — revenue-based KPIs
+  (ROAS, revenue) simply degrade to 0/inf until an orders/revenue extractor
+  exists. Verified: fixture ad rows ingested for a client raise blended spend by
+  exactly their sum, and `verify_blended.py` still matches independently.
+- The blend joins GA4 to spend on **channel**, and `PLATFORM_CHANNEL` maps
+  platform `Google` → demo channel `"Paid"`. Live GA4 channel values are GA4
+  default channel groups (`"Paid Search"`, `"Paid Social"`, …), so when real Ads
+  data lands, update `PLATFORM_CHANNEL` (in `seed_blended.py`, the single
+  source of the mapping) to target the live channel-group names — a one-line
+  config change; leads/sessions stay 0 in the blend until then.

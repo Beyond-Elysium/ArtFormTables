@@ -8,6 +8,8 @@
 #
 # Env (usually via /etc/artform-semantic.env, loaded by the systemd unit):
 #   GOOGLE_OAUTH_CLIENT_ID / GOOGLE_OAUTH_CLIENT_SECRET / GOOGLE_OAUTH_REFRESH_TOKEN
+#   GOOGLE_ADS_DEVELOPER_TOKEN  optional; enables the ad-spend step (plus
+#                               google_ads_customer_id entries in clients.yaml)
 #   SEMANTIC_PYTHON       override the interpreter (default: ./.venv/bin/python, else python3)
 #   SEMANTIC_LOG_DIR      override the log dir (default: ./store/logs)
 #   SEMANTIC_RELOAD_CMD   optional command run after a successful pipeline, e.g.
@@ -54,11 +56,25 @@ log "[pipeline] start (python: $PYTHON, dir: $SEMANTIC_DIR)"
 #    client in clients.yaml. Idempotent: overlapping windows never duplicate.
 step "extract-ga4 (incremental, all clients)" "$PYTHON" extract_ga4.py --incremental
 
-# 2. Daily -> monthly rollups for every source in the lake.
+# 2. Ad spend — needs GOOGLE_ADS_DEVELOPER_TOKEN + google_ads_customer_id
+#    entries in clients.yaml; prints a notice and exits 0 otherwise, so the
+#    pipeline stays green before Ads access lands.
+step "extract-google-ads (incremental)" "$PYTHON" extract_google_ads.py --incremental
+
+# 3. Blended cross-source table (skips with a notice when no ad_spend data).
+step "build-blended" "$PYTHON" build_blended.py
+
+# 4. Daily -> monthly rollups for every source in the lake.
 step "rollups" "$PYTHON" rollups.py
 
-# 3. Health: rows exist, count didn't shrink, latest date == yesterday.
-step "health" "$PYTHON" health_check.py --source ga4 --source ai_traffic
+# 5. Health: rows exist, count didn't shrink, latest date == yesterday.
+#    ad_spend joins the checks once Ads is actually configured.
+HEALTH_SOURCES=(--source ga4 --source ai_traffic)
+if [[ -n "${GOOGLE_ADS_DEVELOPER_TOKEN:-}" ]] \
+   && grep -Eq '^[[:space:]]+google_ads_customer_id:' clients.yaml; then
+  HEALTH_SOURCES+=(--source ad_spend)
+fi
+step "health" "$PYTHON" health_check.py "${HEALTH_SOURCES[@]}"
 
 if [[ -n "${SEMANTIC_RELOAD_CMD:-}" ]]; then
   step "reload-semantic-service" bash -c "$SEMANTIC_RELOAD_CMD"
