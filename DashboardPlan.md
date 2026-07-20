@@ -3,6 +3,18 @@
 _Audited 2026-07-18 against branch `claude/happy-newton-ya2s7o`. Covers the Next.js app (`app/`), the semantic layer (`semantic/`), config, ops, and docs._
 _Second pass 2026-07-18: added the UX audit (§2F), landing-page exposure finding (S6), and Phase 6 chunks 30–37._
 
+> ## ✅ Execution ledger (updated 2026-07-20)
+> Executed by orchestrated agent waves. **DONE (30 chunks):** 1–7, 10, 14–18, 20–27, 29–37 — all of Phase 0
+> (correctness), Phase 1 QC, Phase 6 UX, product features (conversions, query→page, custom views, CSV,
+> gsheets), the semantic backend (extractors, pipeline files, scoping, TLS kit, AI Score trend, NLQ), CI,
+> the responsive pass (which also caught+fixed a production tab-switch crash), and the docs (CONNECTORS
+> refresh + ONBOARDING runbook). Suite: 195 app tests + 56 semantic tests, build green.
+> **REMAINING — human-input-blocked only:** Chunk 11 (4 real Search Console URLs), 12 (Ads dev token +
+> customer IDs), 13 (report recipients), 19 (logos/YouTube ids), 28 (only if dashboards should be gated —
+> decision H8), and the on-VM install steps of 21/23 (pipeline + Caddy; exact commands are in
+> `semantic/INGESTION.md` §8 and `semantic/README.md` § Hardening). Env keys pending: H1 Bing key,
+> H4 `CRON_SECRET`, H5 Resend, `ANTHROPIC_API_KEY` for NLQ. See §3.
+
 ---
 
 ## 0. How to use this document
