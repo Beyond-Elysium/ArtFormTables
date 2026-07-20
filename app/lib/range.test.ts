@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { resolveRange, formatWindow, windowDates } from "./range";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { resolveRange, formatWindow, windowDates, RANGE_PRESETS } from "./range";
 
 describe("resolveRange", () => {
   it("defaults to the 28-day preset", () => {
@@ -43,6 +43,70 @@ describe("resolveRange", () => {
     const r = resolveRange({ range: "custom", from: "2026-03-01", to: "2026-03-15", compare: "year" });
     expect(r.compare?.start).toBe("2025-03-01");
     expect(r.compare?.end).toBe("2025-03-15");
+  });
+});
+
+describe("calendar-month presets (tm/lm)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 6, 19, 12)); // Jul 19, 2026 (local noon)
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("registers both presets", () => {
+    expect(RANGE_PRESETS.map((p) => p.id)).toContain("tm");
+    expect(RANGE_PRESETS.map((p) => p.id)).toContain("lm");
+  });
+
+  it("'This month' runs month-to-date (clamped to today)", () => {
+    const r = resolveRange({ range: "tm" });
+    expect(r.preset).toBe("tm");
+    expect(r.window.start).toBe("2026-07-01");
+    expect(r.window.end).toBe("2026-07-19");
+    expect(r.window.days).toBe(19);
+  });
+
+  it("'Last month' covers the full previous calendar month", () => {
+    const r = resolveRange({ range: "lm" });
+    expect(r.window.start).toBe("2026-06-01");
+    expect(r.window.end).toBe("2026-06-30");
+    expect(r.window.days).toBe(30);
+  });
+
+  it("'This month' on the 1st is a single day", () => {
+    vi.setSystemTime(new Date(2026, 6, 1, 12));
+    const r = resolveRange({ range: "tm" });
+    expect(r.window.start).toBe("2026-07-01");
+    expect(r.window.end).toBe("2026-07-01");
+    expect(r.window.days).toBe(1);
+  });
+
+  it("prior period for 'This month' is the previous calendar month in full", () => {
+    const r = resolveRange({ range: "tm", compare: "previous" });
+    expect(r.compare?.start).toBe("2026-06-01");
+    expect(r.compare?.end).toBe("2026-06-30");
+    expect(r.compare?.days).toBe(30);
+  });
+
+  it("prior period for 'Last month' is the month before, in full", () => {
+    const r = resolveRange({ range: "lm", compare: "previous" });
+    expect(r.compare?.start).toBe("2026-05-01");
+    expect(r.compare?.end).toBe("2026-05-31");
+    expect(r.compare?.days).toBe(31);
+  });
+
+  it("prior year for 'Last month' is the same month last year", () => {
+    const r = resolveRange({ range: "lm", compare: "year" });
+    expect(r.compare?.start).toBe("2025-06-01");
+    expect(r.compare?.end).toBe("2025-06-30");
+  });
+
+  it("prior year for 'This month' is month-to-date, same month last year", () => {
+    const r = resolveRange({ range: "tm", compare: "year" });
+    expect(r.compare?.start).toBe("2025-07-01");
+    expect(r.compare?.end).toBe("2025-07-19");
   });
 });
 

@@ -26,7 +26,17 @@ export interface ExploreState {
   to?: string;
   /** The model's time dimension, when known (drives ordering + chart choice). */
   timeDimension?: string | null;
+  /** Sort the result by this measure, descending (categorical views only). */
+  sortBy?: string;
+  /** Row cap ("Top N") for categorical views; timeseries always gets 500. */
+  limit?: number;
 }
+
+/** Row-cap choices offered by the Explore UI. */
+export const LIMIT_OPTIONS = [20, 50, 100] as const;
+
+/** Hard ceiling on rows requested from the semantic layer. */
+export const MAX_LIMIT = 500;
 
 const PAIR = ";";
 const KV = ":";
@@ -102,8 +112,10 @@ export function isTimeseries(
 
 /**
  * Translate Explore state into a SemanticQuery for the /query endpoint.
- * Orders by the time dimension ascending for timeseries, else by the first
- * measure descending (biggest-first bars/tables), else the first dimension.
+ * Orders by the time dimension ascending for timeseries, else by the chosen
+ * sort measure (or the first measure) descending — biggest-first bars/tables
+ * — else the first dimension. `limit` caps categorical views ("Top N");
+ * timeseries always requests the full window (up to MAX_LIMIT).
  */
 export function buildExploreQuery(state: ExploreState): SemanticQuery {
   const { model, dimensions, measures } = state;
@@ -119,14 +131,24 @@ export function buildExploreQuery(state: ExploreState): SemanticQuery {
     ? { start: state.from || undefined, end: state.to || undefined }
     : undefined;
 
+  const timeseries = isTimeseries(state);
+
   let orderBy: [string, "asc" | "desc"][] = [];
-  if (isTimeseries(state)) {
+  if (timeseries) {
     orderBy = [[state.timeDimension as string, "asc"]];
   } else if (measures.length) {
-    orderBy = [[measures[0], "desc"]];
+    // A stale sortBy (its measure was deselected) falls back to the first measure.
+    const sortMeasure =
+      state.sortBy && measures.includes(state.sortBy) ? state.sortBy : measures[0];
+    orderBy = [[sortMeasure, "desc"]];
   } else if (dimensions.length) {
     orderBy = [[dimensions[0], "asc"]];
   }
+
+  const limit =
+    !timeseries && state.limit
+      ? Math.max(1, Math.min(MAX_LIMIT, Math.floor(state.limit)))
+      : MAX_LIMIT;
 
   return {
     model,
@@ -135,6 +157,6 @@ export function buildExploreQuery(state: ExploreState): SemanticQuery {
     filters,
     timeRange,
     orderBy,
-    limit: 500,
+    limit,
   };
 }

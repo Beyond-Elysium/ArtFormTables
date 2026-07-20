@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ConnectorResult } from "@/lib/connectors/types";
 import type { Branding } from "@/components/Charts";
 import { PanelSection } from "@/components/PanelSection";
@@ -66,18 +66,39 @@ export function DashboardBody({
       ? results
       : results.filter((r) => r.category === current);
 
+  // WAI-ARIA tabs pattern: ArrowLeft/ArrowRight (plus Home/End) move both
+  // focus and selection; inactive tabs sit outside the tab order (roving
+  // tabindex), so Tab lands on the active tab only.
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  function onTabKeyDown(e: React.KeyboardEvent<HTMLButtonElement>, idx: number) {
+    let next: number | null = null;
+    if (e.key === "ArrowRight") next = (idx + 1) % tabs.length;
+    else if (e.key === "ArrowLeft") next = (idx - 1 + tabs.length) % tabs.length;
+    else if (e.key === "Home") next = 0;
+    else if (e.key === "End") next = tabs.length - 1;
+    if (next === null) return;
+    e.preventDefault();
+    select(tabs[next]);
+    tabRefs.current[next]?.focus();
+  }
+
   return (
     <>
       {tabs.length > 1 && !showAll && (
         <ul className="nav nav-tabs view-tabs mb-3 d-print-none" role="tablist">
-          {tabs.map((t) => (
+          {tabs.map((t, i) => (
             <li className="nav-item" key={t} role="presentation">
               <button
                 type="button"
                 className={`nav-link ${t === current ? "active" : ""}`}
                 onClick={() => select(t)}
+                onKeyDown={(e) => onTabKeyDown(e, i)}
+                ref={(el) => {
+                  tabRefs.current[i] = el;
+                }}
                 role="tab"
                 aria-selected={t === current}
+                tabIndex={t === current ? 0 : -1}
               >
                 {t}
                 <span className="badge bg-secondary-lt ms-2">

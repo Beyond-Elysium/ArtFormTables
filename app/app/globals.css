@@ -297,3 +297,26 @@ h3,
 .narrative-headline {
   font-family: var(--font-fira-sans, "Fira Sans"), var(--tblr-font-sans-serif);
 }
+
+/* ======================================================================== */
+/* Wave 2c additions (keep grouped at end of file for clean merges)         */
+/* ======================================================================== */
+
+/* --- Day-picker theming (react-day-picker v10) ---------------------------
+   Square corners (override its border-radius vars), brand-primary range
+   selection, Montserrat base (set on .rdp-root above). */
+.rdp-root {
+  --rdp-day_button-border-radius: 0;
+  --rdp-week_number-border-radius: 0;
+  --rdp-range_start-date-background-color: var(--af-blue, #426fb6);
+  --rdp-range_end-date-background-color: var(--af-blue, #426fb6);
+  --rdp-range_start-background: var(--rdp-accent-background-color);
+  --rdp-range_end-background: var(--rdp-accent-background-color);
+  --rdp-range_middle-background-color: #eaf0f8;
+  --rdp-selected-border: 2px solid var(--af-blue, #426fb6);
+  --rdp-today-color: var(--af-pink, #e41679);
+  font-family: "Montserrat", var(--tblr-font-sans-serif);
+}
+.rdp-selected .rdp-day_button {
+  border-radius: 0;
+}
