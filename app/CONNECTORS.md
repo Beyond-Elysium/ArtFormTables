@@ -188,6 +188,18 @@ data; next steps (real per-client extracts, cross-filter UI, Claude-powered NLQ)
 are in the semantic README. **Smart Narratives** already ship in-app
 (`lib/narrative.ts`).
 
+**Client scoping (server-enforced):** every `/api/semantic` query must name the
+requesting page's `client` slug (validated against `config/clients.ts`), and the
+server force-injects a `client = <slug>` filter — overwriting anything the
+browser sent — before the query reaches the semantic service
+(`runSemanticQuery` in [`lib/semantic.ts`](./lib/semantic.ts); pure policy
+helpers + tests in [`lib/explore.ts`](./lib/explore.ts)). Models without a
+`client` dimension are rejected (400) unless allowlisted in
+`SHARED_SEMANTIC_MODELS` (deny-by-default, currently empty). `GET
+/api/semantic/models` stays unscoped on purpose: it returns schema *names*, not
+client data. So the shared bearer token can never be used to read another
+client's rows, even with a hand-crafted request.
+
 ### AI referrals & the AI Score
 Every GA4 dashboard ships, **by default**, with AI-visibility panels — the
 GEO / answer-engine question agencies increasingly field ("how much is AI

@@ -91,7 +91,7 @@ export default function ExplorePage({
             </div>
 
             {configured ? (
-              <ExploreClient brand={brand} />
+              <ExploreClient brand={brand} client={client.slug} />
             ) : (
               <div className="card">
                 <div

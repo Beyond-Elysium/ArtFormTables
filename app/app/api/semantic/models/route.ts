@@ -4,6 +4,10 @@ import { semanticConfigured, semanticModels } from "@/lib/semantic";
 // Browser → this route → semantic service. The server injects the bearer token,
 // so the Explore UI can load the schema (dimensions/measures per model) without
 // ever holding a credential.
+//
+// Deliberately NOT client-scoped: the schema (model/dimension/measure NAMES) is
+// structural metadata, not client data — rows only flow through /api/semantic,
+// which force-injects the client filter.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 

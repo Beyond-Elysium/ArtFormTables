@@ -12,8 +12,10 @@ import {
   decodeFilters,
   encodeFilters,
   filtersFromRow,
+  isModelExplorable,
   isTimeseries,
   toggleFilter,
+  CLIENT_FIELD,
   LIMIT_OPTIONS,
   type ExploreFilter,
 } from "@/lib/explore";
@@ -47,7 +49,10 @@ function formatCell(value: unknown): string {
   return value.toLocaleString("en-US", { maximumFractionDigits: 2 });
 }
 
-export function ExploreClient({ brand }: { brand: Branding }) {
+// `client` is the page's slug: it rides along on every /api/semantic POST so
+// the server can force the client filter (E5). It is never a visible/editable
+// filter in this UI.
+export function ExploreClient({ brand, client }: { brand: Branding; client: string }) {
   const [{ model, dims, measures, filters, from, to, sort, top }, setState] = useQueryStates(
     exploreParsers,
     { shallow: true, scroll: false, history: "push" },
@@ -59,7 +64,13 @@ export function ExploreClient({ brand }: { brand: Branding }) {
   const [loading, setLoading] = useState(false);
   const [queryError, setQueryError] = useState<string | null>(null);
 
-  const parsedFilters = useMemo(() => decodeFilters(filters), [filters]);
+  // The client-scope filter is server-forced and never user-visible: strip any
+  // hand-edited `client` filter from the URL state (the server overwrites it
+  // regardless).
+  const parsedFilters = useMemo(
+    () => decodeFilters(filters).filter((f) => f.field !== CLIENT_FIELD),
+    [filters],
+  );
   const seeded = useRef(false);
 
   // Load the model schema through the token-injecting proxy (no credential here).
@@ -81,10 +92,19 @@ export function ExploreClient({ brand }: { brand: Branding }) {
     };
   }, []);
 
-  const modelNames = models ? Object.keys(models) : [];
+  // Only offer models the server will actually run for this client (client-
+  // partitioned or explicitly shared) — mirrors the server-side policy.
+  const modelNames = models
+    ? Object.keys(models).filter((n) => isModelExplorable(n, models[n]))
+    : [];
   const activeModel = model || modelNames[0] || "";
   const schema = models?.[activeModel] ?? null;
   const timeDimension = schema?.time_dimension ?? null;
+  // The scoping dimension is server-territory: never a group-by option.
+  const schemaDims = useMemo(
+    () => (schema ? schema.dimensions.filter((d) => d !== CLIENT_FIELD) : []),
+    [schema],
+  );
 
   // Seed a sensible first view once the schema loads (timeseries of the first
   // measure) — written to the URL so the selection is reflected + shareable.
@@ -94,7 +114,7 @@ export function ExploreClient({ brand }: { brand: Branding }) {
     if (!model || dims.length === 0 || measures.length === 0) {
       setState({
         model: activeModel,
-        dims: dims.length ? dims : timeDimension ? [timeDimension] : schema.dimensions.slice(0, 1),
+        dims: dims.length ? dims : timeDimension ? [timeDimension] : schemaDims.slice(0, 1),
         measures: measures.length ? measures : schema.measures.slice(0, 1),
       });
     }
@@ -124,7 +144,8 @@ export function ExploreClient({ brand }: { brand: Branding }) {
     fetch("/api/semantic", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(q),
+      // `client` names the page's slug so the server can force the scope filter.
+      body: JSON.stringify({ ...q, client }),
       signal: ctrl.signal,
     })
       .then(async (r) => {
@@ -155,9 +176,10 @@ export function ExploreClient({ brand }: { brand: Branding }) {
   function selectModel(next: string) {
     seeded.current = false; // re-seed defaults for the new model's schema
     const s = models?.[next];
+    const sDims = s?.dimensions.filter((d) => d !== CLIENT_FIELD) ?? [];
     setState({
       model: next,
-      dims: s?.time_dimension ? [s.time_dimension] : s?.dimensions.slice(0, 1) ?? [],
+      dims: s?.time_dimension ? [s.time_dimension] : sDims.slice(0, 1),
       measures: s?.measures.slice(0, 1) ?? [],
       filters: null,
     });
@@ -244,7 +266,7 @@ export function ExploreClient({ brand }: { brand: Branding }) {
             <div className="col-12 col-md-5">
               <label className="form-label subheader">Group by</label>
               <div className="d-flex flex-wrap gap-1">
-                {schema?.dimensions.map((d) => (
+                {schemaDims.map((d) => (
                   <button
                     key={d}
                     type="button"
