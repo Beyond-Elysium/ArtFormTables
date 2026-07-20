@@ -1,0 +1,18 @@
+# Schedules semantic-pipeline.service daily. 06:15 UTC gives GA4 time to
+# finalize "yesterday" in US time zones before we assert freshness.
+#
+#   sudo systemctl enable --now semantic-pipeline.timer
+#   systemctl list-timers semantic-pipeline.timer      # next run
+#   journalctl -u semantic-pipeline.service -e         # last run's output
+
+[Unit]
+Description=Daily ArtForm semantic pipeline
+
+[Timer]
+OnCalendar=*-*-* 06:15:00 UTC
+# Catch up after downtime (runs on boot if the scheduled time was missed):
+Persistent=true
+RandomizedDelaySec=10m
+
+[Install]
+WantedBy=timers.target

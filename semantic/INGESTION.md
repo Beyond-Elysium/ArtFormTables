@@ -303,3 +303,74 @@ treat them as day-level (max/avg), which the app's weekly AI Score does.
 
 Transforms (`ai_daily_rows`, token matching) are fixture-tested offline:
 `tests/fixtures/ga4_ai_report.json`, `tests/test_ai_tokens.py`.
+
+## 8. Scheduled daily pipeline — `pipeline.sh` + systemd
+
+`pipeline.sh` is the daily VM job: **extract (incremental, all clients) →
+rollups → health assertions**, logging to `store/logs/pipeline-<date>.log` and
+failing loudly at the first broken step (the failing step is named in the log
+and in the unit's journal). It is safe to re-run: extraction is idempotent, and
+the health check accepts a same-day re-run's unchanged row counts.
+
+Health assertions (`health_check.py`), per source (`ga4`, `ai_traffic`):
+
+1. **data exists** — `data/**/<source>.parquet` has > 0 rows;
+2. **count grew** — total rows ≥ the previous run's recorded count
+   (state: `store/pipeline_state.json`, updated only on success);
+3. **freshness** — latest date == yesterday (`--max-lag-days`, default 1).
+
+### Install on the VM (one time)
+
+```sh
+# 0. From the repo checkout on the VM (adjust /opt/ArtFormTables to yours):
+cd /opt/ArtFormTables/semantic
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+
+# 1. Credentials — root-owned env file the service loads (NEVER in git):
+sudo install -m 0600 /dev/null /etc/artform-semantic.env
+sudo tee /etc/artform-semantic.env >/dev/null <<'ENV'
+GOOGLE_OAUTH_CLIENT_ID=…
+GOOGLE_OAUTH_CLIENT_SECRET=…
+GOOGLE_OAUTH_REFRESH_TOKEN=…
+# optional, restarts the query service so it sees new specs/rollups:
+SEMANTIC_RELOAD_CMD=systemctl restart artform-semantic
+ENV
+
+# 2. Units (edit User=/paths in the .service first if they differ):
+sudo cp deploy/semantic-pipeline.service deploy/semantic-pipeline.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now semantic-pipeline.timer
+
+# 3. Verify:
+systemctl list-timers semantic-pipeline.timer     # next scheduled run
+sudo systemctl start semantic-pipeline.service    # run once now
+journalctl -u semantic-pipeline.service -e        # output / failures
+```
+
+Cron alternative (if you prefer it over systemd):
+
+```cron
+15 6 * * *  root  . /etc/artform-semantic.env && /opt/ArtFormTables/semantic/pipeline.sh
+```
+
+### Manual backfill
+
+Backfill and incremental are the same idempotent operation with different
+windows — a backfill never duplicates rows already ingested:
+
+```sh
+cd /opt/ArtFormTables/semantic && source .venv/bin/activate
+set -a && . /etc/artform-semantic.env && set +a       # load creds into the shell
+
+python extract_ga4.py                                  # all clients, last 365 days
+python extract_ga4.py --client artform --since 2024-01-01 --until 2024-12-31
+                                                       # one client, explicit window
+python rollups.py                                      # refresh monthly rollups
+python health_check.py --source ga4 --source ai_traffic --require-clients \
+    --max-lag-days 3                                   # every client has rows; relax
+                                                       # freshness for old backfills
+```
+
+Note: the FastAPI query service caches models at startup — after the first
+backfill (new specs/parquets), restart it (`systemctl restart artform-semantic`
+or set `SEMANTIC_RELOAD_CMD` so the pipeline does it).
