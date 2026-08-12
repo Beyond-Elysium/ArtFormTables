@@ -76,9 +76,11 @@ lib/connectors/
   amplitude.ts      ← Amplitude             (HTTP Basic)
   activecampaign.ts ← ActiveCampaign        (Api-Token)
   airtable.ts       ← Airtable              (bearer)
+  microsoftAds.ts   ← Microsoft Advertising (OAuth + developer token, SOAP reporting)
+  nocodb.ts         ← NocoDB                (bearer, open-source Airtable alternative)
 ```
 
-All thirty-four ship with a live REST path **and** a deterministic mock
+All thirty-six ship with a live REST path **and** a deterministic mock
 fallback, so the dashboard renders fully with no credentials and each source
 flips to live the moment its credentials + config are present. Categories span
 Analytics, Search, Advertising, Email, E-commerce, Payments, Video, CRM,
@@ -179,6 +181,8 @@ Set credentials per provider (see `.env.example`):
 | Amplitude | API key + secret (Basic) | `AMPLITUDE_API_KEY`, `AMPLITUDE_SECRET_KEY` |
 | ActiveCampaign | Api-Token | `ACTIVECAMPAIGN_API_URL`, `ACTIVECAMPAIGN_API_TOKEN` |
 | Airtable | Access token | `AIRTABLE_API_KEY`, `baseId`/`tableName` in config |
+| Microsoft Advertising | OAuth2 + developer token | `MICROSOFT_ADS_*`, `accountId` in config |
+| NocoDB | Personal API token | `NOCODB_API_TOKEN`, `NOCODB_BASE_URL`, `tableId` in config |
 
 GA4 and Search Console share one Google service account: enable the
 **Google Analytics Data API** and **Search Console API** in the GCP project,

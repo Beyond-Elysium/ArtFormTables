@@ -27,6 +27,19 @@ interface AdsConfig {
   /** Customer id, with or without dashes (e.g. "111-111-1111"). */
   customerId: string;
   currency?: string;
+  /**
+   * Restrict reporting to campaigns whose name contains any of these
+   * (case-insensitive substring, GAQL LIKE) — lets one shared Ads account
+   * power several campaign/vertical-scoped views. Unset = whole account, the
+   * existing behavior.
+   */
+  campaignNameFilter?: string | string[];
+  /**
+   * Suppress the Spend stat, the spend line in the timeseries, and the
+   * "Top campaigns by spend" breakdown — for views where spend must not be
+   * shown to the viewer.
+   */
+  hideSpend?: boolean;
 }
 
 interface AdsMetrics {
@@ -111,6 +124,15 @@ function pct(curr: number, prev: number): number {
   return ((curr - prev) / prev) * 100;
 }
 
+/** A GAQL " AND (campaign.name LIKE '%…%' OR …)" clause, or "" when unset. */
+function campaignFilterClause(filter?: string | string[]): string {
+  if (!filter) return "";
+  const names = (Array.isArray(filter) ? filter : [filter]).filter((n) => n.trim() !== "");
+  if (names.length === 0) return "";
+  const clauses = names.map((n) => `campaign.name LIKE '%${n.replace(/'/g, "\\'")}%'`);
+  return ` AND (${clauses.join(" OR ")})`;
+}
+
 interface AdsRow {
   campaign?: { name?: string };
   metrics?: {
@@ -179,6 +201,8 @@ async function fetchLive(config: AdsConfig, ctx: ConnectorContext): Promise<Pane
   const prevStart = p.start;
   const prevEnd = p.end;
 
+  const campaignClause = campaignFilterClause(config.campaignNameFilter);
+
   // Current period: per-campaign, per-day (drives totals, timeseries, breakdown).
   const currentRows = await searchStream(
     customerId,
@@ -186,15 +210,17 @@ async function fetchLive(config: AdsConfig, ctx: ConnectorContext): Promise<Pane
     `SELECT campaign.name, metrics.cost_micros, metrics.clicks, metrics.impressions,
             metrics.conversions, segments.date
      FROM campaign
-     WHERE segments.date BETWEEN '${start}' AND '${end}'`,
+     WHERE segments.date BETWEEN '${start}' AND '${end}'${campaignClause}`,
   );
-  // Previous period: account-level totals for deltas.
+  // Previous period: same campaign scope, summed for deltas. (Queried from
+  // `campaign` rather than `customer` so campaignNameFilter applies to both
+  // windows identically; with no filter this sums to the same account total.)
   const prevRows = await searchStream(
     customerId,
     token,
     `SELECT metrics.cost_micros, metrics.clicks, metrics.impressions, metrics.conversions
-     FROM customer
-     WHERE segments.date BETWEEN '${prevStart}' AND '${prevEnd}'`,
+     FROM campaign
+     WHERE segments.date BETWEEN '${prevStart}' AND '${prevEnd}'${campaignClause}`,
   );
 
   let cost = 0;
@@ -258,6 +284,7 @@ async function fetchLive(config: AdsConfig, ctx: ConnectorContext): Promise<Pane
     },
     ts,
     campaigns,
+    config.hideSpend,
   );
 }
 
@@ -267,7 +294,7 @@ async function fetchLive(config: AdsConfig, ctx: ConnectorContext): Promise<Pane
 
 function fetchMock(config: AdsConfig, ctx: ConnectorContext): Panel[] {
   const currency = config.currency ?? "USD";
-  const rand = rng(`ads:${config.customerId}:${ctx.range}`);
+  const rand = rng(`ads:${config.customerId}:${JSON.stringify(config.campaignNameFilter ?? "")}:${ctx.range}`);
   const series = mockSeries(rand, ctx.days, 300 + Math.floor(rand() * 700));
   const clicks = series.total;
   const impressions = Math.floor(clicks * (15 + rand() * 25));
@@ -291,6 +318,7 @@ function fetchMock(config: AdsConfig, ctx: ConnectorContext): Panel[] {
     { cost: mockDelta(rand), clicks: mockDelta(rand), conversions: mockDelta(rand), ctr: mockDelta(rand) },
     ts,
     campaigns,
+    config.hideSpend,
   );
 }
 
@@ -304,22 +332,31 @@ function buildPanels(
   d: AdsDeltas,
   ts: { x: string; cost: number; clicks: number }[],
   campaigns: { label: string; value: number }[],
+  hideSpend?: boolean,
 ): Panel[] {
-  return [
-    { kind: "stat", label: "Spend", value: m.cost, format: "currency", currency, delta: d.cost, invertDelta: true },
+  const panels: Panel[] = [];
+  if (!hideSpend) {
+    panels.push({ kind: "stat", label: "Spend", value: m.cost, format: "currency", currency, delta: d.cost, invertDelta: true });
+  }
+  panels.push(
     { kind: "stat", label: "Clicks", value: m.clicks, format: "compact", delta: d.clicks },
     { kind: "stat", label: "Conversions", value: m.conversions, format: "number", delta: d.conversions },
     { kind: "stat", label: "CTR", value: m.ctr, format: "percent", delta: d.ctr },
     {
       kind: "timeseries",
-      title: "Spend & clicks",
-      series: [
-        { name: `Spend (${currency})`, points: ts.map((p) => ({ x: p.x, y: p.cost })) },
-        { name: "Clicks", points: ts.map((p) => ({ x: p.x, y: p.clicks })) },
-      ],
+      title: hideSpend ? "Clicks" : "Spend & clicks",
+      series: hideSpend
+        ? [{ name: "Clicks", points: ts.map((p) => ({ x: p.x, y: p.clicks })) }]
+        : [
+            { name: `Spend (${currency})`, points: ts.map((p) => ({ x: p.x, y: p.cost })) },
+            { name: "Clicks", points: ts.map((p) => ({ x: p.x, y: p.clicks })) },
+          ],
     },
-    { kind: "breakdown", title: "Top campaigns by spend", display: "bar", valueLabel: "Spend", valueFormat: "currency", rows: campaigns },
-  ];
+  );
+  if (!hideSpend) {
+    panels.push({ kind: "breakdown", title: "Top campaigns by spend", display: "bar", valueLabel: "Spend", valueFormat: "currency", rows: campaigns });
+  }
+  return panels;
 }
 
 export const googleAdsConnector: Connector<AdsConfig> = {

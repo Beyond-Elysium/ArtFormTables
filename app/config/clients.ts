@@ -186,12 +186,196 @@ const clientDefs = [
     slug: "maximus",
     name: "Maximus",
     brand: { primary: "#333333", accent: "#e41679" },
+    // Five BD/campaign-scoped views, migrated off separate Manus dashboards
+    // (defense-dash, abmcensusview, ccc-dash). All five share Maximus's GA4
+    // property, LinkedIn account (511334398), and (once configured) Google
+    // Ads / Microsoft Advertising accounts — scoped per view via each
+    // connector's filter config (pagePathPrefix / campaignNameFilter /
+    // campaignIds / campaignFilter). See app/MIGRATION-MAXIMUS.md.
+    views: [
+      { name: "CCC", sourceIds: ["ga4-ccc", "google-ads-ccc", "linkedin-ads-ccc", "microsoft-ads-ccc"] },
+      { name: "Census", sourceIds: ["ga4-census", "google-ads-census", "linkedin-ads-census", "microsoft-ads-census"] },
+      { name: "Defense", sourceIds: ["ga4-defense", "google-ads-defense", "linkedin-ads-defense", "microsoft-ads-defense"] },
+      {
+        name: "National Security",
+        sourceIds: ["ga4-national-security", "google-ads-national-security", "linkedin-ads-national-security", "microsoft-ads-national-security"],
+      },
+      {
+        name: "Federal Financial",
+        sourceIds: ["ga4-federal-financial", "google-ads-federal-financial", "linkedin-ads-federal-financial", "microsoft-ads-federal-financial"],
+      },
+    ],
     sources: [
+      // --- Site-wide (Overview tab) ---------------------------------------
       { type: "ga4", config: { propertyId: "302350399" } },
       { type: "search-console", config: { siteUrl: "https://maximus.com/" } },
       { type: "bing-webmaster", config: { siteUrl: "https://maximus.com/" } },
-      { type: "linkedin-ads", config: { accountId: "500000002", currency: "USD" } },
+      // Real LinkedIn sponsored-account id (was a placeholder) — shared by
+      // every BD view below via campaignIds scoping.
+      { type: "linkedin-ads", config: { accountId: "511334398", currency: "USD" } },
+      // customerId is still a placeholder — needs Maximus's real Google Ads
+      // customer id before this (or any google-ads-* view below) goes live.
+      { type: "google-ads", config: { customerId: "000-000-0000", currency: "USD" } },
       { type: "hubspot", config: { tokenEnv: "HUBSPOT_TOKEN_MAXIMUS" } },
+
+      // --- CCC (Contact Center Consolidation) -----------------------------
+      // TODO: exact page-path scope + Google/Bing/LinkedIn campaign names
+      // weren't given in the CCC inventory (only generic descriptions) — fill
+      // these in once confirmed. "CCC" is a reasonable Bing filter guess
+      // (it appears in the export filenames) but per the inventory itself
+      // must be validated against the real campaign field before trusting it.
+      { type: "ga4", id: "ga4-ccc", label: "CCC — Web", config: { propertyId: "302350399", aiInsights: false } },
+      {
+        type: "google-ads",
+        id: "google-ads-ccc",
+        label: "CCC — Google Ads",
+        config: { customerId: "000-000-0000", currency: "USD", hideSpend: true },
+      },
+      {
+        type: "linkedin-ads",
+        id: "linkedin-ads-ccc",
+        label: "CCC — LinkedIn",
+        config: { accountId: "511334398", currency: "USD", campaignIds: [], hideSpend: true },
+      },
+      {
+        type: "microsoft-ads",
+        id: "microsoft-ads-ccc",
+        label: "CCC — Microsoft Ads",
+        config: { accountId: "000000000", currency: "USD", campaignFilter: "CCC", hideSpend: true },
+      },
+
+      // --- Census ----------------------------------------------------------
+      {
+        type: "ga4",
+        id: "ga4-census",
+        label: "Census — Web",
+        config: { propertyId: "302350399", pagePathPrefix: "/federal-government/civilian/census-support-services", aiInsights: false },
+      },
+      {
+        type: "google-ads",
+        id: "google-ads-census",
+        label: "Census — Google Ads",
+        // Campaign is broader than purely Census-named — confirm with the
+        // media team this remains the intended Google proxy for Census.
+        config: { customerId: "000-000-0000", currency: "USD", campaignNameFilter: "Big Brand Innovation Search", hideSpend: true },
+      },
+      {
+        type: "linkedin-ads",
+        id: "linkedin-ads-census",
+        label: "Census — LinkedIn",
+        // Real campaign name is "Big Brand Innovation - Census"; campaignIds
+        // needs the numeric id from Campaign Manager (analytics responses
+        // only carry the URN, not the name).
+        config: { accountId: "511334398", currency: "USD", campaignIds: [], hideSpend: true },
+      },
+      {
+        type: "microsoft-ads",
+        id: "microsoft-ads-census",
+        label: "Census — Microsoft Ads",
+        config: { accountId: "000000000", currency: "USD", campaignFilter: "Census", hideSpend: true },
+      },
+
+      // --- Defense -----------------------------------------------------------
+      {
+        type: "ga4",
+        id: "ga4-defense",
+        label: "Defense — Web",
+        config: { propertyId: "302350399", pagePathPrefix: "/federal-government/fed-defense", aiInsights: false },
+      },
+      {
+        type: "google-ads",
+        id: "google-ads-defense",
+        label: "Defense — Google Ads",
+        config: { customerId: "000-000-0000", currency: "USD", campaignNameFilter: ["Big Brand Innovation Search", "DoD"], hideSpend: true },
+      },
+      {
+        type: "linkedin-ads",
+        id: "linkedin-ads-defense",
+        label: "Defense — LinkedIn",
+        // Real campaigns: DoD Innovation, Video, Sizzle Reels, Retargeting,
+        // Defense-Big Brand — campaignIds needs their numeric ids.
+        config: { accountId: "511334398", currency: "USD", campaignIds: [], hideSpend: true },
+      },
+      {
+        type: "microsoft-ads",
+        id: "microsoft-ads-defense",
+        label: "Defense — Microsoft Ads",
+        config: { accountId: "000000000", currency: "USD", campaignFilter: "DoD", hideSpend: true },
+      },
+
+      // --- National Security -------------------------------------------------
+      {
+        type: "ga4",
+        id: "ga4-national-security",
+        label: "National Security — Web",
+        config: { propertyId: "302350399", pagePathPrefix: "/federal-government/civilian/national-security-services", aiInsights: false },
+      },
+      {
+        type: "google-ads",
+        id: "google-ads-national-security",
+        label: "National Security — Google Ads",
+        config: {
+          customerId: "000-000-0000",
+          currency: "USD",
+          campaignNameFilter: ["DHS/National Security Search Ads", "DHS Admin & Enforcement"],
+          hideSpend: true,
+        },
+      },
+      {
+        type: "linkedin-ads",
+        id: "linkedin-ads-national-security",
+        label: "National Security — LinkedIn",
+        // Real campaign: "National Security – Innovation" — campaignIds
+        // needs its numeric id.
+        config: { accountId: "511334398", currency: "USD", campaignIds: [], hideSpend: true },
+      },
+      {
+        type: "microsoft-ads",
+        id: "microsoft-ads-national-security",
+        label: "National Security — Microsoft Ads",
+        config: {
+          accountId: "000000000",
+          currency: "USD",
+          campaignFilter: ["DHS/National Security", "DHS Admin & Enforcement"],
+          hideSpend: true,
+        },
+      },
+
+      // --- Federal Financial ---------------------------------------------------
+      {
+        type: "ga4",
+        id: "ga4-federal-financial",
+        label: "Federal Financial — Web",
+        config: { propertyId: "302350399", pagePathPrefix: "/federal-government/civilian/federal-financial", aiInsights: false },
+      },
+      {
+        type: "google-ads",
+        id: "google-ads-federal-financial",
+        label: "Federal Financial — Google Ads",
+        config: { customerId: "000-000-0000", currency: "USD", campaignNameFilter: "Federal Financial/IRS Search Ads", hideSpend: true },
+      },
+      {
+        type: "linkedin-ads",
+        id: "linkedin-ads-federal-financial",
+        label: "Federal Financial — LinkedIn",
+        // Real campaigns: Federal Financial Innovation, Federal Financial
+        // Retargeting — campaignIds needs their numeric ids.
+        config: { accountId: "511334398", currency: "USD", campaignIds: [], hideSpend: true },
+      },
+      {
+        type: "microsoft-ads",
+        id: "microsoft-ads-federal-financial",
+        label: "Federal Financial — Microsoft Ads",
+        config: { accountId: "000000000", currency: "USD", campaignFilter: "Federal Financial/IRS", hideSpend: true },
+      },
+
+      // --- BD operations (surfaced under the auto "Operations" tab; not
+      // gated behind a vertical view — these aren't campaign-scoped) --------
+      // TODO: tableId placeholders — fill in once the NocoDB base exists.
+      { type: "nocodb", id: "nocodb-conferences", label: "Conferences", config: { tableId: "TODO_CONFERENCES_TABLE_ID" } },
+      { type: "nocodb", id: "nocodb-contacts", label: "Key Contacts", config: { tableId: "TODO_CONTACTS_TABLE_ID" } },
+      { type: "nocodb", id: "nocodb-bd-activities", label: "BD Activities", config: { tableId: "TODO_BD_ACTIVITIES_TABLE_ID" } },
+      { type: "nocodb", id: "nocodb-persona-metrics", label: "Persona Metrics", config: { tableId: "TODO_PERSONA_METRICS_TABLE_ID" } },
     ],
   },
   {

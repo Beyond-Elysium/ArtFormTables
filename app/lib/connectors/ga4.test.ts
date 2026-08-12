@@ -132,3 +132,34 @@ describe("aiPanels empty state", () => {
     expect(panels.some((p) => p.kind === "breakdown")).toBe(false);
   });
 });
+
+describe("ga4 pagePathPrefix scoping", () => {
+  it("renders the full panel set when scoped to a page path", async () => {
+    const res = await ga4Connector.fetch(
+      { propertyId: "302350399", pagePathPrefix: "/federal-government/civilian/census-support-services", aiInsights: false },
+      { range: "28d", days: 28 },
+    );
+    expect(res.isMock).toBe(true);
+    const statLabels = res.panels.filter((p) => p.kind === "stat").map((p) => p.label);
+    expect(statLabels).toContain("Users");
+    expect(statLabels).toContain("Sessions");
+  });
+
+  it("different pagePathPrefix values produce different mock demo data (distinct tabs, not duplicates)", async () => {
+    const a = await ga4Connector.fetch(
+      { propertyId: "302350399", pagePathPrefix: "/federal-government/fed-defense", aiInsights: false },
+      { range: "28d", days: 28 },
+    );
+    const b = await ga4Connector.fetch(
+      { propertyId: "302350399", pagePathPrefix: "/federal-government/civilian/federal-financial", aiInsights: false },
+      { range: "28d", days: 28 },
+    );
+    const usersA = a.panels.find((p) => p.kind === "stat" && p.label === "Users");
+    const usersB = b.panels.find((p) => p.kind === "stat" && p.label === "Users");
+    expect(usersA?.kind).toBe("stat");
+    expect(usersB?.kind).toBe("stat");
+    if (usersA?.kind === "stat" && usersB?.kind === "stat") {
+      expect(usersA.value).not.toBe(usersB.value);
+    }
+  });
+});

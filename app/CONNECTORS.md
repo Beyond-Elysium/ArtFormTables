@@ -155,6 +155,7 @@ live. "Cost/access" flags the ones with friction.
 | Google Ads | `google-ads` | OAuth refresh + `GOOGLE_ADS_DEVELOPER_TOKEN` (API `v24` default; override with `GOOGLE_ADS_API_VERSION` when Google sunsets it) | Free API, dev-token application |
 | Meta Ads | `meta-ads` | `META_ACCESS_TOKEN` | Free API, app review |
 | LinkedIn Ads | `linkedin-ads` | `LINKEDIN_ACCESS_TOKEN` | **Expensive / gated** |
+| Microsoft Advertising | `microsoft-ads` | OAuth refresh + `MICROSOFT_ADS_DEVELOPER_TOKEN` | **Gated** — developer token application against an account with ad-spend history |
 | TikTok Ads | `tiktok-ads` | `TIKTOK_ACCESS_TOKEN` | Business API approval |
 | Pinterest Ads | `pinterest-ads` | `PINTEREST_ACCESS_TOKEN` | Free API, app review |
 | Snapchat Ads | `snapchat-ads` | `SNAPCHAT_ACCESS_TOKEN` | Free API, app review |
@@ -195,6 +196,7 @@ live. "Cost/access" flags the ones with friction.
 | Zoom | `zoom` | `ZOOM_ACCOUNT_ID` / `_CLIENT_ID` / `_CLIENT_SECRET` |
 | Twilio | `twilio` | `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` |
 | Airtable | `airtable` | `AIRTABLE_API_KEY` |
+| NocoDB | `nocodb` | `NOCODB_API_TOKEN` (+ `NOCODB_BASE_URL`) — open-source, self-hosted Airtable alternative |
 | Typeform | `typeform` | `TYPEFORM_ACCESS_TOKEN` |
 | YouTube | `youtube` | `YOUTUBE_API_KEY` — **Free** |
 | Bing Webmaster | `bing-webmaster` | `BING_WEBMASTER_API_KEY` |

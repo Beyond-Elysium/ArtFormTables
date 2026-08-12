@@ -19,6 +19,20 @@ import { num, pct, rangeDates } from "./util";
 interface LinkedInConfig {
   accountId: string;
   currency?: string;
+  /**
+   * Restrict aggregation to these campaign ids (the numeric id from a
+   * `urn:li:sponsoredCampaign:<id>` URN) — lets one shared ad account power
+   * several campaign-scoped views. Unset = whole account, the existing
+   * behavior. The adAnalytics response only carries campaign URNs, not
+   * names, so scoping here is by numeric id (from Campaign Manager), not a
+   * name substring.
+   */
+  campaignIds?: string[];
+  /**
+   * Suppress the Spend stat, the spend line in the timeseries, and the
+   * "Top campaigns by spend" breakdown.
+   */
+  hideSpend?: boolean;
 }
 
 const API_VERSION = process.env.LINKEDIN_API_VERSION || "202405";
@@ -59,6 +73,13 @@ async function analytics(
   return json.elements ?? [];
 }
 
+/** The numeric campaign id from an adAnalytics row's pivot URN, if present. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function campaignIdOf(el: any): string | undefined {
+  const urn = (el.pivotValues ?? [])[0] as string | undefined;
+  return urn ? urn.split(":").pop() : undefined;
+}
+
 async function fetchLive(config: LinkedInConfig, ctx: ConnectorContext): Promise<Panel[]> {
   const currency = config.currency ?? "USD";
   const { start, end, prevStart, prevEnd } = rangeDates(ctx.days);
@@ -66,6 +87,8 @@ async function fetchLive(config: LinkedInConfig, ctx: ConnectorContext): Promise
     analytics(config.accountId, start, end),
     analytics(config.accountId, prevStart, prevEnd),
   ]);
+  const scope = config.campaignIds?.length ? new Set(config.campaignIds) : undefined;
+  const included = (id: string | undefined) => !scope || (id != null && scope.has(id));
 
   let spend = 0;
   let impressions = 0;
@@ -74,6 +97,8 @@ async function fetchLive(config: LinkedInConfig, ctx: ConnectorContext): Promise
   const byCampaign = new Map<string, number>();
 
   for (const el of current) {
+    const id = campaignIdOf(el);
+    if (!included(id)) continue;
     const c = num(el.costInLocalCurrency);
     const cl = num(el.clicks);
     spend += c;
@@ -87,8 +112,7 @@ async function fetchLive(config: LinkedInConfig, ctx: ConnectorContext): Promise
       e.clicks += cl;
       byDate.set(key, e);
     }
-    const urn = (el.pivotValues ?? [])[0] as string | undefined;
-    const label = urn ? `Campaign ${urn.split(":").pop()}` : "(unknown)";
+    const label = id ? `Campaign ${id}` : "(unknown)";
     byCampaign.set(label, (byCampaign.get(label) ?? 0) + c);
   }
 
@@ -96,6 +120,7 @@ async function fetchLive(config: LinkedInConfig, ctx: ConnectorContext): Promise
   let pClicks = 0;
   let pImpr = 0;
   for (const el of prev) {
+    if (!included(campaignIdOf(el))) continue;
     pSpend += num(el.costInLocalCurrency);
     pClicks += num(el.clicks);
     pImpr += num(el.impressions);
@@ -112,12 +137,13 @@ async function fetchLive(config: LinkedInConfig, ctx: ConnectorContext): Promise
     { spend: pct(spend, pSpend), impressions: pct(impressions, pImpr), clicks: pct(clicks, pClicks), ctr: pct(ctr, pCtr) },
     ts,
     campaigns,
+    config.hideSpend,
   );
 }
 
 function fetchMock(config: LinkedInConfig, ctx: ConnectorContext): Panel[] {
   const currency = config.currency ?? "USD";
-  const rand = rng(`li:${config.accountId}:${ctx.range}`);
+  const rand = rng(`li:${config.accountId}:${JSON.stringify(config.campaignIds ?? [])}:${ctx.range}`);
   const series = mockSeries(rand, ctx.days, 80 + Math.floor(rand() * 200));
   const clicks = series.total;
   const impressions = Math.floor(clicks * (30 + rand() * 50));
@@ -134,6 +160,7 @@ function fetchMock(config: LinkedInConfig, ctx: ConnectorContext): Panel[] {
     { spend: mockDelta(rand), impressions: mockDelta(rand), clicks: mockDelta(rand), ctr: mockDelta(rand) },
     ts,
     campaigns,
+    config.hideSpend,
   );
 }
 
@@ -143,22 +170,31 @@ function buildPanels(
   d: { spend: number; impressions: number; clicks: number; ctr: number },
   ts: { x: string; spend: number; clicks: number }[],
   campaigns: { label: string; value: number }[],
+  hideSpend?: boolean,
 ): Panel[] {
-  return [
-    { kind: "stat", label: "Spend", value: m.spend, format: "currency", currency, delta: d.spend, invertDelta: true },
+  const panels: Panel[] = [];
+  if (!hideSpend) {
+    panels.push({ kind: "stat", label: "Spend", value: m.spend, format: "currency", currency, delta: d.spend, invertDelta: true });
+  }
+  panels.push(
     { kind: "stat", label: "Impressions", value: m.impressions, format: "compact", delta: d.impressions },
     { kind: "stat", label: "Clicks", value: m.clicks, format: "compact", delta: d.clicks },
     { kind: "stat", label: "CTR", value: m.ctr, format: "percent", delta: d.ctr },
     {
       kind: "timeseries",
-      title: "Spend & clicks",
-      series: [
-        { name: `Spend (${currency})`, points: ts.map((p) => ({ x: p.x, y: p.spend })) },
-        { name: "Clicks", points: ts.map((p) => ({ x: p.x, y: p.clicks })) },
-      ],
+      title: hideSpend ? "Clicks" : "Spend & clicks",
+      series: hideSpend
+        ? [{ name: "Clicks", points: ts.map((p) => ({ x: p.x, y: p.clicks })) }]
+        : [
+            { name: `Spend (${currency})`, points: ts.map((p) => ({ x: p.x, y: p.spend })) },
+            { name: "Clicks", points: ts.map((p) => ({ x: p.x, y: p.clicks })) },
+          ],
     },
-    { kind: "breakdown", title: "Top campaigns by spend", display: "bar", valueLabel: "Spend", valueFormat: "currency", rows: campaigns },
-  ];
+  );
+  if (!hideSpend) {
+    panels.push({ kind: "breakdown", title: "Top campaigns by spend", display: "bar", valueLabel: "Spend", valueFormat: "currency", rows: campaigns });
+  }
+  return panels;
 }
 
 export const linkedinAdsConnector: Connector<LinkedInConfig> = {
