@@ -62,6 +62,14 @@ const clientViewSchema = z
     sourceIds: z.array(z.string().min(1)).optional(),
     /** Connector types to include, e.g. ["ga4"]. */
     types: z.array(z.string().min(1)).optional(),
+    /**
+     * Optional group label, e.g. "Programs". Views sharing a group render as
+     * one dropdown tab (the group name) instead of N separate top-level
+     * tabs — for a client with several similarly-shaped dashboards (BD
+     * verticals, regions, brands…) where a flat tab row would get crowded.
+     * Ungrouped views render as their own top-level tab, as before.
+     */
+    group: z.string().min(1).optional(),
   })
   .refine((v) => (v.sourceIds?.length ?? 0) > 0 || (v.types?.length ?? 0) > 0, {
     message: "a view needs at least one selector: sourceIds and/or types",
@@ -192,16 +200,30 @@ const clientDefs = [
     // Ads / Microsoft Advertising accounts — scoped per view via each
     // connector's filter config (pagePathPrefix / campaignNameFilter /
     // campaignIds / campaignFilter). See app/MIGRATION-MAXIMUS.md.
+    //
+    // Grouped under "Programs" so they render as one dropdown tab instead of
+    // five separate top-level tabs (a flat row of Overview + 5 verticals + 5
+    // auto category tabs was too crowded — see DashboardBody.tsx).
     views: [
-      { name: "CCC", sourceIds: ["ga4-ccc", "google-ads-ccc", "linkedin-ads-ccc", "microsoft-ads-ccc"] },
-      { name: "Census", sourceIds: ["ga4-census", "google-ads-census", "linkedin-ads-census", "microsoft-ads-census"] },
-      { name: "Defense", sourceIds: ["ga4-defense", "google-ads-defense", "linkedin-ads-defense", "microsoft-ads-defense"] },
+      { name: "CCC", group: "Programs", sourceIds: ["ga4-ccc", "google-ads-ccc", "linkedin-ads-ccc", "microsoft-ads-ccc"] },
+      {
+        name: "Census",
+        group: "Programs",
+        sourceIds: ["ga4-census", "google-ads-census", "linkedin-ads-census", "microsoft-ads-census"],
+      },
+      {
+        name: "Defense",
+        group: "Programs",
+        sourceIds: ["ga4-defense", "google-ads-defense", "linkedin-ads-defense", "microsoft-ads-defense"],
+      },
       {
         name: "National Security",
+        group: "Programs",
         sourceIds: ["ga4-national-security", "google-ads-national-security", "linkedin-ads-national-security", "microsoft-ads-national-security"],
       },
       {
         name: "Federal Financial",
+        group: "Programs",
         sourceIds: ["ga4-federal-financial", "google-ads-federal-financial", "linkedin-ads-federal-financial", "microsoft-ads-federal-financial"],
       },
     ],

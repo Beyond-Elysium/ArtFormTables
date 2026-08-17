@@ -31,3 +31,35 @@ export function matchesView(view: ClientView, source: ViewSource): boolean {
 export function filterForView<T extends ViewSource>(results: T[], view: ClientView): T[] {
   return results.filter((r) => matchesView(view, r));
 }
+
+export interface ViewGroup {
+  name: string;
+  views: ClientView[];
+}
+
+/**
+ * Split a client's custom views into grouped buckets (views sharing a
+ * `group`, e.g. several BD-vertical views grouped as "Programs") and
+ * ungrouped views (each its own top-level tab, the pre-existing behavior).
+ * Both groups and views-within-a-group keep their original registry order
+ * (first-seen order for the group itself).
+ */
+export function groupViews(views: ClientView[]): { groups: ViewGroup[]; ungrouped: ClientView[] } {
+  const groups: ViewGroup[] = [];
+  const byName = new Map<string, ViewGroup>();
+  const ungrouped: ClientView[] = [];
+  for (const v of views) {
+    if (!v.group) {
+      ungrouped.push(v);
+      continue;
+    }
+    let g = byName.get(v.group);
+    if (!g) {
+      g = { name: v.group, views: [] };
+      byName.set(v.group, g);
+      groups.push(g);
+    }
+    g.views.push(v);
+  }
+  return { groups, ungrouped };
+}

@@ -401,3 +401,42 @@ h3,
     animation: none;
   }
 }
+
+/* --- Grouped view tabs: a dropdown tab for several similarly-shaped views
+   (e.g. Maximus's BD-vertical views grouped as "Programs") instead of one
+   top-level tab each --------------------------------------------------- */
+.view-group {
+  position: relative;
+}
+.dropdown-caret {
+  font-size: 0.7em;
+  opacity: 0.7;
+}
+.view-group-menu {
+  min-width: 200px;
+  max-width: calc(100vw - 1.5rem);
+  padding: 0.25rem 0;
+  z-index: 30;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
+  border: 1px solid var(--tblr-border-color, #e6e7e9);
+}
+.view-group-menu .dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  font-family: "Fira Sans", var(--tblr-font-sans-serif);
+}
+.view-group-menu .dropdown-item.active {
+  color: var(--tblr-primary, #426fb6);
+  font-weight: 700;
+  background: var(--tblr-active-bg, rgba(66, 111, 182, 0.08));
+}
+.click-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 29;
+}
