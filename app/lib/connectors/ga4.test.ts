@@ -162,4 +162,35 @@ describe("ga4 pagePathPrefix scoping", () => {
       expect(usersA.value).not.toBe(usersB.value);
     }
   });
+
+  it("scopes by pageTitleContains when no URL path is known, and it differs from the unscoped default", async () => {
+    const scoped = await ga4Connector.fetch(
+      { propertyId: "302350399", pageTitleContains: "Omnichannel Contact Center", aiInsights: false },
+      { range: "28d", days: 28 },
+    );
+    const unscoped = await ga4Connector.fetch({ propertyId: "302350399", aiInsights: false }, { range: "28d", days: 28 });
+    expect(scoped.isMock).toBe(true);
+    const usersScoped = scoped.panels.find((p) => p.kind === "stat" && p.label === "Users");
+    const usersUnscoped = unscoped.panels.find((p) => p.kind === "stat" && p.label === "Users");
+    if (usersScoped?.kind === "stat" && usersUnscoped?.kind === "stat") {
+      expect(usersScoped.value).not.toBe(usersUnscoped.value);
+    }
+  });
+
+  it("pagePathPrefix and pageTitleContains combine (and each alone still works)", async () => {
+    const both = await ga4Connector.fetch(
+      { propertyId: "302350399", pagePathPrefix: "/services", pageTitleContains: "Contact Center", aiInsights: false },
+      { range: "28d", days: 28 },
+    );
+    const pathOnly = await ga4Connector.fetch(
+      { propertyId: "302350399", pagePathPrefix: "/services", aiInsights: false },
+      { range: "28d", days: 28 },
+    );
+    expect(both.isMock).toBe(true);
+    const usersBoth = both.panels.find((p) => p.kind === "stat" && p.label === "Users");
+    const usersPathOnly = pathOnly.panels.find((p) => p.kind === "stat" && p.label === "Users");
+    if (usersBoth?.kind === "stat" && usersPathOnly?.kind === "stat") {
+      expect(usersBoth.value).not.toBe(usersPathOnly.value);
+    }
+  });
 });

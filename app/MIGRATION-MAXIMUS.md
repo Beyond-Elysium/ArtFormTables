@@ -13,11 +13,15 @@ model — timeseries/donut/bar/table only).
 
 ## What shipped
 
-- **`pagePathPrefix` scoping on `ga4.ts`** — restricts every GA4 report
-  (overview, timeseries, sources/devices/pages, conversions, AI insights) to
-  rows whose `pagePath` begins with a prefix, via a GA4 `dimensionFilter`
-  (`BEGINS_WITH`, `AND`-ed with the existing AI-source filter where both
-  apply). One property now powers per-vertical views.
+- **`pagePathPrefix` / `pageTitleContains` scoping on `ga4.ts`** — restricts
+  every GA4 report (overview, timeseries, sources/devices/pages, conversions,
+  AI insights) to rows whose `pagePath` begins with a prefix and/or whose
+  `pageTitle` contains a substring, via a GA4 `dimensionFilter` (`BEGINS_WITH`
+  / `CONTAINS`, `AND`-ed together and with the existing AI-source filter
+  where both apply). `pageTitleContains` exists because the exact URL
+  structure isn't always known up front (CCC's scope came as a page-title
+  pattern, not a path) — one property now powers per-vertical views either
+  way.
 - **`campaignNameFilter` + `hideSpend` on `googleAds.ts`** — a GAQL
   `campaign.name LIKE '%…%'` clause (string or array, OR'd), applied to both
   the current and previous-period queries (the previous-period query was
@@ -62,21 +66,21 @@ model — timeseries/donut/bar/table only).
 
 ## Real filter values wired in (from the inventories provided)
 
-| Vertical | GA4 page path | Google Ads campaign filter | Microsoft Ads campaign filter |
+| Vertical | GA4 scope | Google Ads campaign filter | Microsoft Ads campaign filter |
 |---|---|---|---|
-| Census | `/federal-government/civilian/census-support-services` | "Big Brand Innovation Search" | "Census" |
-| Defense | `/federal-government/fed-defense` | ["Big Brand Innovation Search", "DoD"] | "DoD" |
-| National Security | `/federal-government/civilian/national-security-services` | ["DHS/National Security Search Ads", "DHS Admin & Enforcement"] | ["DHS/National Security", "DHS Admin & Enforcement"] |
-| Federal Financial | `/federal-government/civilian/federal-financial` | "Federal Financial/IRS Search Ads" | "Federal Financial/IRS" |
-| CCC | *(not given — see below)* | *(not given)* | "CCC" *(guessed from export filenames; validate)* |
+| Census | path: `/federal-government/civilian/census-support-services` | "Big Brand Innovation Search" | "Census" |
+| Defense | path: `/federal-government/fed-defense` | ["Big Brand Innovation Search", "DoD"] | "DoD" |
+| National Security | path: `/federal-government/civilian/national-security-services` | ["DHS/National Security Search Ads", "DHS Admin & Enforcement"] | ["DHS/National Security", "DHS Admin & Enforcement"] |
+| Federal Financial | path: `/federal-government/civilian/federal-financial` | "Federal Financial/IRS Search Ads" | "Federal Financial/IRS" |
+| CCC | title contains: "Omnichannel Contact Center" | *(not given)* | "CCC" *(guessed from export filenames; validate)* |
 
 ## Open items — human input needed
 
-1. **CCC's exact scope.** The CCC inventory didn't give a page-path prefix or
-   Google/LinkedIn/Microsoft campaign names (only generic descriptions) —
-   `ga4-ccc` is currently unscoped (same data as Overview) and the ads
-   sources have no filter. Provide the real values and it's a one-line
-   registry edit each.
+1. **CCC's ad-platform scope.** GA4 is now scoped by page title
+   ("Omnichannel Contact Center" — no exact URL path was available, so
+   `pageTitleContains` was used instead of `pagePathPrefix`; see below). The
+   Google Ads and LinkedIn campaign names still weren't given — those two
+   sources remain unscoped until provided.
 2. **LinkedIn campaign ids**, for all five verticals. The inventories named
    campaigns ("Big Brand Innovation - Census", "DoD Innovation", "National
    Security – Innovation", "Federal Financial Innovation/Retargeting", …) but

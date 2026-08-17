@@ -219,12 +219,19 @@ const clientDefs = [
       { type: "hubspot", config: { tokenEnv: "HUBSPOT_TOKEN_MAXIMUS" } },
 
       // --- CCC (Contact Center Consolidation) -----------------------------
-      // TODO: exact page-path scope + Google/Bing/LinkedIn campaign names
-      // weren't given in the CCC inventory (only generic descriptions) — fill
-      // these in once confirmed. "CCC" is a reasonable Bing filter guess
-      // (it appears in the export filenames) but per the inventory itself
-      // must be validated against the real campaign field before trusting it.
-      { type: "ga4", id: "ga4-ccc", label: "CCC — Web", config: { propertyId: "302350399", aiInsights: false } },
+      // TODO: Google/Bing/LinkedIn campaign names weren't given in the CCC
+      // inventory (only generic descriptions) — fill these in once confirmed.
+      // "CCC" is a reasonable Bing filter guess (it appears in the export
+      // filenames) but per the inventory itself must be validated against the
+      // real campaign field before trusting it.
+      {
+        type: "ga4",
+        id: "ga4-ccc",
+        label: "CCC — Web",
+        // No exact URL path was available; scoped by page title instead
+        // (matches "Omnichannel Contact Center Solutions[...]" variants).
+        config: { propertyId: "302350399", pageTitleContains: "Omnichannel Contact Center", aiInsights: false },
+      },
       {
         type: "google-ads",
         id: "google-ads-ccc",

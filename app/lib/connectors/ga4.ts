@@ -33,10 +33,20 @@ interface Ga4Config {
    * "/federal-government/fed-defense"). Lets one property power several
    * campaign/vertical-scoped views (a shared site with per-section
    * dashboards) without a separate GA4 property per view. Unset = whole
-   * property, the existing behavior.
+   * property, the existing behavior. AND-ed with pageTitleContains when both
+   * are set.
    */
   pagePathPrefix?: string;
+  /**
+   * Scope every report to rows whose pageTitle contains this text
+   * (case-insensitive), e.g. "Omnichannel Contact Center" — useful when the
+   * URL structure isn't known but the page title is (marketing usually knows
+   * the title, not the path). AND-ed with pagePathPrefix when both are set.
+   */
+  pageTitleContains?: string;
 }
+
+type Ga4Scope = Pick<Ga4Config, "pagePathPrefix" | "pageTitleContains">;
 
 let client: import("@google-analytics/data").BetaAnalyticsDataClient | null =
   null;
@@ -76,6 +86,17 @@ function pathFilter(prefix?: string) {
   };
 }
 
+/** A dimensionFilter restricting rows to pageTitle containing `text`. */
+function titleFilter(text?: string) {
+  if (!text) return undefined;
+  return {
+    filter: {
+      fieldName: "pageTitle",
+      stringFilter: { matchType: "CONTAINS" as const, value: text, caseSensitive: false },
+    },
+  };
+}
+
 /** AND together any number of (possibly absent) GA4 filter expressions. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function andFilters(...exprs: (any | undefined)[]): any {
@@ -83,6 +104,12 @@ function andFilters(...exprs: (any | undefined)[]): any {
   if (list.length === 0) return undefined;
   if (list.length === 1) return list[0];
   return { andGroup: { expressions: list } };
+}
+
+/** The combined pagePathPrefix + pageTitleContains filter for a scope. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function scopeFilter(scope: Ga4Scope): any {
+  return andFilters(pathFilter(scope.pagePathPrefix), titleFilter(scope.pageTitleContains));
 }
 
 async function fetchLive(
@@ -109,7 +136,7 @@ async function fetchLive(
       { name: "engagementRate" },
       { name: "averageSessionDuration" },
     ],
-    dimensionFilter: pathFilter(config.pagePathPrefix),
+    dimensionFilter: scopeFilter(config),
   });
   const rows = overview.rows ?? [];
   const valsFor = (i: number) => {
@@ -126,7 +153,7 @@ async function fetchLive(
     dimensions: [{ name: "date" }],
     metrics: [{ name: "totalUsers" }, { name: "sessions" }],
     orderBys: [{ dimension: { dimensionName: "date" } }],
-    dimensionFilter: pathFilter(config.pagePathPrefix),
+    dimensionFilter: scopeFilter(config),
   });
   const tsPoints = (ts.rows ?? []).map((row) => {
     const d = row.dimensionValues?.[0]?.value ?? "";
@@ -152,7 +179,7 @@ async function fetchLive(
       metrics: [{ name: metric }],
       orderBys: [{ metric: { metricName: metric }, desc: true }],
       limit,
-      dimensionFilter: pathFilter(config.pagePathPrefix),
+      dimensionFilter: scopeFilter(config),
     });
     return (res.rows ?? []).map((row) => ({
       label: row.dimensionValues?.[0]?.value ?? "(not set)",
@@ -184,11 +211,11 @@ async function fetchLive(
   // reports fail (e.g. a property that rejects a metric/dimension) the core
   // dashboard still renders live.
   // Secondary properties can opt out of the AI block via `aiInsights: false`.
-  const conversions = await fetchConversions(ga, property, curr, prev, config.pagePathPrefix);
+  const conversions = await fetchConversions(ga, property, curr, prev, config);
   const ai =
     config.aiInsights === false
       ? []
-      : await fetchAiInsights(ga, property, curr, prev, c[1], c[3], config.pagePathPrefix);
+      : await fetchAiInsights(ga, property, curr, prev, c[1], c[3], config);
   return [...corePanels, ...conversions, ...ai];
 }
 
@@ -207,7 +234,7 @@ async function fetchConversions(
   property: string,
   curr: Range,
   prev: Range,
-  pathPrefix?: string,
+  scope: Ga4Scope,
 ): Promise<Panel[]> {
   try {
     // Totals over both windows in one report (dateRange comes back as a
@@ -216,7 +243,7 @@ async function fetchConversions(
       property,
       dateRanges: [curr, prev],
       metrics: [{ name: "keyEvents" }, { name: "sessionKeyEventRate" }],
-      dimensionFilter: pathFilter(pathPrefix),
+      dimensionFilter: scopeFilter(scope),
     });
     const valsFor = (i: number): [number, number] => {
       const r = (totals.rows ?? []).find(
@@ -234,7 +261,7 @@ async function fetchConversions(
       dimensions: [{ name: "date" }],
       metrics: [{ name: "keyEvents" }],
       orderBys: [{ dimension: { dimensionName: "date" } }],
-      dimensionFilter: pathFilter(pathPrefix),
+      dimensionFilter: scopeFilter(scope),
     });
     const ts = (tsRes.rows ?? []).map((row) => {
       const d = row.dimensionValues?.[0]?.value ?? "";
@@ -253,7 +280,7 @@ async function fetchConversions(
       metrics: [{ name: "keyEvents" }],
       orderBys: [{ metric: { metricName: "keyEvents" }, desc: true }],
       limit: 8,
-      dimensionFilter: pathFilter(pathPrefix),
+      dimensionFilter: scopeFilter(scope),
     });
     const events = (evRes.rows ?? [])
       .map((row) => ({
@@ -350,7 +377,7 @@ async function fetchAiInsights(
   prev: Range,
   totalSessions: number,
   siteEngagementRate: number,
-  pathPrefix?: string,
+  scope: Ga4Scope,
 ): Promise<Panel[]> {
   // Server-side filter: only rows whose sessionSource contains an AI host
   // token. Keeps the (typically low-volume) AI rows from being dropped by a
@@ -366,7 +393,7 @@ async function fetchAiInsights(
     },
   };
 
-  const scopedAiFilter = andFilters(pathFilter(pathPrefix), aiSourceFilter);
+  const scopedAiFilter = andFilters(scopeFilter(scope), aiSourceFilter);
 
   try {
     // Current-period sessions + engaged sessions per AI source.
@@ -515,7 +542,7 @@ export function aiPanels(
 }
 
 function fetchMock(config: Ga4Config, ctx: ConnectorContext): Panel[] {
-  const rand = rng(`ga4:${config.propertyId}:${config.pagePathPrefix ?? ""}:${ctx.range}`);
+  const rand = rng(`ga4:${config.propertyId}:${config.pagePathPrefix ?? ""}:${config.pageTitleContains ?? ""}:${ctx.range}`);
   const base = 200 + Math.floor(rand() * 800);
   const series = mockSeries(rand, ctx.days, base);
   const users = series.total;
