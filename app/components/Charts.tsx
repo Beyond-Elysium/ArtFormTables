@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import type { ApexOptions } from "apexcharts";
 import { formatCompact } from "@/lib/format";
@@ -23,16 +23,53 @@ const ReactApexChart = dynamic(
     ]);
     const proto = ApexCharts.prototype as unknown as {
       destroy: () => void;
+      render: () => Promise<void>;
       __afSafeDestroy?: boolean;
+      __afSafeRender?: boolean;
     };
     if (!proto.__afSafeDestroy) {
       proto.__afSafeDestroy = true;
       const orig = proto.destroy;
       proto.destroy = function () {
+        // ApexCharts' own destroy() removes the window resize listener and
+        // disconnects the ResizeObserver, but never cancels an
+        // ALREADY-SCHEDULED resize timer (`w.globals.resizeTimer`, set by
+        // _windowResize()'s 150ms debounce) — so a resize that fires just
+        // before a tab switch unmounts the chart still calls `ctx.update()`
+        // ~150ms later on the now-torn-down instance, throwing from deep
+        // inside ApexCharts' redraw path (reads `dom.baseEl.querySelectorAll`
+        // after clear() has nulled it). Cancel it here, at the source,
+        // instead of chasing every downstream method that could get called
+        // by that stray timer.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const timer = (this as any)?.w?.globals?.resizeTimer;
+        if (timer != null) clearTimeout(timer);
         try {
           orig.call(this);
         } catch {
           // Chart never finished mounting — nothing to tear down.
+        }
+      };
+    }
+    // Guard the mirror-image race: render() is called on an instance whose
+    // internal state (`this.w.config`) was already torn down by a destroy()
+    // that landed first — a fast tab switch can unmount a chart before its
+    // own async render() has run. render()'s Promise executor then throws
+    // reading `w.config.chart.events`, and since react-apexcharts never
+    // attaches a .catch(), that surfaces as an unhandled rejection that takes
+    // down the page. The chart is being discarded either way, so a failed
+    // render is as harmless as a failed teardown (same reasoning as above).
+    if (!proto.__afSafeRender) {
+      proto.__afSafeRender = true;
+      const orig = proto.render;
+      proto.render = function (...args: unknown[]) {
+        try {
+          const result = orig.apply(this, args as []);
+          return result && typeof (result as Promise<void>).catch === "function"
+            ? (result as Promise<void>).catch(() => undefined)
+            : result;
+        } catch {
+          return Promise.resolve();
         }
       };
     }
@@ -78,7 +115,20 @@ function usePrefersReducedMotion(): boolean {
   return reduced;
 }
 
-export function TimeseriesChart({
+// Memoized: a tab switch re-renders every still-mounted panel in the tree
+// (React re-renders all children of a state change by default), and this
+// component rebuilds a brand-new `options` object every render regardless.
+// Without memoizing, react-apexcharts sees a referentially-new (if
+// content-identical) options/series prop on every unrelated re-render and
+// calls chart.updateOptions()/updateSeries() on a chart that isn't actually
+// changing — wasted redraw animation at best, and at worst a race with a
+// sibling chart's teardown during the same commit (an ApexCharts internal —
+// getPreviousPaths() reading `dom.baseEl` — throws if it lands mid-destroy;
+// see the destroy()/render() patches above for the two other races in this
+// same family). `series`/`rows`/`brand` are referentially stable across
+// re-renders here (they trace back to the unchanging `results` prop
+// DashboardBody was given), so default shallow-prop comparison is sufficient.
+export const TimeseriesChart = memo(function TimeseriesChart({
   series,
   brand,
 }: {
@@ -126,9 +176,10 @@ export function TimeseriesChart({
   return (
     <ReactApexChart options={options} series={apexSeries} type="area" height={CHART_HEIGHT} />
   );
-}
+});
 
-export function DonutChart({
+// Memoized — see TimeseriesChart's comment.
+export const DonutChart = memo(function DonutChart({
   rows,
   brand,
 }: {
@@ -156,9 +207,12 @@ export function DonutChart({
       height={CHART_HEIGHT}
     />
   );
-}
+});
 
-export function BarChart({
+// Memoized — see TimeseriesChart's comment. `onSelect`, if ever passed, must
+// be a stable (e.g. useCallback'd) reference for this memo to hold — no
+// current caller passes it.
+export const BarChart = memo(function BarChart({
   rows,
   brand,
   onSelect,
@@ -218,4 +272,4 @@ export function BarChart({
       height={CHART_HEIGHT}
     />
   );
-}
+});
