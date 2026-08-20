@@ -44,6 +44,7 @@ lib/connectors/
   mock.ts           ← deterministic demo-data helpers
   ga4.ts            ← Google Analytics 4    (service account)
   searchConsole.ts  ← Google Search Console (service account)
+  gsheets.ts        ← Google Sheets         (shared Google auth, universal ingestion)
   googleAds.ts      ← Google Ads            (OAuth + developer token)
   bingWebmaster.ts  ← Bing Webmaster Tools  (API key)
   metaAds.ts        ← Meta Ads (FB/IG)      (access token)
@@ -78,9 +79,10 @@ lib/connectors/
   airtable.ts       ← Airtable              (bearer)
   microsoftAds.ts   ← Microsoft Advertising (OAuth + developer token, SOAP reporting)
   nocodb.ts         ← NocoDB                (bearer, open-source Airtable alternative)
+  pagespeed.ts      ← PageSpeed Insights    (API key, Lighthouse scores + Core Web Vitals)
 ```
 
-All thirty-six ship with a live REST path **and** a deterministic mock
+All thirty-eight ship with a live REST path **and** a deterministic mock
 fallback, so the dashboard renders fully with no credentials and each source
 flips to live the moment its credentials + config are present. Categories span
 Analytics, Search, Advertising, Email, E-commerce, Payments, Video, CRM,
@@ -183,6 +185,7 @@ Set credentials per provider (see `.env.example`):
 | Airtable | Access token | `AIRTABLE_API_KEY`, `baseId`/`tableName` in config |
 | Microsoft Advertising | OAuth2 + developer token | `MICROSOFT_ADS_*`, `accountId` in config |
 | NocoDB | Personal API token | `NOCODB_API_TOKEN`, `NOCODB_BASE_URL`, `tableId` in config |
+| PageSpeed Insights | API key (free) | `PAGESPEED_API_KEY`, `url` in config |
 
 GA4 and Search Console share one Google service account: enable the
 **Google Analytics Data API** and **Search Console API** in the GCP project,

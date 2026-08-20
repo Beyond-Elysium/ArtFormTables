@@ -155,6 +155,7 @@ live. "Cost/access" flags the ones with friction.
 | Google Analytics 4 | `ga4` | Google OAuth / service acct | **Free** |
 | Search Console | `search-console` | Google OAuth / service acct | **Free** |
 | Google Sheets | `gsheets` | Google OAuth / service acct (`spreadsheets.readonly` scope) | **Free** — universal token-free ingestion |
+| PageSpeed Insights | `pagespeed` | `PAGESPEED_API_KEY` | **Free** — no OAuth, no site verification; ~10–30s per run |
 | Plausible | `plausible` | `PLAUSIBLE_API_KEY` | Paid / self-host |
 | Matomo | `matomo` | `MATOMO_TOKEN` (+ base url) | Free (self-host) |
 
@@ -336,6 +337,18 @@ Console site URL + access are in place.
   `GetCrawlStats`). Attached to **all 9 clients**; each stays demo until the
   API key is set and that site is verified in Bing.
   Paid alternatives for richer backlinks: Ahrefs, Majestic, Moz, Semrush.
+- **Technical SEO / page speed (PageSpeed Insights, free key).** The
+  `pagespeed` connector covers the health side that Search Console and Bing
+  don't: Lighthouse **Performance / SEO / Accessibility / Best-practices**
+  scores, **Core Web Vitals** (real-user CrUX data when the URL has enough
+  traffic, lab audits otherwise), and the ranked **opportunities** worth
+  fixing. No OAuth and no per-site verification — it measures any public URL.
+  > Two caveats: it is **point-in-time** (Lighthouse measures the page now, so
+  > there's no history and no period-over-period delta — persisting scores
+  > into the semantic layer is what would make it a trend), and a run takes
+  > **~10–30s**, so a cold load of a client carrying it is bounded by that.
+  > It's wired to `artform` only for now; copy the source line to other
+  > clients once that trade is agreed.
 
 ### Auth patterns cheat-sheet
 When adding a provider, copy the closest existing one — see the table in

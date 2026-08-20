@@ -152,6 +152,12 @@ const clientDefs = [
       { type: "ga4", config: { propertyId: "310586485" } },
       { type: "search-console", config: { siteUrl: "https://artformagency.com/" } },
       { type: "bing-webmaster", config: { siteUrl: "https://artformagency.com/" } },
+      // PageSpeed is deliberately on ArtForm's own site only for now. A
+      // Lighthouse run takes ~10-30s, so a cold (uncached) load of any client
+      // carrying it is bounded by that rather than the ~2s the other
+      // connectors take. Prove it here, then copy this line to the other
+      // clients if the trade is acceptable. Needs PAGESPEED_API_KEY.
+      { type: "pagespeed", config: { url: "https://artformagency.com/", strategy: "mobile" } },
       { type: "google-ads", config: { customerId: "000-000-0000", currency: "USD" } },
       { type: "linkedin-ads", config: { accountId: "500000000", currency: "USD" } },
       { type: "mailchimp", config: {} },
