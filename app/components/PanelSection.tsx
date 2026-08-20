@@ -1,11 +1,19 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import type {
   ConnectorResult,
   BreakdownPanel,
   MapPanel,
   TimeseriesPanel,
 } from "@/lib/connectors/types";
+import {
+  applyTableView,
+  INITIAL_TABLE_VIEW,
+  nextSort,
+  type SortKey,
+  type TableViewState,
+} from "@/lib/tableView";
 import { formatValue } from "@/lib/format";
 import { readableTextColor } from "@/lib/contrast";
 import { breakdownCsv, csvFilename, timeseriesCsv } from "@/lib/csv";
@@ -145,15 +153,23 @@ export function PanelSection({
                 </div>
               );
             }
-            // Tables carry their own semantics; charts get a summary label.
-            const chartLabel = p.display === "table" ? undefined : breakdownAriaLabel(p);
+            // Tables own their whole card: search/sort state lives inside, so
+            // the CSV button has to live there too (it exports what you're
+            // actually looking at, not the unfiltered rows).
+            if (p.display === "table") {
+              return (
+                <div className="col-lg-4" key={i}>
+                  <BreakdownTableCard
+                    panel={p}
+                    filename={csvFilename(result.label, p.title, windowLabel)}
+                  />
+                </div>
+              );
+            }
+            const chartLabel = breakdownAriaLabel(p);
             return (
               <div className="col-lg-4" key={i}>
-                <div
-                  className="card h-100"
-                  role={chartLabel ? "group" : undefined}
-                  aria-label={chartLabel}
-                >
+                <div className="card h-100" role="group" aria-label={chartLabel}>
                   <div className="card-header d-flex align-items-start">
                     <div>
                       <h3 className="card-title mb-0">{p.title}</h3>
@@ -161,25 +177,14 @@ export function PanelSection({
                         <div className="text-secondary small">{p.subtitle}</div>
                       )}
                     </div>
-                    {p.display === "table" && (
-                      <CsvButton
-                        panelTitle={p.title}
-                        filename={csvFilename(result.label, p.title, windowLabel)}
-                        buildCsv={() => breakdownCsv(p.rows, p.valueLabel)}
-                      />
+                  </div>
+                  <div className="card-body">
+                    {p.display === "bar" ? (
+                      <BarChart rows={p.rows} brand={brand} />
+                    ) : (
+                      <DonutChart rows={p.rows} brand={brand} />
                     )}
                   </div>
-                  {p.display === "table" ? (
-                    <BreakdownTable panel={p} />
-                  ) : (
-                    <div className="card-body">
-                      {p.display === "bar" ? (
-                        <BarChart rows={p.rows} brand={brand} />
-                      ) : (
-                        <DonutChart rows={p.rows} brand={brand} />
-                      )}
-                    </div>
-                  )}
                 </div>
               </div>
             );
@@ -256,40 +261,151 @@ function breakdownAriaLabel(p: BreakdownPanel): string {
   return `${p.title}. ${kind} chart of ${p.rows.length} items.${topText}`;
 }
 
-function BreakdownTable({ panel }: { panel: BreakdownPanel }) {
+/** Show search/sort/paging only once a table is big enough to need them. */
+const CONTROLS_THRESHOLD = 5;
+
+/**
+ * A breakdown table card: searchable, sortable, paged.
+ *
+ * The body scrolls at about five rows so a long table doesn't stretch the
+ * card (the client ask: "limit to the top five, then scroll for more"), while
+ * the pager handles tables longer than one page. Small tables render exactly
+ * as before — no controls, no scrollbar — so this only shows up where it
+ * earns its place.
+ *
+ * View state (search/sort/page) is deliberately local and resets on tab
+ * switch; it's a reading aid, not something worth persisting to the URL.
+ */
+function BreakdownTableCard({ panel, filename }: { panel: BreakdownPanel; filename: string }) {
+  const [view, setView] = useState<TableViewState>(INITIAL_TABLE_VIEW);
+  const result = useMemo(() => applyTableView(panel.rows, view), [panel.rows, view]);
+  const showControls = panel.rows.length > CONTROLS_THRESHOLD;
+  const valueLabel = panel.valueLabel ?? "Value";
+
+  const sortIndicator = (key: SortKey) =>
+    view.sortKey === key ? (view.sortDir === "asc" ? " ↑" : " ↓") : "";
+  const ariaSort = (key: SortKey): "ascending" | "descending" | "none" =>
+    view.sortKey === key ? (view.sortDir === "asc" ? "ascending" : "descending") : "none";
+
+  function sortBy(key: SortKey) {
+    // Re-sorting from page 3 should show the new top rows, not page 3 of them.
+    setView((v) => ({ ...v, ...nextSort(v, key), page: 0 }));
+  }
+
   return (
-    <div className="table-responsive">
-      <table className="table table-vcenter card-table">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th className="text-end">{panel.valueLabel ?? "Value"}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {panel.rows.map((r, i) => (
-            <tr key={i}>
-              <td>
-                <div className="fw-bold text-truncate" style={{ maxWidth: 220 }} title={r.label}>
-                  {r.label}
-                </div>
-                {r.sublabel && (
-                  <div
-                    className="text-secondary small text-truncate"
-                    style={{ maxWidth: 220 }}
-                    title={r.sublabel}
-                  >
-                    {r.sublabel}
-                  </div>
-                )}
-              </td>
-              <td className="text-end">
-                {formatValue(r.value, panel.valueFormat ?? "number")}
-              </td>
+    <div className="card h-100">
+      <div className="card-header d-flex align-items-start">
+        <div>
+          <h3 className="card-title mb-0">{panel.title}</h3>
+          {panel.subtitle && <div className="text-secondary small">{panel.subtitle}</div>}
+        </div>
+        <CsvButton
+          panelTitle={panel.title}
+          filename={filename}
+          // Exports what you're looking at (search applied, every page) —
+          // not just the visible page, and not the unfiltered rows.
+          buildCsv={() => breakdownCsv(result.matched, panel.valueLabel)}
+        />
+      </div>
+
+      {showControls && (
+        <div className="card-body border-bottom py-2 d-print-none">
+          <input
+            type="search"
+            className="form-control form-control-sm"
+            placeholder={`Search ${panel.rows.length} rows…`}
+            aria-label={`Search ${panel.title}`}
+            value={view.query}
+            onChange={(e) => setView((v) => ({ ...v, query: e.target.value, page: 0 }))}
+          />
+        </div>
+      )}
+
+      <div className="table-responsive breakdown-scroll">
+        <table className="table table-vcenter card-table">
+          <thead>
+            <tr>
+              <th aria-sort={ariaSort("label")}>
+                <button
+                  type="button"
+                  className="btn-table-sort d-print-none"
+                  onClick={() => sortBy("label")}
+                >
+                  Name{sortIndicator("label")}
+                </button>
+                <span className="d-none d-print-inline">Name</span>
+              </th>
+              <th className="text-end" aria-sort={ariaSort("value")}>
+                <button
+                  type="button"
+                  className="btn-table-sort d-print-none"
+                  onClick={() => sortBy("value")}
+                >
+                  {valueLabel}
+                  {sortIndicator("value")}
+                </button>
+                <span className="d-none d-print-inline">{valueLabel}</span>
+              </th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {result.rows.map((r, i) => (
+              <tr key={`${r.label}-${i}`}>
+                <td>
+                  <div className="fw-bold text-truncate" style={{ maxWidth: 220 }} title={r.label}>
+                    {r.label}
+                  </div>
+                  {r.sublabel && (
+                    <div
+                      className="text-secondary small text-truncate"
+                      style={{ maxWidth: 220 }}
+                      title={r.sublabel}
+                    >
+                      {r.sublabel}
+                    </div>
+                  )}
+                </td>
+                <td className="text-end">
+                  {formatValue(r.value, panel.valueFormat ?? "number")}
+                </td>
+              </tr>
+            ))}
+            {result.rows.length === 0 && (
+              <tr>
+                <td colSpan={2} className="text-secondary text-center py-3">
+                  No rows match “{view.query}”.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {result.pageCount > 1 && (
+        <div className="card-footer d-flex align-items-center justify-content-between py-2 d-print-none">
+          <span className="text-secondary small">
+            Page {result.page + 1} of {result.pageCount} · {result.total} rows
+          </span>
+          <div className="btn-group btn-group-sm">
+            <button
+              type="button"
+              className="btn"
+              disabled={result.page === 0}
+              onClick={() => setView((v) => ({ ...v, page: result.page - 1 }))}
+            >
+              Previous
+            </button>
+            <button
+              type="button"
+              className="btn"
+              disabled={result.page >= result.pageCount - 1}
+              onClick={() => setView((v) => ({ ...v, page: result.page + 1 }))}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

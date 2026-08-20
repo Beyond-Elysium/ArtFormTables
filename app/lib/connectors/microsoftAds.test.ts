@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import zlib from "node:zlib";
+import { strToU8, zipSync } from "fflate";
 import {
   filterRows,
   microsoftAdsConnector,
@@ -9,38 +9,35 @@ import {
 } from "./microsoftAds";
 import type { BreakdownPanel, StatPanel, TimeseriesPanel } from "./types";
 
-function localFileHeader(name: string, data: Buffer, method: 0 | 8): Buffer {
-  const payload = method === 8 ? zlib.deflateRawSync(data) : data;
-  const header = Buffer.alloc(30);
-  header.writeUInt32LE(0x04034b50, 0);
-  header.writeUInt16LE(20, 4); // version needed
-  header.writeUInt16LE(0, 6); // flags
-  header.writeUInt16LE(method, 8);
-  header.writeUInt16LE(0, 10); // mod time
-  header.writeUInt16LE(0, 12); // mod date
-  header.writeUInt32LE(0, 14); // crc32 (unused by the reader)
-  header.writeUInt32LE(payload.length, 18);
-  header.writeUInt32LE(data.length, 22);
-  header.writeUInt16LE(Buffer.byteLength(name), 26);
-  header.writeUInt16LE(0, 28);
-  return Buffer.concat([header, Buffer.from(name), payload]);
+/** Build a real ZIP (central directory and all), the way Microsoft's download is. */
+function zip(files: Record<string, string>, level: 0 | 6 = 6): Buffer {
+  const entries = Object.fromEntries(
+    Object.entries(files).map(([name, content]) => [name, [strToU8(content), { level }] as const]),
+  );
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return Buffer.from(zipSync(entries as any));
 }
 
 describe("readFirstZipEntry", () => {
   it("reads a stored (uncompressed) entry", () => {
-    const data = Buffer.from("hello,world\n1,2\n");
-    const zip = localFileHeader("report.csv", data, 0);
-    expect(readFirstZipEntry(zip).toString("utf-8")).toBe(data.toString("utf-8"));
+    const csv = "hello,world\n1,2\n";
+    expect(readFirstZipEntry(zip({ "report.csv": csv }, 0)).toString("utf-8")).toBe(csv);
   });
 
   it("reads a deflated entry", () => {
-    const data = Buffer.from("TimePeriod,CampaignName,AdDistribution,Impressions,Clicks,Spend\n2026-08-01,DoD,Search,100,5,12.5\n");
-    const zip = localFileHeader("report.csv", data, 8);
-    expect(readFirstZipEntry(zip).toString("utf-8")).toBe(data.toString("utf-8"));
+    const csv =
+      "TimePeriod,CampaignName,AdDistribution,Impressions,Clicks,Spend\n2026-08-01,DoD,Search,100,5,12.5\n";
+    expect(readFirstZipEntry(zip({ "report.csv": csv }, 6)).toString("utf-8")).toBe(csv);
   });
 
-  it("throws on a non-ZIP buffer", () => {
-    expect(() => readFirstZipEntry(Buffer.from("not a zip"))).toThrow();
+  it("skips empty entries and returns the first file with content", () => {
+    const csv = "TimePeriod,CampaignName\n2026-08-01,DoD\n";
+    // Real report archives sometimes carry a placeholder/dir entry first.
+    expect(readFirstZipEntry(zip({ "empty.txt": "", "report.csv": csv })).toString("utf-8")).toBe(csv);
+  });
+
+  it("throws a clear error on a non-ZIP buffer", () => {
+    expect(() => readFirstZipEntry(Buffer.from("not a zip"))).toThrow(/unreadable report archive/i);
   });
 });
 

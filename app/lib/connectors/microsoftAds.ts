@@ -14,9 +14,8 @@
  * Reporting Service is SOAP and asynchronous: submit a report request, poll
  * until it's ready, then download a compressed CSV. This implementation does
  * that end to end (SubmitGenerateReport → PollGenerateReport → download +
- * unzip + parse), including a minimal hand-rolled ZIP reader (Node has no
- * built-in PKZIP support) — the report archive is expected to hold exactly
- * one small CSV entry, which is what CampaignPerformanceReport downloads are.
+ * unzip + parse). The archive is unzipped with fflate (Node has no built-in
+ * PKZIP support); CampaignPerformanceReport downloads hold a single small CSV.
  *
  * Caveats worth knowing before wiring real credentials:
  *   - SOAP header/action namespaces and the exact report-column enum names
@@ -40,7 +39,7 @@
  * per-vertical campaign ids usually aren't known up front).
  */
 import "server-only";
-import zlib from "node:zlib";
+import { unzipSync } from "fflate";
 import type { Connector, ConnectorContext, Panel } from "./types";
 import { isPlaceholderId } from "./placeholder";
 import { mockDelta, mockSeries, rng } from "./mock";
@@ -200,26 +199,24 @@ async function pollUntilReady(headersXml: string, requestId: string): Promise<st
 }
 
 /**
- * Minimal ZIP reader for a single/few-entry, stored-or-deflated archive
- * (Node has no built-in PKZIP support). Reads local file headers directly
- * rather than the central directory, which is fine for the small archives
- * Microsoft's report downloads produce. Returns the first entry's bytes.
- * Exported for tests.
+ * Read the first entry out of the downloaded report archive (Node has no
+ * built-in PKZIP support). Delegates to fflate, which reads the central
+ * directory properly — so it handles multi-entry archives, data descriptors,
+ * and stored-vs-deflated entries, rather than assuming a single local file
+ * header the way a hand-rolled reader would. Exported for tests.
  */
 export function readFirstZipEntry(buf: Buffer): Buffer {
-  const LOCAL_HEADER_SIG = 0x04034b50;
-  if (buf.length < 30 || buf.readUInt32LE(0) !== LOCAL_HEADER_SIG) {
-    throw new Error("Microsoft Ads: unexpected report archive format (not a ZIP local file header)");
+  let entries: Record<string, Uint8Array>;
+  try {
+    entries = unzipSync(new Uint8Array(buf));
+  } catch (err) {
+    throw new Error(`Microsoft Ads: unreadable report archive: ${String(err)}`);
   }
-  const method = buf.readUInt16LE(8); // 0 = stored, 8 = deflate
-  const compSize = buf.readUInt32LE(18);
-  const nameLen = buf.readUInt16LE(26);
-  const extraLen = buf.readUInt16LE(28);
-  const dataStart = 30 + nameLen + extraLen;
-  const compressed = buf.subarray(dataStart, dataStart + compSize);
-  if (method === 0) return Buffer.from(compressed);
-  if (method === 8) return zlib.inflateRawSync(compressed);
-  throw new Error(`Microsoft Ads: unsupported ZIP compression method ${method}`);
+  // Report archives hold the CSV plus occasional directory entries; take the
+  // first entry with actual bytes.
+  const first = Object.entries(entries).find(([, bytes]) => bytes.length > 0);
+  if (!first) throw new Error("Microsoft Ads: report archive contained no files");
+  return Buffer.from(first[1]);
 }
 
 /** Tiny CSV line splitter handling quoted fields (report values are plain, but be safe). */
