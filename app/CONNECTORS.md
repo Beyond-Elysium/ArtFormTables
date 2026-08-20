@@ -43,11 +43,20 @@ supports two methods — **OAuth is preferred when present**.
 in Playground, gear → "Use your own OAuth credentials" (paste id/secret) → enter
 both scopes → Authorize → Exchange for tokens → copy the refresh token.
 
-Scopes (grant **both** so Search Console works too):
+Scopes — grant **all four in one consent**. The refresh token carries only the
+scopes granted at the moment it was minted, so a token created for one service
+leaves the others silently on demo data; adding a scope later means re-minting:
 ```
-https://www.googleapis.com/auth/analytics.readonly
-https://www.googleapis.com/auth/webmasters.readonly
+https://www.googleapis.com/auth/analytics.readonly     (GA4)
+https://www.googleapis.com/auth/webmasters.readonly    (Search Console)
+https://www.googleapis.com/auth/spreadsheets.readonly  (Google Sheets)
+https://www.googleapis.com/auth/adwords                (Google Ads)
 ```
+
+> Google Ads reuses these same `GOOGLE_OAUTH_*` credentials (see
+> `googleAds.ts` — the `GOOGLE_ADS_CLIENT_ID`/`_SECRET`/`_OAUTH_REFRESH_TOKEN`
+> vars are optional overrides for using a *different* client). It still needs
+> its own `GOOGLE_ADS_DEVELOPER_TOKEN` on top of the `adwords` scope.
 
 > ⚠️ Set the OAuth **consent screen to "In production"** — in "Testing" the
 > refresh token expires after 7 days and sources silently fall back to demo.
