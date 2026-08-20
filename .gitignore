@@ -39,3 +39,4 @@ packages-zip/
 .env
 # Claude Code local dir + transient agent worktrees (never commit these)
 .claude/
+sheet-seed/
