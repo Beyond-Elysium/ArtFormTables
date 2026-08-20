@@ -130,10 +130,12 @@ pnpm --filter @artform/dashboards dev
 
 Then visit a client path on localhost:
 
-- http://localhost:3000        (landing / client index)
-- http://localhost:3000/acme   (GA4 + Search Console + Google Ads + Bing)
-- http://localhost:3000/globex (GA4 + Search Console)
+- http://localhost:3000          (landing / client index)
+- http://localhost:3000/artform  (configured ArtForm Agency dashboard)
+- http://localhost:3000/bbbnp    (configured BBB National Programs dashboard)
 
+The full, current path list is the set of `slug` values in
+[`config/clients.ts`](./config/clients.ts).
 With no credentials set you'll see a "Demo data" banner and deterministic sample
 metrics for every source.
 

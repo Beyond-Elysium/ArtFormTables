@@ -18,9 +18,11 @@ pnpm --filter @artform/dashboards dev
 Open:
 
 - http://localhost:3000 — landing / client index
-- http://localhost:3000/acme — a client dashboard (path routing)
-- http://localhost:3000/umbrella, http://localhost:3000/hooli, … — other demos
+- http://localhost:3000/artform — configured ArtForm Agency dashboard
+- http://localhost:3000/bbbnp — configured BBB National Programs dashboard
 
+The authoritative list of dashboard paths is the set of `slug` values in
+[`config/clients.ts`](./config/clients.ts).
 With no credentials set you'll see a **"Demo data"** banner and deterministic
 sample metrics for every source. That's expected.
 
@@ -116,7 +118,7 @@ paths (`/<slug>`) under it, so there's no wildcard DNS to set up.
    its DNS at Vercel (a normal `A`/`CNAME` record — Vercel shows the exact value
    when you add the domain). The landing page lives at the root; each client at
    `dashboards.artform.com/<slug>`.
-5. Deploy. `dashboards.artform.com/acme` now serves Acme's dashboard.
+5. Deploy. `dashboards.artform.com/<client-slug>` now serves each configured client dashboard; for example, `dashboards.artform.com/artform` serves the ArtForm Agency dashboard.
 
 Adding a new client in production = edit `config/clients.ts`, commit, push. The
 new path works immediately — no DNS or Vercel change needed.
