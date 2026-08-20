@@ -3,6 +3,7 @@
 import type {
   ConnectorResult,
   BreakdownPanel,
+  MapPanel,
   TimeseriesPanel,
 } from "@/lib/connectors/types";
 import { formatValue } from "@/lib/format";
@@ -10,6 +11,7 @@ import { readableTextColor } from "@/lib/contrast";
 import { breakdownCsv, csvFilename, timeseriesCsv } from "@/lib/csv";
 import { StatCard } from "@/components/StatCard";
 import { TimeseriesChart, DonutChart, BarChart, type Branding } from "@/components/Charts";
+import { MapChart } from "@/components/MapChart";
 
 /**
  * Renders one connector's result generically: KPI cards, then time series and
@@ -108,6 +110,41 @@ export function PanelSection({
                 </div>
               );
             }
+            if (p.kind === "map") {
+              return (
+                <div className="col-lg-8" key={i}>
+                  <div className="card h-100" role="group" aria-label={mapAriaLabel(p)}>
+                    <div className="card-header d-flex align-items-start">
+                      <div>
+                        <h3 className="card-title mb-0">{p.title}</h3>
+                        {p.subtitle && (
+                          <div className="text-secondary small">{p.subtitle}</div>
+                        )}
+                      </div>
+                      <CsvButton
+                        panelTitle={p.title}
+                        filename={csvFilename(result.label, p.title, windowLabel)}
+                        // Map rows carry a region code alongside the name; reuse
+                        // the breakdown serializer with the code as the detail.
+                        buildCsv={() =>
+                          breakdownCsv(
+                            p.rows.map((r) => ({
+                              label: r.label,
+                              value: r.value,
+                              sublabel: r.code,
+                            })),
+                            p.valueLabel,
+                          )
+                        }
+                      />
+                    </div>
+                    <div className="card-body">
+                      <MapChart panel={p} brand={brand} />
+                    </div>
+                  </div>
+                </div>
+              );
+            }
             // Tables carry their own semantics; charts get a summary label.
             const chartLabel = p.display === "table" ? undefined : breakdownAriaLabel(p);
             return (
@@ -198,6 +235,17 @@ function timeseriesAriaLabel(p: TimeseriesPanel): string {
   const names = p.series.map((s) => s.name).join(", ");
   const points = p.series[0]?.points.length ?? 0;
   return `${p.title}. Line chart of ${names} over ${points} data points.`;
+}
+
+/** Screen-reader summary for a map card: the chart is inert to assistive tech,
+ *  so the label carries the shape of the data and its top region. */
+function mapAriaLabel(p: MapPanel): string {
+  const scope = p.scope === "us" ? "United States" : "world";
+  const top = [...p.rows].sort((a, b) => b.value - a.value)[0];
+  const topText = top ? ` Highest: ${top.label}.` : "";
+  return `${p.title}. Map of the ${scope} shading ${p.rows.length} regions by ${
+    p.valueLabel ?? "value"
+  }.${topText}`;
 }
 
 /** Screen-reader summary for a bar/donut chart card: title, kind, item count. */

@@ -19,6 +19,7 @@ import { isPlaceholderId } from "./placeholder";
 import { previousWindow, resolveWindow } from "./dates";
 import { AI_SOURCE_TOKENS, computeAiScore, matchAiSource, type AiScore, type AiSignals } from "./aiSources";
 import { mockDelta, mockSeries, rng } from "./mock";
+import { usStateCode } from "./geo";
 
 interface Ga4Config {
   propertyId: string;
@@ -44,6 +45,16 @@ interface Ga4Config {
    * the title, not the path). AND-ed with pagePathPrefix when both are set.
    */
   pageTitleContains?: string;
+  /**
+   * Geography panel scope:
+   *   - `"world"` (default) — a country map, from GA4's `countryId` dimension
+   *     (already ISO 3166-1 alpha-2, exactly what the world map keys on).
+   *   - `"us"` — a US state map, from the `region` dimension restricted to the
+   *     United States. Right for US-only audiences (federal/government
+   *     clients), where a world map is one solid block and says nothing.
+   *   - `"none"` — omit the map entirely.
+   */
+  geoScope?: "world" | "us" | "none";
 }
 
 type Ga4Scope = Pick<Ga4Config, "pagePathPrefix" | "pageTitleContains">;
@@ -212,11 +223,12 @@ async function fetchLive(
   // dashboard still renders live.
   // Secondary properties can opt out of the AI block via `aiInsights: false`.
   const conversions = await fetchConversions(ga, property, curr, prev, config);
+  const geo = await fetchGeography(ga, property, curr, config);
   const ai =
     config.aiInsights === false
       ? []
       : await fetchAiInsights(ga, property, curr, prev, c[1], c[3], config);
-  return [...corePanels, ...conversions, ...ai];
+  return [...corePanels, ...conversions, ...geo, ...ai];
 }
 
 /* ------------------------------------------------------------------ *
@@ -361,6 +373,105 @@ export function conversionPanels(m: ConversionInputs): Panel[] {
     });
   }
   return panels;
+}
+
+/* ------------------------------------------------------------------ *
+ * Geography (choropleth map)
+ * ------------------------------------------------------------------ */
+
+/**
+ * A map of sessions by country (default) or by US state.
+ *
+ * Isolated like the conversions/AI blocks: any failure returns [] and the core
+ * dashboard still renders. `geoScope: "none"` skips the report entirely.
+ */
+async function fetchGeography(
+  ga: Ga,
+  property: string,
+  curr: Range,
+  config: Ga4Config,
+): Promise<Panel[]> {
+  const scope = config.geoScope ?? "world";
+  if (scope === "none") return [];
+  try {
+    if (scope === "us") {
+      // `region` is a plain name ("Virginia") and is not US-unique — several
+      // countries have a "Georgia"/"Victoria" — so restrict to the US before
+      // mapping names to codes, on top of any page scoping already in force.
+      const [res] = await ga.runReport({
+        property,
+        dateRanges: [curr],
+        dimensions: [{ name: "region" }],
+        metrics: [{ name: "sessions" }],
+        orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
+        limit: 100,
+        dimensionFilter: andFilters(scopeFilter(config), {
+          filter: {
+            fieldName: "country",
+            stringFilter: { matchType: "EXACT" as const, value: "United States" },
+          },
+        }),
+      });
+      const rows = (res.rows ?? [])
+        .map((row) => {
+          const name = row.dimensionValues?.[0]?.value ?? "";
+          return {
+            code: usStateCode(name) ?? "",
+            label: name,
+            value: Number(row.metricValues?.[0]?.value ?? 0),
+          };
+        })
+        // Territories, "(not set)", and anything the map has no region for.
+        .filter((r) => r.code !== "");
+      return geoPanels(rows, "us");
+    }
+
+    const [res] = await ga.runReport({
+      property,
+      dateRanges: [curr],
+      dimensions: [{ name: "countryId" }, { name: "country" }],
+      metrics: [{ name: "sessions" }],
+      orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
+      limit: 250,
+      dimensionFilter: scopeFilter(config),
+    });
+    const rows = (res.rows ?? [])
+      .map((row) => ({
+        // countryId is already ISO 3166-1 alpha-2 — the world map's key space.
+        code: (row.dimensionValues?.[0]?.value ?? "").toUpperCase(),
+        label: row.dimensionValues?.[1]?.value ?? "(not set)",
+        value: Number(row.metricValues?.[0]?.value ?? 0),
+      }))
+      .filter((r) => /^[A-Z]{2}$/.test(r.code));
+    return geoPanels(rows, "world");
+  } catch (err) {
+    console.error("[ga4] geography unavailable:", err);
+    return [];
+  }
+}
+
+/**
+ * Panel shape for the geography block (shared by live and mock). No rows at
+ * all → no panel, rather than an empty map.
+ *
+ * Exported for tests.
+ */
+export function geoPanels(
+  rows: { code: string; label: string; value: number }[],
+  scope: "world" | "us",
+): Panel[] {
+  if (rows.length === 0) return [];
+  return [
+    {
+      kind: "map",
+      title: scope === "us" ? "Sessions by state" : "Sessions by country",
+      subtitle: scope === "us" ? "United States" : "Worldwide",
+      scope,
+      valueLabel: "Sessions",
+      valueFormat: "compact",
+      rows,
+    },
+  ];
 }
 
 /* ------------------------------------------------------------------ *
@@ -601,8 +712,50 @@ function fetchMock(config: Ga4Config, ctx: ConnectorContext): Panel[] {
     events: convEvents,
   });
 
+  // Synthesize plausible geography so demo dashboards show the map. Built
+  // before the AI early-return below, because a source can opt out of the AI
+  // block and still want its map (the campaign-scoped views all do).
+  const geoScope = config.geoScope ?? "world";
+  let geoPanelsMock: Panel[] = [];
+  if (geoScope !== "none") {
+    const mix: [string, string, number][] =
+      geoScope === "us"
+        ? [
+            ["US-VA", "Virginia", 0.22],
+            ["US-MD", "Maryland", 0.16],
+            ["US-DC", "District of Columbia", 0.13],
+            ["US-TX", "Texas", 0.1],
+            ["US-CA", "California", 0.09],
+            ["US-FL", "Florida", 0.07],
+            ["US-NY", "New York", 0.06],
+            ["US-GA", "Georgia", 0.05],
+            ["US-CO", "Colorado", 0.04],
+            ["US-WA", "Washington", 0.03],
+          ]
+        : [
+            ["US", "United States", 0.58],
+            ["GB", "United Kingdom", 0.11],
+            ["CA", "Canada", 0.08],
+            ["DE", "Germany", 0.06],
+            ["AU", "Australia", 0.05],
+            ["IN", "India", 0.04],
+            ["FR", "France", 0.03],
+            ["NL", "Netherlands", 0.02],
+          ];
+    geoPanelsMock = geoPanels(
+      mix
+        .map(([code, label, wt]) => ({
+          code,
+          label,
+          value: Math.max(1, Math.floor(sessions * wt * (0.85 + rand() * 0.3))),
+        }))
+        .sort((a, b) => b.value - a.value),
+      geoScope,
+    );
+  }
+
   // Secondary properties can opt out of the AI block (see Ga4Config).
-  if (config.aiInsights === false) return [...corePanels, ...convPanels];
+  if (config.aiInsights === false) return [...corePanels, ...convPanels, ...geoPanelsMock];
 
   // Synthesize plausible AI-referral data so demo dashboards show the feature.
   const aiShare = 0.008 + rand() * 0.03; // ~0.8%–3.8% of sessions
@@ -636,7 +789,12 @@ function fetchMock(config: Ga4Config, ctx: ConnectorContext): Panel[] {
     distinctPages,
   });
 
-  return [...corePanels, ...convPanels, ...aiPanels(score, aiSessions, pageRows, assistantRows)];
+  return [
+    ...corePanels,
+    ...convPanels,
+    ...geoPanelsMock,
+    ...aiPanels(score, aiSessions, pageRows, assistantRows),
+  ];
 }
 
 function buildPanels(

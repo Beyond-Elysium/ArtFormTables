@@ -32,9 +32,9 @@ interface Connector<Config> {
 ```
 
 A connector's only job is to turn its own API response into normalized
-**panels** — `stat` (KPI card), `timeseries` (chart), or `breakdown`
-(donut / bar / table). The dashboard renders panels generically, so **adding a
-new provider never touches the UI**.
+**panels** — `stat` (KPI card), `timeseries` (chart), `breakdown`
+(donut / bar / table), or `map` (choropleth, world or US states). The dashboard
+renders panels generically, so **adding a new provider never touches the UI**.
 
 ```
 lib/connectors/

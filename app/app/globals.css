@@ -440,3 +440,33 @@ h3,
   inset: 0;
   z-index: 29;
 }
+
+/* --- Choropleth map panels ------------------------------------------------
+   The ramp is bucketed (jsvectormap has no continuous scale), so the legend
+   carries the step boundaries. See components/mapScale.ts. */
+/* jsvectormap scales paths to the container's width; on a map whose aspect
+   ratio is taller than the box (the US one is) the artwork can bleed past the
+   bottom edge, showing through the legend below. Clip it to the box. */
+.map-canvas {
+  overflow: hidden;
+}
+.map-legend {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  position: relative;
+}
+.map-legend-scale {
+  display: flex;
+  flex: 0 1 auto;
+}
+.map-legend-step {
+  width: 1.75rem;
+  height: 0.6rem;
+  display: block;
+}
+/* Tabler themes .jvm-* already; only the tooltip typeface needs aligning. */
+.jvm-tooltip {
+  font-family: "Fira Sans", var(--tblr-font-sans-serif);
+}

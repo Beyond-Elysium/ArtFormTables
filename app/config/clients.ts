@@ -229,7 +229,7 @@ const clientDefs = [
     ],
     sources: [
       // --- Site-wide (Overview tab) ---------------------------------------
-      { type: "ga4", config: { propertyId: "302350399" } },
+      { type: "ga4", config: { propertyId: "302350399", geoScope: "us" } },
       { type: "search-console", config: { siteUrl: "https://maximus.com/" } },
       { type: "bing-webmaster", config: { siteUrl: "https://maximus.com/" } },
       // Real LinkedIn sponsored-account id (was a placeholder) — shared by
@@ -252,7 +252,7 @@ const clientDefs = [
         label: "CCC — Web",
         // No exact URL path was available; scoped by page title instead
         // (matches "Omnichannel Contact Center Solutions[...]" variants).
-        config: { propertyId: "302350399", pageTitleContains: "Omnichannel Contact Center", aiInsights: false },
+        config: { propertyId: "302350399", geoScope: "us", pageTitleContains: "Omnichannel Contact Center", aiInsights: false },
       },
       {
         type: "google-ads",
@@ -278,7 +278,7 @@ const clientDefs = [
         type: "ga4",
         id: "ga4-census",
         label: "Census — Web",
-        config: { propertyId: "302350399", pagePathPrefix: "/federal-government/civilian/census-support-services", aiInsights: false },
+        config: { propertyId: "302350399", geoScope: "us", pagePathPrefix: "/federal-government/civilian/census-support-services", aiInsights: false },
       },
       {
         type: "google-ads",
@@ -309,7 +309,7 @@ const clientDefs = [
         type: "ga4",
         id: "ga4-defense",
         label: "Defense — Web",
-        config: { propertyId: "302350399", pagePathPrefix: "/federal-government/fed-defense", aiInsights: false },
+        config: { propertyId: "302350399", geoScope: "us", pagePathPrefix: "/federal-government/fed-defense", aiInsights: false },
       },
       {
         type: "google-ads",
@@ -337,7 +337,7 @@ const clientDefs = [
         type: "ga4",
         id: "ga4-national-security",
         label: "National Security — Web",
-        config: { propertyId: "302350399", pagePathPrefix: "/federal-government/civilian/national-security-services", aiInsights: false },
+        config: { propertyId: "302350399", geoScope: "us", pagePathPrefix: "/federal-government/civilian/national-security-services", aiInsights: false },
       },
       {
         type: "google-ads",
@@ -375,7 +375,7 @@ const clientDefs = [
         type: "ga4",
         id: "ga4-federal-financial",
         label: "Federal Financial — Web",
-        config: { propertyId: "302350399", pagePathPrefix: "/federal-government/civilian/federal-financial", aiInsights: false },
+        config: { propertyId: "302350399", geoScope: "us", pagePathPrefix: "/federal-government/civilian/federal-financial", aiInsights: false },
       },
       {
         type: "google-ads",

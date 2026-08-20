@@ -403,7 +403,17 @@ trailing-`days` window only when they're absent.
 
 // Ranked list. display: donut | bar | table
 { kind: "breakdown", title, display, rows: [{ label, value, sublabel? }], valueFormat? }
+
+// Choropleth map. scope: "world" (ISO 3166-1 alpha-2 codes: US, GB)
+//                      | "us"   (ISO 3166-2 codes: US-VA, US-CA)
+{ kind: "map", title, scope, rows: [{ code, label, value }], valueLabel?, valueFormat? }
 ```
+
+A map's `rows[].code` **must** use its scope's code space, or the region simply
+won't shade. GA4's `countryId` dimension already returns alpha-2; its `region`
+dimension returns state *names*, so `lib/connectors/geo.ts` maps those to
+`US-XX`. Colour/bucketing lives in `components/mapScale.ts` — jsvectormap has
+no continuous scale, so values are bucketed into named ordinal steps.
 
 - `percent` expects a **0..1 ratio** (it multiplies by 100).
 - `invertDelta: true` makes an increase render red (use for cost, errors, avg
