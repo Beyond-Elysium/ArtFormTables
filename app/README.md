@@ -9,8 +9,10 @@ Built on the ArtForm-branded [`@tabler/core`](../core) design system + Next.js.
 
 > **Just want to use it?** → [DEPLOY.md](./DEPLOY.md) — run it, configure a
 > client, connect real data, and ship it on one domain.
-> **Adding a client?** → [ONBOARDING.md](./ONBOARDING.md) — the end-to-end
-> checklist (registry → grants → env → semantic sync → verify).
+> **Adding a client?** → [ONBOARDING.md](./ONBOARDING.md) — the SOP, plus the
+> full list of available connectors.
+> **Editing an existing client?** → [config/EDITING.md](./config/EDITING.md) —
+> every field, and what each connector takes in `config`.
 > **Connections, auth, provider catalog & recommendations?** →
 > [CONNECTORS.md](./CONNECTORS.md) (the hub; authoring a new provider is a
 > section there, alongside [`lib/connectors/TEMPLATE.ts`](./lib/connectors/TEMPLATE.ts)).
