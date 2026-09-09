@@ -24,11 +24,18 @@ system via the shared [`@artform/suite-ui`](../../packages/suite-ui) package
 | Scoring engines (Platform Score, Influence Score, budget allocation, benchmark comparison) | Done — pure functions, 28 unit tests, `lib/scoring/` |
 | CSV import → database | Done — real parsing, validation, bulk insert, live Campaign Data table |
 | PDF report export | Done — `/api/report/[id]`, not yet runtime-tested against real Chromium |
-| Scenario wizard + saved/compare/archive (CRUD) | Not started — the scoring engines and PDF export above are built but nothing calls them yet; `/scenarios/new` is still a static stub |
+| Scenario wizard + saved/compare/archive (CRUD) | Done — 4-step wizard, list with search/filter/archive, side-by-side compare, Flight Performance Tracker |
 
-Everything marked "Done" type-checks (`pnpm --filter @artform/arvo typecheck`)
-and, where applicable, passes its tests (`pnpm --filter @artform/arvo test`)
-and a real `next build`.
+Everything marked "Done" type-checks (`pnpm --filter @artform/arvo typecheck`),
+passes its tests (`pnpm --filter @artform/arvo test`), and a real `next build`
+with dummy-but-valid credentials.
+
+**Known heuristic gap:** scoring a scenario needs an "audience fit" and an
+"objective alignment" input per platform that the wizard doesn't collect yet
+(the spec doesn't define where those numbers come from either). `lib/platforms.ts`
+and `lib/scenario-engine.ts` fill them with a documented flat default for now
+— search those two files for `TODO` before trusting a scenario's Platform
+Score or Influence Score as real signal rather than a placeholder.
 
 ## Routes
 
