@@ -10,11 +10,16 @@
     "start": "next start --port 3200",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "clean": "shx rm -rf .next"
+    "clean": "shx rm -rf .next",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:validate": "prisma validate",
+    "db:format": "prisma format"
   },
   "dependencies": {
     "@artform/suite-ui": "workspace:*",
     "@clerk/nextjs": "^6.39.6",
+    "@prisma/client": "6.19.3",
     "@tabler/core": "workspace:*",
     "@tabler/icons-react": "^3.44.0",
     "next": "14.2.15",
@@ -26,6 +31,7 @@
     "@types/node": "^20.14.0",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
+    "prisma": "6.19.3",
     "shx": "^0.4.0",
     "typescript": "^5.5.0"
   }
