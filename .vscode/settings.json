@@ -8,5 +8,13 @@
       "**/Thumbs.db": true,
       "**/.idea/": true
    },
-   "explorerExclude.backup": {}
+   "explorerExclude.backup": {},
+   "json.schemas": [
+      {
+         "fileMatch": [
+            "/app/config/clients.json"
+         ],
+         "url": "./app/config/clients.schema.json"
+      }
+   ]
 }

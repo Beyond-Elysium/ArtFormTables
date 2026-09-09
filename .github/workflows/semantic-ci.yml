@@ -1,0 +1,57 @@
+# CI for the semantic layer (semantic/): boring-semantic-layer + DuckDB.
+# Runs the pytest suite when one exists, and always runs the offline
+# seed -> build -> verify pipeline (verify_blended.py asserts every blended
+# KPI against an independent pandas re-computation). No credentials needed.
+name: Semantic CI
+
+on:
+  push:
+    paths:
+      - "semantic/**"
+      - ".github/workflows/semantic-ci.yml"
+  pull_request:
+    paths:
+      - "semantic/**"
+      - ".github/workflows/semantic-ci.yml"
+
+concurrency:
+  group: semantic-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  semantic:
+    name: verify models
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: semantic
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: semantic/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pytest
+
+      - name: Pytest (runs when a suite exists; live-cred tests should be marked)
+        run: |
+          if compgen -G "test_*.py" > /dev/null || [ -d tests ]; then
+            pytest -q -m "not live"
+          else
+            echo "No pytest suite present yet — skipping."
+          fi
+
+      - name: Seed demo lake + build blended model
+        run: |
+          python seed.py
+          python seed_blended.py
+          python build_blended.py
+
+      - name: Verify blended KPIs against independent computation
+        run: python verify_blended.py

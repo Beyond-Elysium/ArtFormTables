@@ -1,0 +1,59 @@
+# CI for the ArtForm dashboards Next.js app (app/).
+# Mirrors the local green path: build @tabler/core CSS (the app's prebuild),
+# typecheck, unit tests, production build.
+name: App CI
+
+on:
+  push:
+    paths:
+      - "app/**"
+      - "core/**"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/app-ci.yml"
+  pull_request:
+    paths:
+      - "app/**"
+      - "core/**"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/app-ci.yml"
+
+concurrency:
+  group: app-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  app:
+    name: typecheck · test · build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # pnpm version comes from the root package.json "packageManager" field.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build branded CSS (@tabler/core — the app's prebuild)
+        run: pnpm --filter @tabler/core run css
+
+      - name: Typecheck
+        run: pnpm exec tsc --noEmit -p tsconfig.json
+        working-directory: app
+
+      - name: Unit tests
+        run: pnpm exec vitest run
+        working-directory: app
+
+      - name: Next build
+        # CSS is already built above, so call next directly instead of the
+        # package's build script (whose prebuild would recompile it).
+        run: pnpm exec next build
+        working-directory: app

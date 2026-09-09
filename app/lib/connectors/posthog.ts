@@ -7,6 +7,7 @@
  */
 import "server-only";
 import type { Connector, ConnectorContext, Panel } from "./types";
+import { isPlaceholderId } from "./placeholder";
 import { mockSeries, rng } from "./mock";
 import { num, rangeDates } from "./util";
 
@@ -108,7 +109,10 @@ export const posthogConnector: Connector<PostHogConfig> = {
   isLive: () => Boolean(apiKey()),
   async fetch(config, ctx) {
     const base = { sourceId: "posthog", label: "Product Analytics", category: "Product" };
-    if (!apiKey()) return { ...base, panels: fetchMock(config, ctx), isMock: true };
+    // A filler project id (e.g. "00000") can never resolve — serve mock
+    // directly even when POSTHOG_API_KEY is set.
+    if (!apiKey() || isPlaceholderId(config.projectId))
+      return { ...base, panels: fetchMock(config, ctx), isMock: true };
     try {
       return { ...base, panels: await fetchLive(config, ctx), isMock: false };
     } catch (err) {

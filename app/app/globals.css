@@ -258,3 +258,250 @@ h3 {
     break-inside: avoid;
   }
 }
+
+/* --- Self-hosted fonts (next/font) — keep this block at the end ----------- */
+/* layout.tsx self-hosts League Spartan / Fira Sans / Montserrat via
+   next/font/google and exposes them as CSS variables. The rules above (and the
+   compiled Tabler CSS) reference the plain family names, which no longer load
+   from the CDN — these later-in-file overrides re-point every reference at the
+   bundled fonts, with the original names kept as fallbacks. */
+:root {
+  --tblr-font-sans-serif: var(--font-montserrat, "Montserrat"), system-ui,
+    -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+body,
+.stat-value,
+.rdp-root {
+  font-family: var(--font-montserrat, "Montserrat"), system-ui, -apple-system,
+    "Segoe UI", Roboto, sans-serif;
+}
+.page-title,
+.h1,
+.h2,
+.h3,
+h1,
+h2,
+h3,
+.af-header-title,
+.section-title {
+  font-family: var(--font-league-spartan, "League Spartan"),
+    var(--tblr-font-sans-serif);
+}
+.text-subtitle,
+.card-subtitle,
+.subheader,
+.view-tabs .nav-link,
+.af-header-sub,
+.rdp-caption_label,
+.rdp-weekday,
+.narrative-headline {
+  font-family: var(--font-fira-sans, "Fira Sans"), var(--tblr-font-sans-serif);
+}
+
+/* ======================================================================== */
+/* Wave 2c additions (keep grouped at end of file for clean merges)         */
+/* ======================================================================== */
+
+/* --- Day-picker theming (react-day-picker v10) ---------------------------
+   Square corners (override its border-radius vars), brand-primary range
+   selection, Montserrat base (set on .rdp-root above). */
+.rdp-root {
+  --rdp-day_button-border-radius: 0;
+  --rdp-week_number-border-radius: 0;
+  --rdp-range_start-date-background-color: var(--af-blue, #426fb6);
+  --rdp-range_end-date-background-color: var(--af-blue, #426fb6);
+  --rdp-range_start-background: var(--rdp-accent-background-color);
+  --rdp-range_end-background: var(--rdp-accent-background-color);
+  --rdp-range_middle-background-color: #eaf0f8;
+  --rdp-selected-border: 2px solid var(--af-blue, #426fb6);
+  --rdp-today-color: var(--af-pink, #e41679);
+  font-family: "Montserrat", var(--tblr-font-sans-serif);
+}
+.rdp-selected .rdp-day_button {
+  border-radius: 0;
+}
+
+/* ======================================================================== */
+/* Chunk 34: responsive pass (keep grouped at end of file)                  */
+/* ======================================================================== */
+
+/* --- Range presets: one scrollable row, never widen the page -------------- */
+/* Eight preset buttons are wider than a phone; a wrapped .btn-group looks
+   broken (orphaned borders), so keep one row and scroll it sideways. */
+.range-presets {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+.range-presets .btn-group {
+  flex-wrap: nowrap;
+}
+.range-presets .btn {
+  white-space: nowrap;
+}
+
+/* --- View tabs: horizontal scroll instead of wrapping on mobile ----------- */
+@media (max-width: 767.98px) {
+  .view-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+  .view-tabs .nav-link {
+    white-space: nowrap;
+  }
+}
+
+/* --- Day-picker: never overflow a phone viewport -------------------------- */
+/* numberOfMonths drops to 1 under 640px (DashboardControls); the clamp below
+   is a belt-and-braces guard for very narrow screens. */
+.daypicker-popover {
+  max-width: calc(100vw - 1.5rem);
+}
+.daypicker-popover .card-body {
+  overflow-x: auto;
+}
+
+/* --- Header window badge: wrap on phones instead of widening the page ----- */
+/* With a comparison active the badge reads "JUN 23 – JUL 20 · VS MAY 26 –
+   JUN 22" — wider than a phone. Tabler badges are nowrap by default. */
+.af-header .badge {
+  white-space: normal;
+  text-align: right;
+  line-height: 1.35;
+}
+
+/* --- Top progress bar during range/compare transitions -------------------- */
+.route-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--tblr-primary, #426fb6);
+  z-index: 100;
+  transform-origin: left;
+  animation: route-progress-slide 1.2s ease-in-out infinite;
+}
+@keyframes route-progress-slide {
+  0% {
+    transform: scaleX(0);
+  }
+  60% {
+    transform: scaleX(0.75);
+  }
+  100% {
+    transform: scaleX(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .route-progress {
+    animation: none;
+  }
+}
+
+/* --- Grouped view tabs: a dropdown tab for several similarly-shaped views
+   (e.g. Maximus's BD-vertical views grouped as "Programs") instead of one
+   top-level tab each --------------------------------------------------- */
+.view-group {
+  position: relative;
+}
+.dropdown-caret {
+  font-size: 0.7em;
+  opacity: 0.7;
+}
+.view-group-menu {
+  min-width: 200px;
+  max-width: calc(100vw - 1.5rem);
+  padding: 0.25rem 0;
+  z-index: 30;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
+  border: 1px solid var(--tblr-border-color, #e6e7e9);
+}
+.view-group-menu .dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  font-family: "Fira Sans", var(--tblr-font-sans-serif);
+}
+.view-group-menu .dropdown-item.active {
+  color: var(--tblr-primary, #426fb6);
+  font-weight: 700;
+  background: var(--tblr-active-bg, rgba(66, 111, 182, 0.08));
+}
+.click-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 29;
+}
+
+/* --- Choropleth map panels ------------------------------------------------
+   The ramp is bucketed (jsvectormap has no continuous scale), so the legend
+   carries the step boundaries. See components/mapScale.ts. */
+/* jsvectormap scales paths to the container's width; on a map whose aspect
+   ratio is taller than the box (the US one is) the artwork can bleed past the
+   bottom edge, showing through the legend below. Clip it to the box. */
+.map-canvas {
+  overflow: hidden;
+}
+.map-legend {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  position: relative;
+}
+.map-legend-scale {
+  display: flex;
+  flex: 0 1 auto;
+}
+.map-legend-step {
+  width: 1.75rem;
+  height: 0.6rem;
+  display: block;
+}
+/* Tabler themes .jvm-* already; only the tooltip typeface needs aligning. */
+.jvm-tooltip {
+  font-family: "Fira Sans", var(--tblr-font-sans-serif);
+}
+
+/* --- Breakdown tables: search / sort / scroll ---------------------------- */
+/* Cap the body at roughly five rows so a long table (top pages, AI-referred
+   pages) stays a compact card and scrolls for the rest, instead of stretching
+   the row. Print gets the full table — a PDF has no scrollbar. */
+.breakdown-scroll {
+  max-height: 15rem;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+/* Column headers double as sort buttons: keep the table-header look, not a
+   button look. */
+.btn-table-sort {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.btn-table-sort:hover {
+  color: var(--tblr-primary, #426fb6);
+}
+.btn-table-sort:focus-visible {
+  outline: 2px solid var(--tblr-primary, #426fb6);
+  outline-offset: 2px;
+}
+
+@media print {
+  .breakdown-scroll {
+    max-height: none;
+    overflow: visible;
+  }
+}

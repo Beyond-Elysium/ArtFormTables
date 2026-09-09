@@ -1,43 +1,152 @@
 "use client";
 
+import { memo, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import type { ApexOptions } from "apexcharts";
 import { formatCompact } from "@/lib/format";
+import { chartPalette, clampLabel, seriesColors } from "@/components/chartPalette";
 
 const CHART_HEIGHT = 300;
 
 // Reserve the chart's height while the (client-only) bundle loads to avoid
 // layout shift, and show a subtle skeleton.
-const ReactApexChart = dynamic(() => import("react-apexcharts"), {
-  ssr: false,
-  loading: () => <div className="chart-skeleton" style={{ height: CHART_HEIGHT }} />,
-});
+const ReactApexChart = dynamic(
+  async () => {
+    // Guard ApexCharts.destroy(): unmounting a chart whose async render()
+    // hasn't finished yet (e.g. the URL-hash view restore switches tabs right
+    // after load, or a fast user tab switch) throws from clearDomElements
+    // (`globals.dom.Paper` is still undefined) and takes down the whole page.
+    // The chart is being discarded anyway, so a failed teardown is harmless.
+    const [{ default: ApexCharts }, mod] = await Promise.all([
+      import("apexcharts"),
+      import("react-apexcharts"),
+    ]);
+    const proto = ApexCharts.prototype as unknown as {
+      destroy: () => void;
+      render: () => Promise<void>;
+      __afSafeDestroy?: boolean;
+      __afSafeRender?: boolean;
+    };
+    if (!proto.__afSafeDestroy) {
+      proto.__afSafeDestroy = true;
+      const orig = proto.destroy;
+      proto.destroy = function () {
+        // ApexCharts' own destroy() removes the window resize listener and
+        // disconnects the ResizeObserver, but never cancels an
+        // ALREADY-SCHEDULED resize timer (`w.globals.resizeTimer`, set by
+        // _windowResize()'s 150ms debounce) — so a resize that fires just
+        // before a tab switch unmounts the chart still calls `ctx.update()`
+        // ~150ms later on the now-torn-down instance, throwing from deep
+        // inside ApexCharts' redraw path (reads `dom.baseEl.querySelectorAll`
+        // after clear() has nulled it). Cancel it here, at the source,
+        // instead of chasing every downstream method that could get called
+        // by that stray timer.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const timer = (this as any)?.w?.globals?.resizeTimer;
+        if (timer != null) clearTimeout(timer);
+        try {
+          orig.call(this);
+        } catch {
+          // Chart never finished mounting — nothing to tear down.
+        }
+      };
+    }
+    // Guard the mirror-image race: render() is called on an instance whose
+    // internal state (`this.w.config`) was already torn down by a destroy()
+    // that landed first — a fast tab switch can unmount a chart before its
+    // own async render() has run. render()'s Promise executor then throws
+    // reading `w.config.chart.events`, and since react-apexcharts never
+    // attaches a .catch(), that surfaces as an unhandled rejection that takes
+    // down the page. The chart is being discarded either way, so a failed
+    // render is as harmless as a failed teardown (same reasoning as above).
+    if (!proto.__afSafeRender) {
+      proto.__afSafeRender = true;
+      const orig = proto.render;
+      proto.render = function (...args: unknown[]) {
+        try {
+          const result = orig.apply(this, args as []);
+          return result && typeof (result as Promise<void>).catch === "function"
+            ? (result as Promise<void>).catch(() => undefined)
+            : result;
+        } catch {
+          return Promise.resolve();
+        }
+      };
+    }
+    return mod;
+  },
+  {
+    ssr: false,
+    loading: () => <div className="chart-skeleton" style={{ height: CHART_HEIGHT }} />,
+  }
+);
 
 export interface Branding {
   primary: string;
   accent: string;
 }
 
-// ArtForm palette: brand blue/pink, sky, ink.
+// ArtForm palette: brand blue/pink/sky/ink + 4 derived tints/shades (8 total,
+// so a 6-slice donut never cycles). Derivation lives in chartPalette.ts.
 function palette(brand: Branding): string[] {
-  return [brand.primary, brand.accent, "#98d7eb", "#333333"];
+  return chartPalette(brand);
 }
 
 const FONT = "Montserrat, sans-serif";
 const LABEL_FONT = "Fira Sans, sans-serif";
 const compactAxis = (v: number) => formatCompact(v);
 
-export function TimeseriesChart({
+/**
+ * True when the user prefers reduced motion. ApexCharts animates via JS, so
+ * the CSS media query alone can't stop it — this hook feeds
+ * `chart.animations.enabled` instead. SSR-safe (defaults to false, resolves
+ * after mount) and live (tracks OS-setting changes).
+ */
+function usePrefersReducedMotion(): boolean {
+  const [reduced, setReduced] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setReduced(mq.matches);
+    const onChange = (e: MediaQueryListEvent) => setReduced(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  return reduced;
+}
+
+// Memoized: a tab switch re-renders every still-mounted panel in the tree
+// (React re-renders all children of a state change by default), and this
+// component rebuilds a brand-new `options` object every render regardless.
+// Without memoizing, react-apexcharts sees a referentially-new (if
+// content-identical) options/series prop on every unrelated re-render and
+// calls chart.updateOptions()/updateSeries() on a chart that isn't actually
+// changing — wasted redraw animation at best, and at worst a race with a
+// sibling chart's teardown during the same commit (an ApexCharts internal —
+// getPreviousPaths() reading `dom.baseEl` — throws if it lands mid-destroy;
+// see the destroy()/render() patches above for the two other races in this
+// same family). `series`/`rows`/`brand` are referentially stable across
+// re-renders here (they trace back to the unchanging `results` prop
+// DashboardBody was given), so default shallow-prop comparison is sufficient.
+export const TimeseriesChart = memo(function TimeseriesChart({
   series,
   brand,
 }: {
   series: { name: string; points: { x: string; y: number }[]; dashed?: boolean }[];
   brand: Branding;
 }) {
+  const reducedMotion = usePrefersReducedMotion();
   const hasOverlay = series.some((s) => s.dashed);
   const options: ApexOptions = {
-    chart: { type: "area", fontFamily: FONT, toolbar: { show: false } },
-    colors: palette(brand),
+    chart: {
+      type: "area",
+      fontFamily: FONT,
+      toolbar: { show: false },
+      animations: { enabled: !reducedMotion },
+    },
+    // Dashed "(prev)" overlays reuse their primary series' color (muted), so
+    // each comparison line visually pairs with its solid line.
+    colors: seriesColors(series, palette(brand)),
     dataLabels: { enabled: false },
     stroke: {
       curve: "smooth",
@@ -67,17 +176,23 @@ export function TimeseriesChart({
   return (
     <ReactApexChart options={options} series={apexSeries} type="area" height={CHART_HEIGHT} />
   );
-}
+});
 
-export function DonutChart({
+// Memoized — see TimeseriesChart's comment.
+export const DonutChart = memo(function DonutChart({
   rows,
   brand,
 }: {
   rows: { label: string; value: number }[];
   brand: Branding;
 }) {
+  const reducedMotion = usePrefersReducedMotion();
   const options: ApexOptions = {
-    chart: { type: "donut", fontFamily: FONT },
+    chart: {
+      type: "donut",
+      fontFamily: FONT,
+      animations: { enabled: !reducedMotion },
+    },
     labels: rows.map((r) => r.label),
     colors: palette(brand),
     legend: { position: "bottom", fontFamily: LABEL_FONT },
@@ -92,9 +207,12 @@ export function DonutChart({
       height={CHART_HEIGHT}
     />
   );
-}
+});
 
-export function BarChart({
+// Memoized — see TimeseriesChart's comment. `onSelect`, if ever passed, must
+// be a stable (e.g. useCallback'd) reference for this memo to hold — no
+// current caller passes it.
+export const BarChart = memo(function BarChart({
   rows,
   brand,
   onSelect,
@@ -104,11 +222,13 @@ export function BarChart({
   /** Cross-filter hook: fires with the clicked bar's category label. */
   onSelect?: (label: string) => void;
 }) {
+  const reducedMotion = usePrefersReducedMotion();
   const options: ApexOptions = {
     chart: {
       type: "bar",
       fontFamily: FONT,
       toolbar: { show: false },
+      animations: { enabled: !reducedMotion },
       events: onSelect
         ? {
             dataPointSelection: (_e, _ctx, cfg) => {
@@ -127,7 +247,22 @@ export function BarChart({
       categories: rows.map((r) => r.label),
       labels: { style: { fontFamily: FONT } },
     },
-    yaxis: { labels: { style: { fontFamily: FONT } } },
+    yaxis: {
+      labels: {
+        style: { fontFamily: FONT },
+        // Horizontal bars put categories on the y-axis: clamp long labels
+        // (page paths, campaign names); the tooltip shows the full text.
+        formatter: (val) => clampLabel(String(val)),
+      },
+    },
+    tooltip: {
+      x: {
+        formatter: (_val, opts?: { dataPointIndex?: number }) => {
+          const i = opts?.dataPointIndex;
+          return (i != null && rows[i]?.label) || String(_val);
+        },
+      },
+    },
   };
   return (
     <ReactApexChart
@@ -137,4 +272,4 @@ export function BarChart({
       height={CHART_HEIGHT}
     />
   );
-}
+});

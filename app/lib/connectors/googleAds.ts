@@ -10,16 +10,36 @@
  * Required env (see .env.example):
  *   GOOGLE_ADS_DEVELOPER_TOKEN, GOOGLE_ADS_CLIENT_ID, GOOGLE_ADS_CLIENT_SECRET,
  *   GOOGLE_ADS_OAUTH_REFRESH_TOKEN, optional GOOGLE_ADS_LOGIN_CUSTOMER_ID (MCC),
- *   optional GOOGLE_ADS_API_VERSION (defaults to v18).
+ *   optional GOOGLE_ADS_API_VERSION (defaults to v24).
+ *
+ * Ads API versions sunset roughly a year after release (monthly release cycle
+ * since 2026) — when the default here ages out, live Ads silently degrades to
+ * mock. Check https://developers.google.com/google-ads/api/docs/sunset-dates
+ * and bump the default (or set GOOGLE_ADS_API_VERSION) before sunset.
  */
 import "server-only";
 import type { Connector, ConnectorContext, ConnectorResult, Panel } from "./types";
+import { isPlaceholderId } from "./placeholder";
+import { previousWindow, resolveWindow } from "./dates";
 import { mockDelta, mockSeries, rng } from "./mock";
 
 interface AdsConfig {
   /** Customer id, with or without dashes (e.g. "111-111-1111"). */
   customerId: string;
   currency?: string;
+  /**
+   * Restrict reporting to campaigns whose name contains any of these
+   * (case-insensitive substring, GAQL LIKE) — lets one shared Ads account
+   * power several campaign/vertical-scoped views. Unset = whole account, the
+   * existing behavior.
+   */
+  campaignNameFilter?: string | string[];
+  /**
+   * Suppress the Spend stat, the spend line in the timeseries, and the
+   * "Top campaigns by spend" breakdown — for views where spend must not be
+   * shown to the viewer.
+   */
+  hideSpend?: boolean;
 }
 
 interface AdsMetrics {
@@ -62,7 +82,9 @@ function hasAdsCredentials(): boolean {
  * Live: OAuth refresh-token exchange + GAQL searchStream
  * ------------------------------------------------------------------ */
 
-const API_VERSION = process.env.GOOGLE_ADS_API_VERSION || "v18";
+// Newest stable major version as of 2026-07 (v24 released 2026-04-22; v25 is
+// still rolling out). v20 and earlier are sunset.
+const API_VERSION = process.env.GOOGLE_ADS_API_VERSION || "v24";
 
 let cachedToken: { value: string; expiresAt: number } | null = null;
 
@@ -97,15 +119,18 @@ function digits(s: string): string {
   return s.replace(/\D/g, "");
 }
 
-function dateNDaysAgo(n: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  return d.toISOString().slice(0, 10);
-}
-
 function pct(curr: number, prev: number): number {
   if (prev === 0) return curr === 0 ? 0 : 100;
   return ((curr - prev) / prev) * 100;
+}
+
+/** A GAQL " AND (campaign.name LIKE '%…%' OR …)" clause, or "" when unset. */
+function campaignFilterClause(filter?: string | string[]): string {
+  if (!filter) return "";
+  const names = (Array.isArray(filter) ? filter : [filter]).filter((n) => n.trim() !== "");
+  if (names.length === 0) return "";
+  const clauses = names.map((n) => `campaign.name LIKE '%${n.replace(/'/g, "\\'")}%'`);
+  return ` AND (${clauses.join(" OR ")})`;
 }
 
 interface AdsRow {
@@ -137,7 +162,20 @@ async function searchStream(
     { method: "POST", headers, body: JSON.stringify({ query }), cache: "no-store" },
   );
   if (!res.ok) {
-    throw new Error(`Google Ads ${res.status}: ${await res.text()}`);
+    const body = await res.text();
+    // A retired/unknown API version 404s (unknown URL) or errors mentioning
+    // the version — surface an actionable message instead of a cryptic 4xx.
+    if (
+      res.status === 404 ||
+      /UNSUPPORTED_VERSION|version\s+is\s+(deprecated|sunset|no longer supported)/i.test(body)
+    ) {
+      throw new Error(
+        `Google Ads ${res.status}: API version "${API_VERSION}" appears retired or unknown. ` +
+          `Set GOOGLE_ADS_API_VERSION to a currently-supported version ` +
+          `(https://developers.google.com/google-ads/api/docs/sunset-dates). Response: ${body}`,
+      );
+    }
+    throw new Error(`Google Ads ${res.status}: ${body}`);
   }
   // searchStream returns an array of batches: [{ results: [...] }, ...]
   const data = (await res.json()) as { results?: AdsRow[] }[] | { results?: AdsRow[] };
@@ -154,10 +192,16 @@ async function fetchLive(config: AdsConfig, ctx: ConnectorContext): Promise<Pane
   const customerId = digits(config.customerId);
   const token = await getAccessToken();
 
-  const start = dateNDaysAgo(ctx.days - 1);
-  const end = dateNDaysAgo(0);
-  const prevStart = dateNDaysAgo(ctx.days * 2 - 1);
-  const prevEnd = dateNDaysAgo(ctx.days);
+  // Honor the explicit window; the delta baseline is the immediately-preceding
+  // window of equal length.
+  const w = resolveWindow(ctx);
+  const p = previousWindow(w);
+  const start = w.start;
+  const end = w.end;
+  const prevStart = p.start;
+  const prevEnd = p.end;
+
+  const campaignClause = campaignFilterClause(config.campaignNameFilter);
 
   // Current period: per-campaign, per-day (drives totals, timeseries, breakdown).
   const currentRows = await searchStream(
@@ -166,15 +210,17 @@ async function fetchLive(config: AdsConfig, ctx: ConnectorContext): Promise<Pane
     `SELECT campaign.name, metrics.cost_micros, metrics.clicks, metrics.impressions,
             metrics.conversions, segments.date
      FROM campaign
-     WHERE segments.date BETWEEN '${start}' AND '${end}'`,
+     WHERE segments.date BETWEEN '${start}' AND '${end}'${campaignClause}`,
   );
-  // Previous period: account-level totals for deltas.
+  // Previous period: same campaign scope, summed for deltas. (Queried from
+  // `campaign` rather than `customer` so campaignNameFilter applies to both
+  // windows identically; with no filter this sums to the same account total.)
   const prevRows = await searchStream(
     customerId,
     token,
     `SELECT metrics.cost_micros, metrics.clicks, metrics.impressions, metrics.conversions
-     FROM customer
-     WHERE segments.date BETWEEN '${prevStart}' AND '${prevEnd}'`,
+     FROM campaign
+     WHERE segments.date BETWEEN '${prevStart}' AND '${prevEnd}'${campaignClause}`,
   );
 
   let cost = 0;
@@ -238,6 +284,7 @@ async function fetchLive(config: AdsConfig, ctx: ConnectorContext): Promise<Pane
     },
     ts,
     campaigns,
+    config.hideSpend,
   );
 }
 
@@ -247,7 +294,7 @@ async function fetchLive(config: AdsConfig, ctx: ConnectorContext): Promise<Pane
 
 function fetchMock(config: AdsConfig, ctx: ConnectorContext): Panel[] {
   const currency = config.currency ?? "USD";
-  const rand = rng(`ads:${config.customerId}:${ctx.range}`);
+  const rand = rng(`ads:${config.customerId}:${JSON.stringify(config.campaignNameFilter ?? "")}:${ctx.range}`);
   const series = mockSeries(rand, ctx.days, 300 + Math.floor(rand() * 700));
   const clicks = series.total;
   const impressions = Math.floor(clicks * (15 + rand() * 25));
@@ -271,6 +318,7 @@ function fetchMock(config: AdsConfig, ctx: ConnectorContext): Panel[] {
     { cost: mockDelta(rand), clicks: mockDelta(rand), conversions: mockDelta(rand), ctr: mockDelta(rand) },
     ts,
     campaigns,
+    config.hideSpend,
   );
 }
 
@@ -284,22 +332,31 @@ function buildPanels(
   d: AdsDeltas,
   ts: { x: string; cost: number; clicks: number }[],
   campaigns: { label: string; value: number }[],
+  hideSpend?: boolean,
 ): Panel[] {
-  return [
-    { kind: "stat", label: "Spend", value: m.cost, format: "currency", currency, delta: d.cost, invertDelta: true },
+  const panels: Panel[] = [];
+  if (!hideSpend) {
+    panels.push({ kind: "stat", label: "Spend", value: m.cost, format: "currency", currency, delta: d.cost, invertDelta: true });
+  }
+  panels.push(
     { kind: "stat", label: "Clicks", value: m.clicks, format: "compact", delta: d.clicks },
     { kind: "stat", label: "Conversions", value: m.conversions, format: "number", delta: d.conversions },
     { kind: "stat", label: "CTR", value: m.ctr, format: "percent", delta: d.ctr },
     {
       kind: "timeseries",
-      title: "Spend & clicks",
-      series: [
-        { name: `Spend (${currency})`, points: ts.map((p) => ({ x: p.x, y: p.cost })) },
-        { name: "Clicks", points: ts.map((p) => ({ x: p.x, y: p.clicks })) },
-      ],
+      title: hideSpend ? "Clicks" : "Spend & clicks",
+      series: hideSpend
+        ? [{ name: "Clicks", points: ts.map((p) => ({ x: p.x, y: p.clicks })) }]
+        : [
+            { name: `Spend (${currency})`, points: ts.map((p) => ({ x: p.x, y: p.cost })) },
+            { name: "Clicks", points: ts.map((p) => ({ x: p.x, y: p.clicks })) },
+          ],
     },
-    { kind: "breakdown", title: "Top campaigns by spend", display: "bar", valueLabel: "Spend", valueFormat: "currency", rows: campaigns },
-  ];
+  );
+  if (!hideSpend) {
+    panels.push({ kind: "breakdown", title: "Top campaigns by spend", display: "bar", valueLabel: "Spend", valueFormat: "currency", rows: campaigns });
+  }
+  return panels;
 }
 
 export const googleAdsConnector: Connector<AdsConfig> = {
@@ -309,7 +366,9 @@ export const googleAdsConnector: Connector<AdsConfig> = {
   isLive: () => hasAdsCredentials(),
   async fetch(config, ctx) {
     const base = { sourceId: "google-ads", label: "Google Ads", category: "Advertising" };
-    if (!hasAdsCredentials()) return { ...base, panels: fetchMock(config, ctx), isMock: true };
+    // A placeholder customer id (000-000-0000) can't resolve — serve mock.
+    if (!hasAdsCredentials() || isPlaceholderId(config.customerId))
+      return { ...base, panels: fetchMock(config, ctx), isMock: true };
     try {
       return { ...base, panels: await fetchLive(config, ctx), isMock: false };
     } catch (err) {

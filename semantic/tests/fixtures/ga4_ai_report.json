@@ -1,0 +1,40 @@
+{
+  "dimensionHeaders": [
+    { "name": "date" },
+    { "name": "sessionSource" },
+    { "name": "landingPagePlusQueryString" }
+  ],
+  "metricHeaders": [
+    { "name": "sessions", "type": "TYPE_INTEGER" },
+    { "name": "engagedSessions", "type": "TYPE_INTEGER" }
+  ],
+  "rows": [
+    {
+      "dimensionValues": [{ "value": "20260701" }, { "value": "chatgpt.com" }, { "value": "/" }],
+      "metricValues": [{ "value": "5" }, { "value": "4" }]
+    },
+    {
+      "dimensionValues": [{ "value": "20260701" }, { "value": "chat.openai.com" }, { "value": "/pricing" }],
+      "metricValues": [{ "value": "3" }, { "value": "1" }]
+    },
+    {
+      "dimensionValues": [{ "value": "20260701" }, { "value": "perplexity.ai" }, { "value": "/" }],
+      "metricValues": [{ "value": "2" }, { "value": "2" }]
+    },
+    {
+      "dimensionValues": [{ "value": "20260701" }, { "value": "copilot.microsoft.com" }, { "value": "/blog/ai-seo" }],
+      "metricValues": [{ "value": "1" }, { "value": "0" }]
+    },
+    {
+      "dimensionValues": [{ "value": "20260701" }, { "value": "duckduckgo.com" }, { "value": "/" }],
+      "metricValues": [{ "value": "40" }, { "value": "22" }]
+    },
+    {
+      "dimensionValues": [{ "value": "20260702" }, { "value": "claude.ai" }, { "value": "/docs" }],
+      "metricValues": [{ "value": "4" }, { "value": "3" }]
+    }
+  ],
+  "rowCount": 6,
+  "metadata": { "currencyCode": "USD", "timeZone": "America/New_York" },
+  "kind": "analyticsData#runReport"
+}

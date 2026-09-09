@@ -11,6 +11,8 @@
  */
 import "server-only";
 import { http } from "@/lib/connectors/http";
+import { getClientBySlug } from "@/config/clients";
+import { clientScopeDecision, forceClientFilter } from "@/lib/explore";
 
 export type SemanticOp = "=" | "!=" | ">" | ">=" | "<" | "<=" | "in";
 
@@ -54,31 +56,6 @@ function authHeaders(): Record<string, string> {
   return headers;
 }
 
-/** Run a semantic query. Returns null if the service is unconfigured or errors. */
-export async function semanticQuery(q: SemanticQuery): Promise<SemanticResult | null> {
-  const base = process.env.SEMANTIC_API_URL;
-  if (!base) return null;
-  try {
-    return await http<SemanticResult>(`${base}/query`, {
-      method: "POST",
-      headers: authHeaders(),
-      body: {
-        model: q.model,
-        dimensions: q.dimensions ?? [],
-        measures: q.measures ?? [],
-        filters: q.filters ?? [],
-        time_range: q.timeRange ?? null,
-        order_by: q.orderBy ?? null,
-        limit: q.limit ?? 1000,
-      },
-      responseType: "json",
-    });
-  } catch (err) {
-    console.error("[semantic] query failed:", err);
-    return null;
-  }
-}
-
 export interface SemanticOutcome {
   ok: boolean;
   result?: SemanticResult;
@@ -100,22 +77,57 @@ function errorDetail(err: unknown): { status: number; message: string } {
   return { status, message: typeof detail === "string" ? detail : JSON.stringify(detail) };
 }
 
-/** Query and surface the upstream failure reason (used by the proxy route). */
-export async function runSemanticQuery(q: SemanticQuery): Promise<SemanticOutcome> {
+// The /models schema is fetched to verify a model is client-scoped before
+// every query; cache it briefly so interactive Explore clicks don't double
+// the request count. Only successful fetches are cached.
+let schemaCache: { at: number; value: Record<string, SemanticModelSchema> } | null = null;
+const SCHEMA_TTL_MS = 60_000;
+
+async function cachedModels(): Promise<Record<string, SemanticModelSchema> | null> {
+  const now = Date.now();
+  if (schemaCache && now - schemaCache.at < SCHEMA_TTL_MS) return schemaCache.value;
+  const value = await semanticModels();
+  if (value) schemaCache = { at: now, value };
+  return value;
+}
+
+/**
+ * Run a query scoped to one client, surfacing the upstream failure reason
+ * (used by the proxy route and server-side panels).
+ *
+ * SECURITY (finding E5): `clientSlug` is required and is force-injected as a
+ * `client = slug` filter into every query against a client-partitioned model —
+ * overwriting any caller-supplied client filter — so no caller (browser or
+ * internal) can read another client's rows with the shared bearer token.
+ * Models without a client dimension are rejected unless allowlisted in
+ * SHARED_SEMANTIC_MODELS (lib/explore.ts).
+ */
+export async function runSemanticQuery(
+  q: SemanticQuery,
+  clientSlug: string,
+): Promise<SemanticOutcome> {
   const base = process.env.SEMANTIC_API_URL;
   if (!base) return { ok: false, status: 503, message: "SEMANTIC_API_URL not set" };
+  if (!getClientBySlug(clientSlug)) {
+    return { ok: false, status: 400, message: `unknown client '${clientSlug}'` };
+  }
+  const decision = clientScopeDecision(q.model, await cachedModels());
+  if (decision.action === "reject") {
+    return { ok: false, status: decision.status, message: decision.reason };
+  }
+  const query = decision.action === "scope" ? forceClientFilter(q, clientSlug) : q;
   try {
     const result = await http<SemanticResult>(`${base}/query`, {
       method: "POST",
       headers: authHeaders(),
       body: {
-        model: q.model,
-        dimensions: q.dimensions ?? [],
-        measures: q.measures ?? [],
-        filters: q.filters ?? [],
-        time_range: q.timeRange ?? null,
-        order_by: q.orderBy ?? null,
-        limit: q.limit ?? 1000,
+        model: query.model,
+        dimensions: query.dimensions ?? [],
+        measures: query.measures ?? [],
+        filters: query.filters ?? [],
+        time_range: query.timeRange ?? null,
+        order_by: query.orderBy ?? null,
+        limit: query.limit ?? 1000,
       },
       responseType: "json",
     });

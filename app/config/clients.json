@@ -1,0 +1,741 @@
+[
+  {
+    "slug": "artform",
+    "name": "ArtForm Agency",
+    "sources": [
+      {
+        "type": "ga4",
+        "config": {
+          "propertyId": "310586485"
+        }
+      },
+      {
+        "type": "search-console",
+        "config": {
+          "siteUrl": "https://artformagency.com/"
+        }
+      },
+      {
+        "type": "bing-webmaster",
+        "config": {
+          "siteUrl": "https://artformagency.com/"
+        }
+      },
+      {
+        "type": "pagespeed",
+        "config": {
+          "url": "https://artformagency.com/",
+          "strategy": "mobile"
+        }
+      },
+      {
+        "type": "google-ads",
+        "config": {
+          "customerId": "000-000-0000",
+          "currency": "USD"
+        },
+        "notes": "TODO: real Google Ads customer id needed — placeholder serves demo data."
+      },
+      {
+        "type": "linkedin-ads",
+        "config": {
+          "accountId": "500000000",
+          "currency": "USD"
+        },
+        "notes": "TODO: placeholder LinkedIn account id — replace with the real sponsored-account id."
+      },
+      {
+        "type": "mailchimp",
+        "config": {}
+      },
+      {
+        "type": "hubspot",
+        "config": {
+          "tokenEnv": "HUBSPOT_TOKEN_ARTFORM"
+        }
+      }
+    ],
+    "brand": {
+      "primary": "#426fb6",
+      "accent": "#e41679"
+    },
+    "report": {
+      "recipients": [
+        "reports@artformagency.com"
+      ],
+      "enabled": false
+    }
+  },
+  {
+    "slug": "bbbnp",
+    "name": "BBB National Programs",
+    "sources": [
+      {
+        "type": "ga4",
+        "config": {
+          "propertyId": "302989852"
+        }
+      },
+      {
+        "type": "ga4",
+        "id": "ga4-cisr",
+        "label": "BBBNP CISR/IRI",
+        "config": {
+          "propertyId": "499713205",
+          "aiInsights": false
+        },
+        "notes": "Secondary property. aiInsights:false so this section doesn't repeat the main property's AI block."
+      },
+      {
+        "type": "search-console",
+        "config": {
+          "siteUrl": "https://bbbprograms.org/"
+        }
+      },
+      {
+        "type": "bing-webmaster",
+        "config": {
+          "siteUrl": "https://bbbprograms.org/"
+        }
+      },
+      {
+        "type": "google-ads",
+        "config": {
+          "customerId": "000-000-0000",
+          "currency": "USD"
+        },
+        "notes": "TODO: real Google Ads customer id needed — placeholder serves demo data."
+      },
+      {
+        "type": "mailchimp",
+        "config": {}
+      },
+      {
+        "type": "hubspot",
+        "config": {
+          "tokenEnv": "HUBSPOT_TOKEN_BBBNP"
+        }
+      }
+    ],
+    "brand": {
+      "primary": "#333333",
+      "accent": "#426fb6"
+    },
+    "views": [
+      {
+        "name": "CISR/IRI",
+        "sourceIds": [
+          "ga4-cisr"
+        ]
+      }
+    ],
+    "notes": "The CISR/IRI GA4 property gets its own named tab via the explicit source id + view."
+  },
+  {
+    "slug": "isea",
+    "name": "ISEA",
+    "sources": [
+      {
+        "type": "ga4",
+        "config": {
+          "propertyId": "333478304"
+        }
+      },
+      {
+        "type": "search-console",
+        "config": {
+          "siteUrl": "https://safetyequipment.org/"
+        }
+      },
+      {
+        "type": "bing-webmaster",
+        "config": {
+          "siteUrl": "https://safetyequipment.org/"
+        }
+      },
+      {
+        "type": "linkedin-ads",
+        "config": {
+          "accountId": "500000001",
+          "currency": "USD"
+        },
+        "notes": "TODO: placeholder LinkedIn account id — replace with the real sponsored-account id."
+      },
+      {
+        "type": "mailchimp",
+        "config": {}
+      }
+    ],
+    "brand": {
+      "primary": "#426fb6",
+      "accent": "#e41679"
+    }
+  },
+  {
+    "slug": "maximus",
+    "name": "Maximus",
+    "sources": [
+      {
+        "type": "ga4",
+        "config": {
+          "propertyId": "302350399",
+          "geoScope": "us"
+        }
+      },
+      {
+        "type": "search-console",
+        "config": {
+          "siteUrl": "https://maximus.com/"
+        }
+      },
+      {
+        "type": "bing-webmaster",
+        "config": {
+          "siteUrl": "https://maximus.com/"
+        }
+      },
+      {
+        "type": "linkedin-ads",
+        "config": {
+          "accountId": "511334398",
+          "currency": "USD"
+        }
+      },
+      {
+        "type": "google-ads",
+        "config": {
+          "customerId": "000-000-0000",
+          "currency": "USD"
+        },
+        "notes": "TODO: real Google Ads customer id needed — placeholder serves demo data."
+      },
+      {
+        "type": "hubspot",
+        "config": {
+          "tokenEnv": "HUBSPOT_TOKEN_MAXIMUS"
+        }
+      },
+      {
+        "type": "ga4",
+        "id": "ga4-ccc",
+        "label": "CCC — Web",
+        "config": {
+          "propertyId": "302350399",
+          "geoScope": "us",
+          "pageTitleContains": "Omnichannel Contact Center",
+          "aiInsights": false
+        },
+        "notes": "Scoped by page title, not URL path — no exact path was available for CCC. Matches the 'Omnichannel Contact Center' title variants."
+      },
+      {
+        "type": "google-ads",
+        "id": "google-ads-ccc",
+        "label": "CCC — Google Ads",
+        "config": {
+          "customerId": "000-000-0000",
+          "currency": "USD",
+          "hideSpend": true
+        },
+        "notes": "TODO: CCC Google Ads campaign name not confirmed — currently unscoped (shows the whole account)."
+      },
+      {
+        "type": "linkedin-ads",
+        "id": "linkedin-ads-ccc",
+        "label": "CCC — LinkedIn",
+        "config": {
+          "accountId": "511334398",
+          "currency": "USD",
+          "campaignIds": [],
+          "hideSpend": true
+        },
+        "notes": "TODO: CCC LinkedIn campaign ids not confirmed — currently unscoped."
+      },
+      {
+        "type": "microsoft-ads",
+        "id": "microsoft-ads-ccc",
+        "label": "CCC — Microsoft Ads",
+        "config": {
+          "accountId": "000000000",
+          "currency": "USD",
+          "campaignFilter": "CCC",
+          "hideSpend": true
+        },
+        "notes": "TODO: real Microsoft Ads account id needed — placeholder serves demo data."
+      },
+      {
+        "type": "ga4",
+        "id": "ga4-census",
+        "label": "Census — Web",
+        "config": {
+          "propertyId": "302350399",
+          "geoScope": "us",
+          "pagePathPrefix": "/federal-government/civilian/census-support-services",
+          "aiInsights": false
+        }
+      },
+      {
+        "type": "google-ads",
+        "id": "google-ads-census",
+        "label": "Census — Google Ads",
+        "config": {
+          "customerId": "000-000-0000",
+          "currency": "USD",
+          "campaignNameFilter": "Big Brand Innovation Search",
+          "hideSpend": true
+        },
+        "notes": "'Big Brand Innovation Search' is broader than a purely Census-named campaign — confirm with the media team that it remains the intended Google proxy for Census."
+      },
+      {
+        "type": "linkedin-ads",
+        "id": "linkedin-ads-census",
+        "label": "Census — LinkedIn",
+        "config": {
+          "accountId": "511334398",
+          "currency": "USD",
+          "campaignIds": [],
+          "hideSpend": true
+        },
+        "notes": "TODO: numeric campaign ids from LinkedIn Campaign Manager needed to scope this view."
+      },
+      {
+        "type": "microsoft-ads",
+        "id": "microsoft-ads-census",
+        "label": "Census — Microsoft Ads",
+        "config": {
+          "accountId": "000000000",
+          "currency": "USD",
+          "campaignFilter": "Census",
+          "hideSpend": true
+        },
+        "notes": "TODO: real Microsoft Ads account id needed — placeholder serves demo data."
+      },
+      {
+        "type": "ga4",
+        "id": "ga4-defense",
+        "label": "Defense — Web",
+        "config": {
+          "propertyId": "302350399",
+          "geoScope": "us",
+          "pagePathPrefix": "/federal-government/fed-defense",
+          "aiInsights": false
+        }
+      },
+      {
+        "type": "google-ads",
+        "id": "google-ads-defense",
+        "label": "Defense — Google Ads",
+        "config": {
+          "customerId": "000-000-0000",
+          "currency": "USD",
+          "campaignNameFilter": [
+            "Big Brand Innovation Search",
+            "DoD"
+          ],
+          "hideSpend": true
+        },
+        "notes": "TODO: real Google Ads customer id needed — placeholder serves demo data."
+      },
+      {
+        "type": "linkedin-ads",
+        "id": "linkedin-ads-defense",
+        "label": "Defense — LinkedIn",
+        "config": {
+          "accountId": "511334398",
+          "currency": "USD",
+          "campaignIds": [],
+          "hideSpend": true
+        },
+        "notes": "TODO: numeric campaign ids from LinkedIn Campaign Manager needed to scope this view."
+      },
+      {
+        "type": "microsoft-ads",
+        "id": "microsoft-ads-defense",
+        "label": "Defense — Microsoft Ads",
+        "config": {
+          "accountId": "000000000",
+          "currency": "USD",
+          "campaignFilter": "DoD",
+          "hideSpend": true
+        },
+        "notes": "TODO: real Microsoft Ads account id needed — placeholder serves demo data."
+      },
+      {
+        "type": "ga4",
+        "id": "ga4-national-security",
+        "label": "National Security — Web",
+        "config": {
+          "propertyId": "302350399",
+          "geoScope": "us",
+          "pagePathPrefix": "/federal-government/civilian/national-security-services",
+          "aiInsights": false
+        }
+      },
+      {
+        "type": "google-ads",
+        "id": "google-ads-national-security",
+        "label": "National Security — Google Ads",
+        "config": {
+          "customerId": "000-000-0000",
+          "currency": "USD",
+          "campaignNameFilter": [
+            "DHS/National Security Search Ads",
+            "DHS Admin & Enforcement"
+          ],
+          "hideSpend": true
+        },
+        "notes": "TODO: real Google Ads customer id needed — placeholder serves demo data."
+      },
+      {
+        "type": "linkedin-ads",
+        "id": "linkedin-ads-national-security",
+        "label": "National Security — LinkedIn",
+        "config": {
+          "accountId": "511334398",
+          "currency": "USD",
+          "campaignIds": [],
+          "hideSpend": true
+        },
+        "notes": "TODO: numeric campaign ids from LinkedIn Campaign Manager needed to scope this view."
+      },
+      {
+        "type": "microsoft-ads",
+        "id": "microsoft-ads-national-security",
+        "label": "National Security — Microsoft Ads",
+        "config": {
+          "accountId": "000000000",
+          "currency": "USD",
+          "campaignFilter": [
+            "DHS/National Security",
+            "DHS Admin & Enforcement"
+          ],
+          "hideSpend": true
+        },
+        "notes": "TODO: real Microsoft Ads account id needed — placeholder serves demo data."
+      },
+      {
+        "type": "ga4",
+        "id": "ga4-federal-financial",
+        "label": "Federal Financial — Web",
+        "config": {
+          "propertyId": "302350399",
+          "geoScope": "us",
+          "pagePathPrefix": "/federal-government/civilian/federal-financial",
+          "aiInsights": false
+        }
+      },
+      {
+        "type": "google-ads",
+        "id": "google-ads-federal-financial",
+        "label": "Federal Financial — Google Ads",
+        "config": {
+          "customerId": "000-000-0000",
+          "currency": "USD",
+          "campaignNameFilter": "Federal Financial/IRS Search Ads",
+          "hideSpend": true
+        },
+        "notes": "TODO: real Google Ads customer id needed — placeholder serves demo data."
+      },
+      {
+        "type": "linkedin-ads",
+        "id": "linkedin-ads-federal-financial",
+        "label": "Federal Financial — LinkedIn",
+        "config": {
+          "accountId": "511334398",
+          "currency": "USD",
+          "campaignIds": [],
+          "hideSpend": true
+        },
+        "notes": "TODO: numeric campaign ids from LinkedIn Campaign Manager needed to scope this view."
+      },
+      {
+        "type": "microsoft-ads",
+        "id": "microsoft-ads-federal-financial",
+        "label": "Federal Financial — Microsoft Ads",
+        "config": {
+          "accountId": "000000000",
+          "currency": "USD",
+          "campaignFilter": "Federal Financial/IRS",
+          "hideSpend": true
+        },
+        "notes": "TODO: real Microsoft Ads account id needed — placeholder serves demo data."
+      },
+      {
+        "type": "nocodb",
+        "id": "nocodb-conferences",
+        "label": "Conferences",
+        "config": {
+          "tableId": "TODO_CONFERENCES_TABLE_ID"
+        },
+        "notes": "TODO: real NocoDB tableId once the base exists."
+      },
+      {
+        "type": "nocodb",
+        "id": "nocodb-contacts",
+        "label": "Key Contacts",
+        "config": {
+          "tableId": "TODO_CONTACTS_TABLE_ID"
+        },
+        "notes": "TODO: real NocoDB tableId once the base exists."
+      },
+      {
+        "type": "nocodb",
+        "id": "nocodb-bd-activities",
+        "label": "BD Activities",
+        "config": {
+          "tableId": "TODO_BD_ACTIVITIES_TABLE_ID"
+        },
+        "notes": "TODO: real NocoDB tableId once the base exists."
+      },
+      {
+        "type": "nocodb",
+        "id": "nocodb-persona-metrics",
+        "label": "Persona Metrics",
+        "config": {
+          "tableId": "TODO_PERSONA_METRICS_TABLE_ID"
+        },
+        "notes": "TODO: real NocoDB tableId once the base exists."
+      }
+    ],
+    "brand": {
+      "primary": "#333333",
+      "accent": "#e41679"
+    },
+    "views": [
+      {
+        "name": "CCC",
+        "sourceIds": [
+          "ga4-ccc",
+          "google-ads-ccc",
+          "linkedin-ads-ccc",
+          "microsoft-ads-ccc"
+        ],
+        "group": "Programs"
+      },
+      {
+        "name": "Census",
+        "sourceIds": [
+          "ga4-census",
+          "google-ads-census",
+          "linkedin-ads-census",
+          "microsoft-ads-census"
+        ],
+        "group": "Programs"
+      },
+      {
+        "name": "Defense",
+        "sourceIds": [
+          "ga4-defense",
+          "google-ads-defense",
+          "linkedin-ads-defense",
+          "microsoft-ads-defense"
+        ],
+        "group": "Programs"
+      },
+      {
+        "name": "National Security",
+        "sourceIds": [
+          "ga4-national-security",
+          "google-ads-national-security",
+          "linkedin-ads-national-security",
+          "microsoft-ads-national-security"
+        ],
+        "group": "Programs"
+      },
+      {
+        "name": "Federal Financial",
+        "sourceIds": [
+          "ga4-federal-financial",
+          "google-ads-federal-financial",
+          "linkedin-ads-federal-financial",
+          "microsoft-ads-federal-financial"
+        ],
+        "group": "Programs"
+      }
+    ],
+    "notes": "Five BD/campaign views migrated off separate Manus dashboards (defense-dash, abmcensusview, ccc-dash), grouped as 'Programs'. All five share one GA4 property, LinkedIn account 511334398, and (once configured) the Google/Microsoft Ads accounts — scoped per view by each connector's filter. See MIGRATION-MAXIMUS.md."
+  },
+  {
+    "slug": "miami-federal",
+    "name": "Miami Federal",
+    "sources": [
+      {
+        "type": "ga4",
+        "config": {
+          "propertyId": "521857796"
+        }
+      },
+      {
+        "type": "search-console",
+        "config": {
+          "siteUrl": "https://miamifed.com/"
+        }
+      },
+      {
+        "type": "bing-webmaster",
+        "config": {
+          "siteUrl": "https://miamifed.com/"
+        }
+      },
+      {
+        "type": "google-ads",
+        "config": {
+          "customerId": "000-000-0000",
+          "currency": "USD"
+        },
+        "notes": "TODO: real Google Ads customer id needed — placeholder serves demo data."
+      }
+    ],
+    "brand": {
+      "primary": "#426fb6",
+      "accent": "#98d7eb"
+    }
+  },
+  {
+    "slug": "moveinterstate",
+    "name": "MoveInterstate",
+    "sources": [
+      {
+        "type": "ga4",
+        "config": {
+          "propertyId": "223367126"
+        }
+      },
+      {
+        "type": "search-console",
+        "config": {
+          "siteUrl": "https://www.moveinterstate.com/"
+        }
+      },
+      {
+        "type": "bing-webmaster",
+        "config": {
+          "siteUrl": "https://www.moveinterstate.com/"
+        }
+      },
+      {
+        "type": "google-ads",
+        "config": {
+          "customerId": "000-000-0000",
+          "currency": "USD"
+        },
+        "notes": "TODO: real Google Ads customer id needed — placeholder serves demo data."
+      }
+    ],
+    "brand": {
+      "primary": "#426fb6",
+      "accent": "#e41679"
+    }
+  },
+  {
+    "slug": "sigma-defense",
+    "name": "Sigma Defense",
+    "sources": [
+      {
+        "type": "ga4",
+        "config": {
+          "propertyId": "298141839"
+        }
+      },
+      {
+        "type": "search-console",
+        "config": {
+          "siteUrl": "https://sigmadefense.com/"
+        }
+      },
+      {
+        "type": "bing-webmaster",
+        "config": {
+          "siteUrl": "https://sigmadefense.com/"
+        }
+      },
+      {
+        "type": "linkedin-ads",
+        "config": {
+          "accountId": "500000003",
+          "currency": "USD"
+        },
+        "notes": "TODO: placeholder LinkedIn account id — replace with the real sponsored-account id."
+      }
+    ],
+    "brand": {
+      "primary": "#333333",
+      "accent": "#426fb6"
+    }
+  },
+  {
+    "slug": "winterscale",
+    "name": "Winterscale",
+    "sources": [
+      {
+        "type": "ga4",
+        "config": {
+          "propertyId": "398292533"
+        }
+      },
+      {
+        "type": "search-console",
+        "config": {
+          "siteUrl": "https://winterscale.com/"
+        }
+      },
+      {
+        "type": "bing-webmaster",
+        "config": {
+          "siteUrl": "https://winterscale.com/"
+        }
+      },
+      {
+        "type": "linkedin-ads",
+        "config": {
+          "accountId": "500000005",
+          "currency": "USD"
+        },
+        "notes": "TODO: placeholder LinkedIn account id — replace with the real sponsored-account id."
+      }
+    ],
+    "brand": {
+      "primary": "#333333",
+      "accent": "#98d7eb"
+    }
+  },
+  {
+    "slug": "govcon-ideators",
+    "name": "GovCon IDEATORS",
+    "sources": [
+      {
+        "type": "ga4",
+        "config": {
+          "propertyId": "395344759"
+        }
+      },
+      {
+        "type": "search-console",
+        "config": {
+          "siteUrl": "https://govconideators.com/"
+        }
+      },
+      {
+        "type": "bing-webmaster",
+        "config": {
+          "siteUrl": "https://govconideators.com/"
+        }
+      },
+      {
+        "type": "linkedin-ads",
+        "config": {
+          "accountId": "500000006",
+          "currency": "USD"
+        },
+        "notes": "TODO: placeholder LinkedIn account id — replace with the real sponsored-account id."
+      },
+      {
+        "type": "hubspot",
+        "config": {}
+      }
+    ],
+    "brand": {
+      "primary": "#333333",
+      "accent": "#e41679"
+    }
+  }
+]

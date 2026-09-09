@@ -63,12 +63,35 @@ export interface BreakdownPanel {
   rows: { label: string; value: number; sublabel?: string }[];
 }
 
-export type Panel = StatPanel | TimeseriesPanel | BreakdownPanel;
+/** A geographic distribution, drawn as a choropleth map. */
+export interface MapPanel {
+  kind: "map";
+  title: string;
+  /** Optional muted line under the title. */
+  subtitle?: string;
+  /**
+   * Which map to draw, and therefore which code space `rows[].code` uses:
+   *   - `world` → ISO 3166-1 alpha-2 country codes (`US`, `GB`)
+   *   - `us`    → ISO 3166-2 state codes (`US-VA`, `US-CA`)
+   * See components/maps/README.md.
+   */
+  scope: "world" | "us";
+  valueLabel?: string;
+  valueFormat?: StatFormat;
+  rows: { code: string; label: string; value: number }[];
+}
+
+export type Panel = StatPanel | TimeseriesPanel | BreakdownPanel | MapPanel;
 
 /** What a connector returns: a labelled group of panels. */
 export interface ConnectorResult {
   /** Stable id for the source instance (connector type by default). */
   sourceId: string;
+  /**
+   * Connector type of the registry source (set by the orchestrator; connectors
+   * themselves don't fill it). Lets custom views select sources by type.
+   */
+  type?: string;
   /** Human label shown as the section heading. */
   label: string;
   /** Grouping/category, e.g. "Analytics", "Search", "Advertising". */
@@ -85,7 +108,13 @@ export interface ConnectorContext {
   range: string;
   /** Number of days in the window. */
   days: number;
-  /** Inclusive window bounds (YYYY-MM-DD); available for live connectors. */
+  /**
+   * Inclusive window bounds (YYYY-MM-DD). Live connectors MUST fetch exactly
+   * this window when both are present (see lib/connectors/dates.ts —
+   * `resolveWindow`/`previousWindow`); trailing-`days` windows ending today are
+   * only the fallback when bounds are absent. This is what makes custom ranges
+   * and comparison windows fetch the right dates on live data.
+   */
   start?: string;
   end?: string;
 }

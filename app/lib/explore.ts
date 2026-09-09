@@ -9,6 +9,86 @@
  */
 import type { SemanticQuery, SemanticFilter } from "@/lib/semantic";
 
+/* --------------------------------------------------------------------- *
+ * Server-side client scoping (Chunk 22 / finding E5)
+ *
+ * Every client-partitioned model carries a `client` dimension. The server
+ * (Next /api/semantic + lib/semantic.ts) force-injects `client = <slug>` into
+ * every query so the shared bearer token can never read another client's rows,
+ * regardless of what the browser sends. These helpers are pure so the policy
+ * is unit-testable.
+ * --------------------------------------------------------------------- */
+
+/** The dimension used to scope models to a single client. */
+export const CLIENT_FIELD = "client";
+
+/**
+ * Models WITHOUT a `client` dimension that may still be queried (shared /
+ * non-client data). Deny-by-default: this starts EMPTY — add a model name here
+ * only after confirming it contains no client-specific rows.
+ */
+export const SHARED_SEMANTIC_MODELS: readonly string[] = [];
+
+/**
+ * Force the requester's client scope onto a query: strip any caller-supplied
+ * filter on the client field, then append the server-derived one. The result
+ * always ends with exactly one `client = slug` equality filter.
+ */
+export function forceClientFilter(query: SemanticQuery, slug: string): SemanticQuery {
+  const filters = (query.filters ?? []).filter((f) => f.field !== CLIENT_FIELD);
+  return {
+    ...query,
+    filters: [...filters, { field: CLIENT_FIELD, op: "=", value: slug }],
+  };
+}
+
+export type ClientScopeDecision =
+  /** Model has a client dimension → inject the forced filter. */
+  | { action: "scope" }
+  /** Allowlisted shared model → forward without a client filter. */
+  | { action: "forward" }
+  /** Refuse to run the query. */
+  | { action: "reject"; status: number; reason: string };
+
+/**
+ * Decide how a query against `model` must be scoped, given the /models schemas
+ * (`null` = schema unavailable). Deny-by-default: a model we can't verify, or
+ * one without a client dimension that isn't allowlisted, is rejected.
+ */
+export function clientScopeDecision(
+  model: string,
+  schemas: Record<string, { dimensions: string[] }> | null,
+  allowlist: readonly string[] = SHARED_SEMANTIC_MODELS,
+): ClientScopeDecision {
+  if (!schemas) {
+    return {
+      action: "reject",
+      status: 502,
+      reason: "cannot verify model scoping (schema unavailable)",
+    };
+  }
+  const schema = schemas[model];
+  if (!schema) {
+    return { action: "reject", status: 404, reason: `unknown model '${model}'` };
+  }
+  if (schema.dimensions.includes(CLIENT_FIELD)) return { action: "scope" };
+  if (allowlist.includes(model)) return { action: "forward" };
+  return {
+    action: "reject",
+    status: 400,
+    reason: `model '${model}' has no client dimension and is not allowlisted as shared`,
+  };
+}
+
+/** Can the Explore UI offer this model? (Mirrors clientScopeDecision.) */
+export function isModelExplorable(
+  name: string,
+  schema: { dimensions: string[] },
+  allowlist: readonly string[] = SHARED_SEMANTIC_MODELS,
+): boolean {
+  return schema.dimensions.includes(CLIENT_FIELD) || allowlist.includes(name);
+}
+
 /** A single equality cross-filter (drill-down): dimension = value. */
 export interface ExploreFilter {
   field: string;
@@ -26,7 +106,17 @@ export interface ExploreState {
   to?: string;
   /** The model's time dimension, when known (drives ordering + chart choice). */
   timeDimension?: string | null;
+  /** Sort the result by this measure, descending (categorical views only). */
+  sortBy?: string;
+  /** Row cap ("Top N") for categorical views; timeseries always gets 500. */
+  limit?: number;
 }
+
+/** Row-cap choices offered by the Explore UI. */
+export const LIMIT_OPTIONS = [20, 50, 100] as const;
+
+/** Hard ceiling on rows requested from the semantic layer. */
+export const MAX_LIMIT = 500;
 
 const PAIR = ";";
 const KV = ":";
@@ -102,8 +192,10 @@ export function isTimeseries(
 
 /**
  * Translate Explore state into a SemanticQuery for the /query endpoint.
- * Orders by the time dimension ascending for timeseries, else by the first
- * measure descending (biggest-first bars/tables), else the first dimension.
+ * Orders by the time dimension ascending for timeseries, else by the chosen
+ * sort measure (or the first measure) descending — biggest-first bars/tables
+ * — else the first dimension. `limit` caps categorical views ("Top N");
+ * timeseries always requests the full window (up to MAX_LIMIT).
  */
 export function buildExploreQuery(state: ExploreState): SemanticQuery {
   const { model, dimensions, measures } = state;
@@ -119,14 +211,24 @@ export function buildExploreQuery(state: ExploreState): SemanticQuery {
     ? { start: state.from || undefined, end: state.to || undefined }
     : undefined;
 
+  const timeseries = isTimeseries(state);
+
   let orderBy: [string, "asc" | "desc"][] = [];
-  if (isTimeseries(state)) {
+  if (timeseries) {
     orderBy = [[state.timeDimension as string, "asc"]];
   } else if (measures.length) {
-    orderBy = [[measures[0], "desc"]];
+    // A stale sortBy (its measure was deselected) falls back to the first measure.
+    const sortMeasure =
+      state.sortBy && measures.includes(state.sortBy) ? state.sortBy : measures[0];
+    orderBy = [[sortMeasure, "desc"]];
   } else if (dimensions.length) {
     orderBy = [[dimensions[0], "asc"]];
   }
+
+  const limit =
+    !timeseries && state.limit
+      ? Math.max(1, Math.min(MAX_LIMIT, Math.floor(state.limit)))
+      : MAX_LIMIT;
 
   return {
     model,
@@ -135,6 +237,6 @@ export function buildExploreQuery(state: ExploreState): SemanticQuery {
     filters,
     timeRange,
     orderBy,
-    limit: 500,
+    limit,
   };
 }

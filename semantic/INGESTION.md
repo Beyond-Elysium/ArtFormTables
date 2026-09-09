@@ -193,3 +193,250 @@ python rollups.py
 Observed: idempotent re-runs hold at **6120 rows** (identical content hash);
 `ga4_monthly` totals equal daily `ga4` totals to the cent; the acme store spans
 **2023-01-01 → 2026-07-07** across the old backfill and the recent incremental.
+
+## 6. Live extraction — GA4 (`extract_ga4.py`)
+
+The first real extractor: pulls daily GA4 metrics per client straight into the
+lake via the same idempotent `ingest.upsert()` path, source **`ga4`**, grain
+`client x date x channel`:
+
+| lake column | GA4 Data API name | note |
+|---|---|---|
+| `date` | `date` dimension | `YYYYMMDD` → ISO `YYYY-MM-DD` |
+| `channel` | `sessionDefaultChannelGroup` | |
+| `sessions` | `sessions` | |
+| `users` | `totalUsers` | |
+| `page_views` | `screenPageViews` | |
+| `conversions` | `keyEvents` | keyEvents ARE GA4's conversions |
+| `engaged_sessions` | `sessions × engagementRate` | stored additively; `specs/ga4.yaml` re-derives `engagement_rate = sum(engaged)/sum(sessions)` so the ratio is correct at any grain |
+
+Clients → GA4 property ids live in **`clients.yaml`** (keep in sync with
+`app/config/clients.ts`; slugs must match the app's exactly).
+
+### Credentials (never commit these)
+
+The same Google OAuth Web client + refresh token the Next app uses, with the
+Analytics scope:
+
+```sh
+export GOOGLE_OAUTH_CLIENT_ID=…        # OAuth Web client id
+export GOOGLE_OAUTH_CLIENT_SECRET=…
+export GOOGLE_OAUTH_REFRESH_TOKEN=…    # refresh token authorized for GA4
+```
+
+The extractor exchanges the refresh token for an access token and calls the GA4
+Data API REST `runReport` directly — no SDK. On the VM, put these in
+`/etc/artform-semantic.env` (mode `0600`, root-owned), which the systemd unit
+loads (see §8). `data/` and `store/` are git-ignored, so neither credentials nor
+extracted client data can land in git.
+
+### Runbook
+
+```sh
+cd semantic && source .venv/bin/activate    # or your interpreter of choice
+
+# Initial backfill — last 365 days, all clients in clients.yaml
+python extract_ga4.py
+
+# Daily incremental — last 7 days through yesterday (absorbs GA4 restatements)
+python extract_ga4.py --incremental
+
+# One client / explicit window (re-running any window is idempotent)
+python extract_ga4.py --client artform --since 2025-01-01 --until 2025-06-30
+
+# Then refresh rollups
+python rollups.py
+```
+
+Quota behavior: sleeps `--sleep` seconds (default 2) between properties and
+retries HTTP 429/5xx with exponential backoff (honors `Retry-After`).
+
+### Demo data vs live data — don't mix
+
+The demo seeders (`seed.py`, `sample_data.py`) emit extra columns
+(`device`, `country`, `revenue`) that the live extractor doesn't. `models.py`
+unions all `data/**/ga4.parquet` files with a strict schema, so a lake that
+mixes demo and live files will fail to load. On a real deployment, clear the
+demo lake first:
+
+```sh
+rm -rf data store   # then run the backfill
+```
+
+Querying a demo-only column (e.g. `revenue`) against a live-only lake fails for
+that measure alone; everything else works — the spec documents which columns are
+live vs demo-only.
+
+### Offline verification
+
+The transform from API JSON to lake rows (`traffic_rows`) is a pure function,
+unit-tested against a canned `runReport` fixture
+(`tests/fixtures/ga4_runreport.json`) — run `pytest -q -m "not live"`. Only the
+HTTP calls themselves require real credentials.
+
+## 7. AI traffic history — source `ai_traffic`, model `ai`
+
+Every `extract_ga4.py` run (unless `--skip-ai`) also builds a **daily AI-referral
+table** per client — the stored signals behind the dashboard's AI Score
+trendline — into `data/<client>/ai_traffic.parquet`, one row per day:
+
+| column | meaning |
+|---|---|
+| `ai_sessions` | sessions whose `sessionSource` matches an AI assistant |
+| `total_sessions` | all sessions that day (share denominator) |
+| `ai_engaged` | engaged sessions among the AI-referred ones |
+| `distinct_ai_sources` | distinct assistants that referred ≥ 1 session that day |
+| `distinct_ai_pages` | distinct landing pages receiving AI referrals that day |
+
+Detection uses the token list in **`ai_tokens.py`** — a mirror of
+`app/lib/connectors/aiSources.ts` (keep them in sync; both files carry a sync
+comment). The GA4 request applies the token list as a server-side
+`sessionSource CONTAINS` filter (so low-volume AI rows aren't truncated by a row
+cap), then every returned row is re-verified with `match_ai_source()` to drop
+contains-filter false positives.
+
+`specs/ai.yaml` exposes model **`ai`** (dims `client`, `date`; the five measures
+plus derived `ai_share`, `ai_engagement_rate`). Additive measures sum exactly at
+any grain; the distinct counts are day-level signals — summing them across a
+week over-counts repeat assistants, so period-level score computations should
+treat them as day-level (max/avg), which the app's weekly AI Score does.
+
+Transforms (`ai_daily_rows`, token matching) are fixture-tested offline:
+`tests/fixtures/ga4_ai_report.json`, `tests/test_ai_tokens.py`.
+
+## 8. Scheduled daily pipeline — `pipeline.sh` + systemd
+
+`pipeline.sh` is the daily VM job: **extract (incremental, all clients) →
+rollups → health assertions**, logging to `store/logs/pipeline-<date>.log` and
+failing loudly at the first broken step (the failing step is named in the log
+and in the unit's journal). It is safe to re-run: extraction is idempotent, and
+the health check accepts a same-day re-run's unchanged row counts.
+
+Health assertions (`health_check.py`), per source (`ga4`, `ai_traffic`):
+
+1. **data exists** — `data/**/<source>.parquet` has > 0 rows;
+2. **count grew** — total rows ≥ the previous run's recorded count
+   (state: `store/pipeline_state.json`, updated only on success);
+3. **freshness** — latest date == yesterday (`--max-lag-days`, default 1).
+
+### Install on the VM (one time)
+
+```sh
+# 0. From the repo checkout on the VM (adjust /opt/ArtFormTables to yours):
+cd /opt/ArtFormTables/semantic
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+
+# 1. Credentials — root-owned env file the service loads (NEVER in git):
+sudo install -m 0600 /dev/null /etc/artform-semantic.env
+sudo tee /etc/artform-semantic.env >/dev/null <<'ENV'
+GOOGLE_OAUTH_CLIENT_ID=…
+GOOGLE_OAUTH_CLIENT_SECRET=…
+GOOGLE_OAUTH_REFRESH_TOKEN=…
+# optional, restarts the query service so it sees new specs/rollups:
+SEMANTIC_RELOAD_CMD=systemctl restart artform-semantic
+ENV
+
+# 2. Units (edit User=/paths in the .service first if they differ):
+sudo cp deploy/semantic-pipeline.service deploy/semantic-pipeline.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now semantic-pipeline.timer
+
+# 3. Verify:
+systemctl list-timers semantic-pipeline.timer     # next scheduled run
+sudo systemctl start semantic-pipeline.service    # run once now
+journalctl -u semantic-pipeline.service -e        # output / failures
+```
+
+Cron alternative (if you prefer it over systemd):
+
+```cron
+15 6 * * *  root  . /etc/artform-semantic.env && /opt/ArtFormTables/semantic/pipeline.sh
+```
+
+### Manual backfill
+
+Backfill and incremental are the same idempotent operation with different
+windows — a backfill never duplicates rows already ingested:
+
+```sh
+cd /opt/ArtFormTables/semantic && source .venv/bin/activate
+set -a && . /etc/artform-semantic.env && set +a       # load creds into the shell
+
+python extract_ga4.py                                  # all clients, last 365 days
+python extract_ga4.py --client artform --since 2024-01-01 --until 2024-12-31
+                                                       # one client, explicit window
+python rollups.py                                      # refresh monthly rollups
+python health_check.py --source ga4 --source ai_traffic --require-clients \
+    --max-lag-days 3                                   # every client has rows; relax
+                                                       # freshness for old backfills
+```
+
+Note: the FastAPI query service caches models at startup — after the first
+backfill (new specs/parquets), restart it (`systemctl restart artform-semantic`
+or set `SEMANTIC_RELOAD_CMD` so the pipeline does it).
+
+## 9. Live extraction — Google Ads spend (`extract_google_ads.py`)
+
+Pulls daily ad spend per client into source **`ad_spend`** via REST
+`googleAds:searchStream` (GAQL over `FROM campaign`, no SDK) — the missing half
+of the blended CAC/ROAS/CTR model. Grain `client x date x platform x campaign`,
+columns exactly matching the demo `ad_spend` (`seed_blended.py`) so
+`build_blended.py` / `specs/blended.yaml` work unchanged:
+
+| lake column | Ads API name |
+|---|---|
+| `date` | `segments.date` |
+| `platform` | constant `"Google"` (→ channel via `PLATFORM_CHANNEL`) |
+| `campaign` | `campaign.name` |
+| `impressions` / `clicks` | `metrics.impressions` / `metrics.clicks` |
+| `spend` | `metrics.cost_micros / 1e6` |
+| `conversions` | `metrics.conversions` (fractional — stored as float) |
+
+### Credentials + configuration
+
+Same OAuth client/refresh token as GA4 (the refresh token must also carry the
+AdWords scope) plus the Ads-specific env — fallbacks mirror the Next app's
+`googleAds.ts`:
+
+```sh
+export GOOGLE_ADS_DEVELOPER_TOKEN=…                # required for live runs
+# optional overrides; fall back to the GOOGLE_OAUTH_* trio:
+export GOOGLE_ADS_CLIENT_ID=… GOOGLE_ADS_CLIENT_SECRET=… GOOGLE_ADS_OAUTH_REFRESH_TOKEN=…
+export GOOGLE_ADS_LOGIN_CUSTOMER_ID=…              # optional (MCC)
+export GOOGLE_ADS_API_VERSION=v24                  # default; versions sunset ~yearly
+```
+
+Per-client customer ids: `clients.yaml` → `google_ads_customer_id` (digits or
+`123-456-7890` form). **All are currently unknown** — a commented template sits
+under each client; uncomment + fill as Ads access is granted. Until then the
+extractor (and its `pipeline.sh` step) prints a notice and exits 0.
+
+### Runbook
+
+```sh
+python extract_google_ads.py                        # backfill: last 365 days
+python extract_google_ads.py --incremental          # daily window (pipeline.sh step 2)
+python extract_google_ads.py --client artform --since 2026-01-01 --until 2026-06-30
+python build_blended.py && python rollups.py        # refresh the blend + rollups
+python verify_blended.py                            # KPIs vs independent re-join
+python health_check.py --source ad_spend            # once Ads is configured
+```
+
+`pipeline.sh` runs ads extraction after GA4, then `build_blended.py`, and adds
+`ad_spend` to the health checks automatically once a developer token + at least
+one customer id are configured.
+
+### Blending on a live lake — two caveats
+
+- `build_blended.py` / `verify_blended.py` union **both** lake layouts (demo
+  `data/<source>.parquet` + per-client `data/<client>/<source>.parquet`), and a
+  missing `orders` source no longer breaks the build — revenue-based KPIs
+  (ROAS, revenue) simply degrade to 0/inf until an orders/revenue extractor
+  exists. Verified: fixture ad rows ingested for a client raise blended spend by
+  exactly their sum, and `verify_blended.py` still matches independently.
+- The blend joins GA4 to spend on **channel**, and `PLATFORM_CHANNEL` maps
+  platform `Google` → demo channel `"Paid"`. Live GA4 channel values are GA4
+  default channel groups (`"Paid Search"`, `"Paid Social"`, …), so when real Ads
+  data lands, update `PLATFORM_CHANNEL` (in `seed_blended.py`, the single
+  source of the mapping) to target the live channel-group names — a one-line
+  config change; leads/sessions stay 0 in the blend until then.
