@@ -34,11 +34,38 @@ const clientBrandSchema = z.object({
 const clientSourceSchema = z.object({
   /** Connector type, e.g. "ga4" | "search-console" | "google-ads". */
   type: z.string().min(1),
+  /**
+   * Optional stable id for this source instance. Without it a source gets a
+   * positional id (`<type>-<index>` — see lib/connectors/index.ts), which
+   * shifts when sources are reordered. Give a source an explicit id when
+   * something needs to reference it durably (e.g. a custom view's `sourceIds`).
+   */
+  id: z.string().regex(/^[a-z0-9-]+$/, "source id must be lowercase letters, digits or hyphens").optional(),
   /** Optional override for the section heading. */
   label: z.string().optional(),
   /** Connector-specific configuration. */
   config: z.record(z.string(), z.unknown()).default({}),
 });
+
+/**
+ * A custom named dashboard view: a tab (rendered after Overview, before the
+ * auto category tabs) that shows only the sources it selects. Selects by
+ * source id (`sourceIds`, matching an explicit source `id` or the positional
+ * `<type>-<index>` fallback) and/or by connector type (`types`); a source
+ * matching either selector is included.
+ */
+const clientViewSchema = z
+  .object({
+    /** Tab label, e.g. "CISR/IRI". */
+    name: z.string().min(1),
+    /** Source ids to include (explicit `id` or positional `<type>-<index>`). */
+    sourceIds: z.array(z.string().min(1)).optional(),
+    /** Connector types to include, e.g. ["ga4"]. */
+    types: z.array(z.string().min(1)).optional(),
+  })
+  .refine((v) => (v.sourceIds?.length ?? 0) > 0 || (v.types?.length ?? 0) > 0, {
+    message: "a view needs at least one selector: sourceIds and/or types",
+  });
 
 const reportSchema = z.object({
   /** Email recipients for scheduled PDF reports. */
@@ -54,6 +81,8 @@ const clientSchema = z.object({
   name: z.string().min(1),
   sources: z.array(clientSourceSchema),
   brand: clientBrandSchema.optional(),
+  /** Optional custom named views (extra tabs after Overview). */
+  views: z.array(clientViewSchema).optional(),
   /** Optional scheduled-report settings. */
   report: reportSchema.optional(),
 });
@@ -65,11 +94,40 @@ const clientsSchema = z.array(clientSchema).superRefine((list, ctx) => {
       ctx.addIssue({ code: "custom", message: `duplicate slug "${c.slug}"` });
     }
     seen.add(c.slug);
+
+    // Effective source ids: explicit `id` or the positional fallback the
+    // orchestrator assigns (`<type>-<index>`). Views must reference real ones —
+    // a typo should fail the build, not silently render an empty tab.
+    const effectiveIds = c.sources.map((s, i) => s.id ?? `${s.type}-${i}`);
+    const dupes = effectiveIds.filter((id, i) => effectiveIds.indexOf(id) !== i);
+    for (const d of dupes) {
+      ctx.addIssue({ code: "custom", message: `client "${c.slug}": duplicate source id "${d}"` });
+    }
+    const types = new Set(c.sources.map((s) => s.type));
+    for (const v of c.views ?? []) {
+      for (const id of v.sourceIds ?? []) {
+        if (!effectiveIds.includes(id)) {
+          ctx.addIssue({
+            code: "custom",
+            message: `client "${c.slug}": view "${v.name}" references unknown source id "${id}"`,
+          });
+        }
+      }
+      for (const t of v.types ?? []) {
+        if (!types.has(t)) {
+          ctx.addIssue({
+            code: "custom",
+            message: `client "${c.slug}": view "${v.name}" references unknown source type "${t}"`,
+          });
+        }
+      }
+    }
   }
 });
 
 export type ClientBrand = z.infer<typeof clientBrandSchema>;
 export type ClientSource = z.infer<typeof clientSourceSchema>;
+export type ClientView = z.infer<typeof clientViewSchema>;
 export type ClientReport = z.infer<typeof reportSchema>;
 export type Client = z.infer<typeof clientSchema>;
 
@@ -85,29 +143,31 @@ const clientDefs = [
     sources: [
       { type: "ga4", config: { propertyId: "310586485" } },
       { type: "search-console", config: { siteUrl: "https://artformagency.com/" } },
+      { type: "bing-webmaster", config: { siteUrl: "https://artformagency.com/" } },
       { type: "google-ads", config: { customerId: "000-000-0000", currency: "USD" } },
       { type: "linkedin-ads", config: { accountId: "500000000", currency: "USD" } },
       { type: "mailchimp", config: {} },
+      { type: "hubspot", config: { tokenEnv: "HUBSPOT_TOKEN_ARTFORM" } },
     ],
   },
   {
     slug: "bbbnp",
     name: "BBB National Programs",
     brand: { primary: "#333333", accent: "#426fb6" },
+    // The CISR/IRI GA4 property gets its own named tab via the explicit
+    // source id + view below.
+    views: [{ name: "CISR/IRI", sourceIds: ["ga4-cisr"] }],
     sources: [
       { type: "ga4", config: { propertyId: "302989852" } },
+      // BBBNP CISR/IRI — separate GA4 property with its own "CISR/IRI" view.
+      // aiInsights:false — the secondary property's section should not repeat
+      // the full AI block (AI Score etc.) under the main property's.
+      { type: "ga4", id: "ga4-cisr", label: "BBBNP CISR/IRI", config: { propertyId: "499713205", aiInsights: false } },
       { type: "search-console", config: { siteUrl: "https://bbbprograms.org/" } },
+      { type: "bing-webmaster", config: { siteUrl: "https://bbbprograms.org/" } },
       { type: "google-ads", config: { customerId: "000-000-0000", currency: "USD" } },
       { type: "mailchimp", config: {} },
-    ],
-  },
-  {
-    slug: "cisa",
-    name: "CISA",
-    brand: { primary: "#426fb6", accent: "#98d7eb" },
-    sources: [
-      { type: "ga4", config: { propertyId: "000000003" } },
-      { type: "search-console", config: { siteUrl: "https://www.cisa.gov/" } },
+      { type: "hubspot", config: { tokenEnv: "HUBSPOT_TOKEN_BBBNP" } },
     ],
   },
   {
@@ -116,7 +176,8 @@ const clientDefs = [
     brand: { primary: "#426fb6", accent: "#e41679" },
     sources: [
       { type: "ga4", config: { propertyId: "333478304" } },
-      { type: "search-console", config: { siteUrl: "https://isea.example/" } },
+      { type: "search-console", config: { siteUrl: "https://safetyequipment.org/" } },
+      { type: "bing-webmaster", config: { siteUrl: "https://safetyequipment.org/" } },
       { type: "linkedin-ads", config: { accountId: "500000001", currency: "USD" } },
       { type: "mailchimp", config: {} },
     ],
@@ -128,7 +189,9 @@ const clientDefs = [
     sources: [
       { type: "ga4", config: { propertyId: "302350399" } },
       { type: "search-console", config: { siteUrl: "https://maximus.com/" } },
+      { type: "bing-webmaster", config: { siteUrl: "https://maximus.com/" } },
       { type: "linkedin-ads", config: { accountId: "500000002", currency: "USD" } },
+      { type: "hubspot", config: { tokenEnv: "HUBSPOT_TOKEN_MAXIMUS" } },
     ],
   },
   {
@@ -137,20 +200,20 @@ const clientDefs = [
     brand: { primary: "#426fb6", accent: "#98d7eb" },
     sources: [
       { type: "ga4", config: { propertyId: "521857796" } },
-      { type: "search-console", config: { siteUrl: "https://miamifederal.example/" } },
+      { type: "search-console", config: { siteUrl: "https://miamifed.com/" } },
+      { type: "bing-webmaster", config: { siteUrl: "https://miamifed.com/" } },
       { type: "google-ads", config: { customerId: "000-000-0000", currency: "USD" } },
     ],
   },
   {
-    slug: "mocktails",
-    name: "Mocktails",
-    brand: { primary: "#e41679", accent: "#98d7eb" },
+    slug: "moveinterstate",
+    name: "MoveInterstate",
+    brand: { primary: "#426fb6", accent: "#e41679" },
     sources: [
-      { type: "ga4", config: { propertyId: "000000007" } },
-      { type: "search-console", config: { siteUrl: "https://mocktails.example/" } },
-      { type: "meta-ads", config: { adAccountId: "1000000000", currency: "USD" } },
-      { type: "shopify", config: { shop: "mocktails", currency: "USD" } },
-      { type: "klaviyo", config: {} },
+      { type: "ga4", config: { propertyId: "223367126" } },
+      { type: "search-console", config: { siteUrl: "https://www.moveinterstate.com/" } },
+      { type: "bing-webmaster", config: { siteUrl: "https://www.moveinterstate.com/" } },
+      { type: "google-ads", config: { customerId: "000-000-0000", currency: "USD" } },
     ],
   },
   {
@@ -159,40 +222,9 @@ const clientDefs = [
     brand: { primary: "#333333", accent: "#426fb6" },
     sources: [
       { type: "ga4", config: { propertyId: "298141839" } },
-      { type: "search-console", config: { siteUrl: "https://sigmadefense.example/" } },
+      { type: "search-console", config: { siteUrl: "https://sigmadefense.com/" } },
+      { type: "bing-webmaster", config: { siteUrl: "https://sigmadefense.com/" } },
       { type: "linkedin-ads", config: { accountId: "500000003", currency: "USD" } },
-    ],
-  },
-  {
-    slug: "tanaq",
-    name: "Tanaq",
-    brand: { primary: "#426fb6", accent: "#98d7eb" },
-    sources: [
-      { type: "ga4", config: { propertyId: "000000009" } },
-      { type: "search-console", config: { siteUrl: "https://tanaq.example/" } },
-      { type: "linkedin-ads", config: { accountId: "500000004", currency: "USD" } },
-    ],
-  },
-  {
-    slug: "stanton",
-    name: "Stanton Communications",
-    brand: { primary: "#e41679", accent: "#426fb6" },
-    sources: [
-      { type: "ga4", config: { propertyId: "000000010" } },
-      { type: "search-console", config: { siteUrl: "https://stantoncomm.example/" } },
-      { type: "google-ads", config: { customerId: "000-000-0000", currency: "USD" } },
-      { type: "mailchimp", config: {} },
-    ],
-  },
-  {
-    slug: "verasole-calibre",
-    name: "Verasole / Calibre",
-    brand: { primary: "#426fb6", accent: "#e41679" },
-    sources: [
-      { type: "ga4", config: { propertyId: "000000011" } },
-      { type: "search-console", config: { siteUrl: "https://verasole.example/" } },
-      { type: "meta-ads", config: { adAccountId: "1000000001", currency: "USD" } },
-      { type: "google-ads", config: { customerId: "000-000-0000", currency: "USD" } },
     ],
   },
   {
@@ -201,19 +233,9 @@ const clientDefs = [
     brand: { primary: "#333333", accent: "#98d7eb" },
     sources: [
       { type: "ga4", config: { propertyId: "398292533" } },
-      { type: "search-console", config: { siteUrl: "https://winterscale.example/" } },
+      { type: "search-console", config: { siteUrl: "https://winterscale.com/" } },
+      { type: "bing-webmaster", config: { siteUrl: "https://winterscale.com/" } },
       { type: "linkedin-ads", config: { accountId: "500000005", currency: "USD" } },
-    ],
-  },
-  {
-    slug: "minburn-tech",
-    name: "Minburn Tech",
-    brand: { primary: "#426fb6", accent: "#e41679" },
-    sources: [
-      { type: "ga4", config: { propertyId: "000000013" } },
-      { type: "search-console", config: { siteUrl: "https://minburntech.example/" } },
-      { type: "google-ads", config: { customerId: "000-000-0000", currency: "USD" } },
-      { type: "posthog", config: { projectId: "00000" } },
     ],
   },
   {
@@ -221,8 +243,9 @@ const clientDefs = [
     name: "GovCon IDEATORS",
     brand: { primary: "#333333", accent: "#e41679" },
     sources: [
-      { type: "ga4", config: { propertyId: "000000014" } },
-      { type: "search-console", config: { siteUrl: "https://govconideators.example/" } },
+      { type: "ga4", config: { propertyId: "395344759" } },
+      { type: "search-console", config: { siteUrl: "https://govconideators.com/" } },
+      { type: "bing-webmaster", config: { siteUrl: "https://govconideators.com/" } },
       { type: "linkedin-ads", config: { accountId: "500000006", currency: "USD" } },
       { type: "hubspot", config: {} },
     ],

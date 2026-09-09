@@ -128,6 +128,12 @@ new path works immediately — no DNS or Vercel change needed.
 
 ## 5. Operations
 
+- **Landing page privacy:** the root page (`/`) shows a minimal branded splash
+  by default — the full client index is a directory of the agency's roster and
+  must not be public. Set `LANDING_INDEX=true` **only on preview/internal
+  deployments** to render the index; in production leave it unset. To peek at
+  the index on a deployment where it's disabled, open `/?token=<CRON_SECRET>`
+  (requires `CRON_SECRET` to be set).
 - **Caching:** dashboards use ISR (`export const revalidate = 3600`) — provider
   responses are cached for an hour, which also respects API rate limits. Lower
   it per page if you need fresher data.

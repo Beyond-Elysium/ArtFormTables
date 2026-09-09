@@ -1,31 +1,82 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import type { ApexOptions } from "apexcharts";
 import { formatCompact } from "@/lib/format";
+import { chartPalette, clampLabel, seriesColors } from "@/components/chartPalette";
 
 const CHART_HEIGHT = 300;
 
 // Reserve the chart's height while the (client-only) bundle loads to avoid
 // layout shift, and show a subtle skeleton.
-const ReactApexChart = dynamic(() => import("react-apexcharts"), {
-  ssr: false,
-  loading: () => <div className="chart-skeleton" style={{ height: CHART_HEIGHT }} />,
-});
+const ReactApexChart = dynamic(
+  async () => {
+    // Guard ApexCharts.destroy(): unmounting a chart whose async render()
+    // hasn't finished yet (e.g. the URL-hash view restore switches tabs right
+    // after load, or a fast user tab switch) throws from clearDomElements
+    // (`globals.dom.Paper` is still undefined) and takes down the whole page.
+    // The chart is being discarded anyway, so a failed teardown is harmless.
+    const [{ default: ApexCharts }, mod] = await Promise.all([
+      import("apexcharts"),
+      import("react-apexcharts"),
+    ]);
+    const proto = ApexCharts.prototype as unknown as {
+      destroy: () => void;
+      __afSafeDestroy?: boolean;
+    };
+    if (!proto.__afSafeDestroy) {
+      proto.__afSafeDestroy = true;
+      const orig = proto.destroy;
+      proto.destroy = function () {
+        try {
+          orig.call(this);
+        } catch {
+          // Chart never finished mounting — nothing to tear down.
+        }
+      };
+    }
+    return mod;
+  },
+  {
+    ssr: false,
+    loading: () => <div className="chart-skeleton" style={{ height: CHART_HEIGHT }} />,
+  }
+);
 
 export interface Branding {
   primary: string;
   accent: string;
 }
 
-// ArtForm palette: brand blue/pink, sky, ink.
+// ArtForm palette: brand blue/pink/sky/ink + 4 derived tints/shades (8 total,
+// so a 6-slice donut never cycles). Derivation lives in chartPalette.ts.
 function palette(brand: Branding): string[] {
-  return [brand.primary, brand.accent, "#98d7eb", "#333333"];
+  return chartPalette(brand);
 }
 
 const FONT = "Montserrat, sans-serif";
 const LABEL_FONT = "Fira Sans, sans-serif";
 const compactAxis = (v: number) => formatCompact(v);
+
+/**
+ * True when the user prefers reduced motion. ApexCharts animates via JS, so
+ * the CSS media query alone can't stop it — this hook feeds
+ * `chart.animations.enabled` instead. SSR-safe (defaults to false, resolves
+ * after mount) and live (tracks OS-setting changes).
+ */
+function usePrefersReducedMotion(): boolean {
+  const [reduced, setReduced] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setReduced(mq.matches);
+    const onChange = (e: MediaQueryListEvent) => setReduced(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  return reduced;
+}
 
 export function TimeseriesChart({
   series,
@@ -34,10 +85,18 @@ export function TimeseriesChart({
   series: { name: string; points: { x: string; y: number }[]; dashed?: boolean }[];
   brand: Branding;
 }) {
+  const reducedMotion = usePrefersReducedMotion();
   const hasOverlay = series.some((s) => s.dashed);
   const options: ApexOptions = {
-    chart: { type: "area", fontFamily: FONT, toolbar: { show: false } },
-    colors: palette(brand),
+    chart: {
+      type: "area",
+      fontFamily: FONT,
+      toolbar: { show: false },
+      animations: { enabled: !reducedMotion },
+    },
+    // Dashed "(prev)" overlays reuse their primary series' color (muted), so
+    // each comparison line visually pairs with its solid line.
+    colors: seriesColors(series, palette(brand)),
     dataLabels: { enabled: false },
     stroke: {
       curve: "smooth",
@@ -76,8 +135,13 @@ export function DonutChart({
   rows: { label: string; value: number }[];
   brand: Branding;
 }) {
+  const reducedMotion = usePrefersReducedMotion();
   const options: ApexOptions = {
-    chart: { type: "donut", fontFamily: FONT },
+    chart: {
+      type: "donut",
+      fontFamily: FONT,
+      animations: { enabled: !reducedMotion },
+    },
     labels: rows.map((r) => r.label),
     colors: palette(brand),
     legend: { position: "bottom", fontFamily: LABEL_FONT },
@@ -104,11 +168,13 @@ export function BarChart({
   /** Cross-filter hook: fires with the clicked bar's category label. */
   onSelect?: (label: string) => void;
 }) {
+  const reducedMotion = usePrefersReducedMotion();
   const options: ApexOptions = {
     chart: {
       type: "bar",
       fontFamily: FONT,
       toolbar: { show: false },
+      animations: { enabled: !reducedMotion },
       events: onSelect
         ? {
             dataPointSelection: (_e, _ctx, cfg) => {
@@ -127,7 +193,22 @@ export function BarChart({
       categories: rows.map((r) => r.label),
       labels: { style: { fontFamily: FONT } },
     },
-    yaxis: { labels: { style: { fontFamily: FONT } } },
+    yaxis: {
+      labels: {
+        style: { fontFamily: FONT },
+        // Horizontal bars put categories on the y-axis: clamp long labels
+        // (page paths, campaign names); the tooltip shows the full text.
+        formatter: (val) => clampLabel(String(val)),
+      },
+    },
+    tooltip: {
+      x: {
+        formatter: (_val, opts?: { dataPointIndex?: number }) => {
+          const i = opts?.dataPointIndex;
+          return (i != null && rows[i]?.label) || String(_val);
+        },
+      },
+    },
   };
   return (
     <ReactApexChart

@@ -19,15 +19,27 @@ export async function generateMetadata({
   params: { client: string };
 }): Promise<Metadata> {
   const client = getClientBySlug(params.client);
-  return { title: client ? `${client.name} · Explore` : "Dashboard not found" };
+  return {
+    title: client ? `${client.name} · Explore` : "Dashboard not found",
+    // Public-by-URL by design, but never search-indexable.
+    robots: { index: false, follow: false },
+  };
 }
 
-export default function ExplorePage({ params }: { params: { client: string } }) {
+export default function ExplorePage({
+  params,
+  searchParams = {},
+}: {
+  params: { client: string };
+  searchParams?: Record<string, string | string[] | undefined>;
+}) {
   const client = getClientBySlug(params.client);
   if (!client) notFound();
 
   const brand = { ...DEFAULT_BRAND, ...client.brand };
   const configured = semanticConfigured();
+  // Internal mode (?internal=1): reveal dev hints that clients must never see.
+  const internalMode = searchParams.internal === "1";
 
   return (
     <div
@@ -79,25 +91,26 @@ export default function ExplorePage({ params }: { params: { client: string } }) 
             </div>
 
             {configured ? (
-              <ExploreClient brand={brand} />
+              <ExploreClient brand={brand} client={client.slug} />
             ) : (
               <div className="card">
                 <div
                   className="card-body"
                   style={{ borderLeft: `4px solid ${brand.accent}` }}
                 >
-                  <h3 className="section-title mb-2">Semantic layer not configured</h3>
-                  <p className="text-secondary mb-2">
-                    The interactive Explore experience is powered by the ArtForm
-                    semantic-layer service. Point the app at it to enable
-                    cross-filtering and drill-downs.
-                  </p>
+                  <h3 className="section-title mb-2">Explore is on its way</h3>
                   <p className="text-secondary mb-0">
-                    Set <code>SEMANTIC_API_URL</code> (and{" "}
-                    <code>SEMANTIC_API_TOKEN</code>) and start the service in{" "}
-                    <code>/semantic</code>. See <code>semantic/README</code> for
-                    setup.
+                    Interactive exploration — cross-filtering, drill-downs, and
+                    custom breakdowns — is being set up for this dashboard.
+                    Check back soon, or contact ArtForm for a walkthrough.
                   </p>
+                  {internalMode && (
+                    <p className="text-secondary mt-2 mb-0">
+                      (internal: set <code>SEMANTIC_API_URL</code> and{" "}
+                      <code>SEMANTIC_API_TOKEN</code>; service lives in{" "}
+                      <code>/semantic</code>.)
+                    </p>
+                  )}
                 </div>
               </div>
             )}

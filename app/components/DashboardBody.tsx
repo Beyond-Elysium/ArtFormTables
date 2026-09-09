@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ConnectorResult } from "@/lib/connectors/types";
 import type { Branding } from "@/components/Charts";
+import { filterForView, type ClientView } from "@/lib/views";
 import { PanelSection } from "@/components/PanelSection";
 
 const OVERVIEW = "Overview";
@@ -10,10 +11,11 @@ const OVERVIEW = "Overview";
 const slugifyTab = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
 /**
- * Renders a client's sources with view tabs. "Overview" shows everything; each
- * additional tab is a data category (Analytics, Advertising, Payments, …),
- * derived automatically from the sources. Switching views is instant — no
- * refetch — because all data is already on the page.
+ * Renders a client's sources with view tabs. "Overview" shows everything;
+ * any custom named views from the client registry come next (e.g. BBBNP's
+ * "CISR/IRI"), followed by the data categories (Analytics, Advertising,
+ * Payments, …) derived automatically from the sources. Switching views is
+ * instant — no refetch — because all data is already on the page.
  *
  * The active view is mirrored to the URL hash so it survives a range/compare
  * change (which remounts this component) and stays shareable.
@@ -22,25 +24,38 @@ export function DashboardBody({
   results,
   brand,
   deltaSuffix,
+  windowLabel,
+  views,
   showAll = false,
 }: {
   results: ConnectorResult[];
   brand: Branding;
   deltaSuffix?: string;
+  /** Human label for the active date window (used in CSV export filenames). */
+  windowLabel?: string;
+  /** Custom named views from the client registry (rendered before categories). */
+  views?: ClientView[];
   /** Render every source and hide the view tabs (used for PDF reports). */
   showAll?: boolean;
 }) {
-  // Categories in first-seen order.
-  const categories = useMemo(() => {
-    const seen: string[] = [];
-    for (const r of results) if (!seen.includes(r.category)) seen.push(r.category);
-    return seen;
-  }, [results]);
+  const customViews = useMemo(() => views ?? [], [views]);
 
-  const tabs = useMemo(
-    () => (categories.length > 1 ? [OVERVIEW, ...categories] : [OVERVIEW]),
-    [categories],
-  );
+  // Categories in first-seen order. A custom view with the same name as a
+  // category takes the tab; drop the colliding category to avoid duplicates.
+  const categories = useMemo(() => {
+    const viewNames = new Set(customViews.map((v) => v.name));
+    const seen: string[] = [];
+    for (const r of results)
+      if (!seen.includes(r.category) && !viewNames.has(r.category)) seen.push(r.category);
+    return seen;
+  }, [results, customViews]);
+
+  const tabs = useMemo(() => {
+    const viewNames = customViews.map((v) => v.name);
+    return viewNames.length > 0 || categories.length > 1
+      ? [OVERVIEW, ...viewNames, ...categories]
+      : [OVERVIEW];
+  }, [customViews, categories]);
 
   const [active, setActive] = useState(OVERVIEW);
 
@@ -61,29 +76,54 @@ export function DashboardBody({
     window.history.replaceState(null, "", t === OVERVIEW ? window.location.pathname + window.location.search : `#${hash}`);
   }
 
-  const visible =
-    showAll || current === OVERVIEW
-      ? results
-      : results.filter((r) => r.category === current);
+  // What one tab shows: everything (Overview), a custom view's selection, or a
+  // category's sources.
+  function resultsForTab(t: string): ConnectorResult[] {
+    if (t === OVERVIEW) return results;
+    const view = customViews.find((v) => v.name === t);
+    if (view) return filterForView(results, view);
+    return results.filter((r) => r.category === t);
+  }
+
+  const visible = showAll ? results : resultsForTab(current);
+
+  // WAI-ARIA tabs pattern: ArrowLeft/ArrowRight (plus Home/End) move both
+  // focus and selection; inactive tabs sit outside the tab order (roving
+  // tabindex), so Tab lands on the active tab only.
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  function onTabKeyDown(e: React.KeyboardEvent<HTMLButtonElement>, idx: number) {
+    let next: number | null = null;
+    if (e.key === "ArrowRight") next = (idx + 1) % tabs.length;
+    else if (e.key === "ArrowLeft") next = (idx - 1 + tabs.length) % tabs.length;
+    else if (e.key === "Home") next = 0;
+    else if (e.key === "End") next = tabs.length - 1;
+    if (next === null) return;
+    e.preventDefault();
+    select(tabs[next]);
+    tabRefs.current[next]?.focus();
+  }
 
   return (
     <>
       {tabs.length > 1 && !showAll && (
         <ul className="nav nav-tabs view-tabs mb-3 d-print-none" role="tablist">
-          {tabs.map((t) => (
+          {tabs.map((t, i) => (
             <li className="nav-item" key={t} role="presentation">
               <button
                 type="button"
                 className={`nav-link ${t === current ? "active" : ""}`}
                 onClick={() => select(t)}
+                onKeyDown={(e) => onTabKeyDown(e, i)}
+                ref={(el) => {
+                  tabRefs.current[i] = el;
+                }}
                 role="tab"
                 aria-selected={t === current}
+                tabIndex={t === current ? 0 : -1}
               >
                 {t}
                 <span className="badge bg-secondary-lt ms-2">
-                  {t === OVERVIEW
-                    ? results.length
-                    : results.filter((r) => r.category === t).length}
+                  {resultsForTab(t).length}
                 </span>
               </button>
             </li>
@@ -98,13 +138,14 @@ export function DashboardBody({
             result={result}
             brand={brand}
             deltaSuffix={deltaSuffix}
+            windowLabel={windowLabel}
           />
         ))
       ) : (
         <div className="empty">
           <p className="empty-title">No data sources in this view</p>
           <p className="empty-subtitle text-secondary">
-            Add sources to this client in <code>config/clients.ts</code>.
+            Data sources for this view are still being set up.
           </p>
         </div>
       )}

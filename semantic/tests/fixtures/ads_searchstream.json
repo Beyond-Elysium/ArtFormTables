@@ -1,0 +1,34 @@
+[
+  {
+    "results": [
+      {
+        "campaign": { "resourceName": "customers/1234567890/campaigns/111", "name": "Brand Search" },
+        "segments": { "date": "2026-07-01" },
+        "metrics": { "impressions": "1200", "clicks": "85", "costMicros": "45120000", "conversions": 3.5 }
+      },
+      {
+        "campaign": { "resourceName": "customers/1234567890/campaigns/222", "name": "Nonbrand Search" },
+        "segments": { "date": "2026-07-01" },
+        "metrics": { "impressions": "5400", "clicks": "160", "costMicros": "210500000", "conversions": 6.0 }
+      },
+      {
+        "campaign": { "resourceName": "customers/1234567890/campaigns/111", "name": "Brand Search" },
+        "segments": { "date": "2026-07-02" },
+        "metrics": { "impressions": "980", "clicks": "70", "costMicros": "38250000", "conversions": 2.0 }
+      }
+    ],
+    "fieldMask": "campaign.name,segments.date,metrics.impressions,metrics.clicks,metrics.costMicros,metrics.conversions",
+    "requestId": "fixture-chunk-1"
+  },
+  {
+    "results": [
+      {
+        "campaign": { "resourceName": "customers/1234567890/campaigns/111", "name": "Brand Search" },
+        "segments": { "date": "2026-07-02" },
+        "metrics": { "impressions": "20", "clicks": "2", "costMicros": "1750000", "conversions": 0 }
+      }
+    ],
+    "fieldMask": "campaign.name,segments.date,metrics.impressions,metrics.clicks,metrics.costMicros,metrics.conversions",
+    "requestId": "fixture-chunk-2"
+  }
+]

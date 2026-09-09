@@ -5,7 +5,8 @@ how auth is set up, the full provider catalog, and the recommendations we've
 landed on. **Keep this updated** as connections change (see the checklist at the
 end). For *building* a new connector, jump to [Authoring a new connector](#authoring-a-new-connector).
 
-Related docs: [DEPLOY.md](./DEPLOY.md) (run/ship), [REPORTS.md](./REPORTS.md)
+Related docs: [ONBOARDING.md](./ONBOARDING.md) (add-a-client checklist),
+[DEPLOY.md](./DEPLOY.md) (run/ship), [REPORTS.md](./REPORTS.md)
 (PDF/email), and the debug endpoint `GET /api/debug/<slug>` (live vs demo status
 per source — uncached).
 
@@ -63,28 +64,74 @@ GA4/Search source `status: "live"`.
 
 ## Client connection status
 
-GA4 Property IDs wired in `config/clients.ts` (✅ real, ⬜ placeholder — need the
-Property ID from **Admin → Property Settings**, *not* the `G-XXXX` Measurement ID):
+The 9 clients in `config/clients.ts`, one row per client×source. **Live-capable
+✅** = real config in the registry, goes live as soon as the named credential is
+in env (all GA4 property IDs are real; ✅* additionally needs a Google-side
+Viewer grant for the consenting account). **⬜ placeholder** = the registry
+value itself is fake (`*.example` site URL, `000-000-0000` customer id,
+`5000000xx` account id) and must be replaced too. Verify any row with
+`GET /api/debug/<slug>` (uncached live-vs-demo per source).
 
-| Client | Slug | GA4 Property ID |
-| --- | --- | --- |
-| ArtForm Agency | `artform` | ✅ 310586485 |
-| BBB National Programs | `bbbnp` | ✅ 302989852 |
-| ISEA | `isea` | ✅ 333478304 |
-| Maximus | `maximus` | ✅ 302350399 |
-| Miami Federal | `miami-federal` | ✅ 521857796 |
-| Sigma Defense | `sigma-defense` | ✅ 298141839 |
-| Winterscale | `winterscale` | ✅ 398292533 |
-| CISA | `cisa` | ⬜ placeholder |
-| Mocktails | `mocktails` | ⬜ placeholder |
-| Tanaq | `tanaq` | ⬜ placeholder |
-| Stanton Communications | `stanton` | ⬜ placeholder |
-| Verasole / Calibre | `verasole-calibre` | ⬜ placeholder |
-| Minburn Tech | `minburn-tech` | ⬜ placeholder |
-| GovCon IDEATORS | `govcon-ideators` | ⬜ placeholder |
+| Client (slug) | Source | Config in registry | Status | Still needed |
+| --- | --- | --- | --- | --- |
+| ArtForm Agency (`artform`) | `ga4` | 310586485 | ✅* | `GOOGLE_OAUTH_*` + Viewer on property |
+| | `search-console` | `https://artformagency.com/` | ✅* | `GOOGLE_OAUTH_*` + SC access |
+| | `bing-webmaster` | `https://artformagency.com/` | ✅ | `BING_WEBMASTER_API_KEY` + site verified in Bing |
+| | `google-ads` | `000-000-0000` | ⬜ | real customer id + `GOOGLE_ADS_DEVELOPER_TOKEN` |
+| | `linkedin-ads` | `500000000` | ⬜ | real account id + `LINKEDIN_ACCESS_TOKEN` |
+| | `mailchimp` | — | ⬜ | `MAILCHIMP_API_KEY` |
+| BBB National Programs (`bbbnp`) | `ga4` | 302989852 | ✅* | `GOOGLE_OAUTH_*` + Viewer on property |
+| | `ga4` (id `ga4-cisr`) | 499713205 — CISR/IRI second property, own "CISR/IRI" view tab, `aiInsights: false` | ✅* | `GOOGLE_OAUTH_*` + Viewer on property |
+| | `search-console` | `https://bbbprograms.org/` | ✅* | `GOOGLE_OAUTH_*` + SC access |
+| | `bing-webmaster` | `https://bbbprograms.org/` | ✅ | `BING_WEBMASTER_API_KEY` + verification |
+| | `google-ads` | `000-000-0000` | ⬜ | real customer id + dev token |
+| | `mailchimp` | — | ⬜ | `MAILCHIMP_API_KEY` |
+| ISEA (`isea`) | `ga4` | 333478304 | ✅* | `GOOGLE_OAUTH_*` + Viewer on property |
+| | `search-console` | `https://safetyequipment.org/` | ✅* | `GOOGLE_OAUTH_*` + SC access |
+| | `bing-webmaster` | `https://safetyequipment.org/` | ✅ | `BING_WEBMASTER_API_KEY` + verification |
+| | `linkedin-ads` | `500000001` | ⬜ | real account id + token |
+| | `mailchimp` | — | ⬜ | `MAILCHIMP_API_KEY` |
+| Maximus (`maximus`) | `ga4` | 302350399 | ✅* | `GOOGLE_OAUTH_*` + Viewer on property |
+| | `search-console` | `https://maximus.com/` | ✅* | `GOOGLE_OAUTH_*` + SC access |
+| | `bing-webmaster` | `https://maximus.com/` | ✅ | `BING_WEBMASTER_API_KEY` + verification |
+| | `linkedin-ads` | `500000002` | ⬜ | real account id + token |
+| Miami Federal (`miami-federal`) | `ga4` | 521857796 | ✅* | `GOOGLE_OAUTH_*` + Viewer on property |
+| | `search-console` | `https://miamifederal.example/` | ⬜ | **real site URL** (placeholder guard serves demo) |
+| | `bing-webmaster` | `https://miamifederal.example/` | ⬜ | real site URL + key + verification |
+| | `google-ads` | `000-000-0000` | ⬜ | real customer id + dev token |
+| MoveInterstate (`moveinterstate`) | `ga4` | 223367126 | ✅* | `GOOGLE_OAUTH_*` + Viewer on property |
+| | `search-console` | `https://www.moveinterstate.com/` | ✅* | `GOOGLE_OAUTH_*` + SC access |
+| | `bing-webmaster` | `https://www.moveinterstate.com/` | ✅ | `BING_WEBMASTER_API_KEY` + verification |
+| | `google-ads` | `000-000-0000` | ⬜ | real customer id + dev token |
+| Sigma Defense (`sigma-defense`) | `ga4` | 298141839 | ✅* | `GOOGLE_OAUTH_*` + Viewer on property |
+| | `search-console` | `https://sigmadefense.example/` | ⬜ | **real site URL** |
+| | `bing-webmaster` | `https://sigmadefense.example/` | ⬜ | real site URL + key + verification |
+| | `linkedin-ads` | `500000003` | ⬜ | real account id + token |
+| Winterscale (`winterscale`) | `ga4` | 398292533 | ✅* | `GOOGLE_OAUTH_*` + Viewer on property |
+| | `search-console` | `https://winterscale.example/` | ⬜ | **real site URL** |
+| | `bing-webmaster` | `https://winterscale.example/` | ⬜ | real site URL + key + verification |
+| | `linkedin-ads` | `500000005` | ⬜ | real account id + token |
+| GovCon IDEATORS (`govcon-ideators`) | `ga4` | 395344759 | ✅* | `GOOGLE_OAUTH_*` + Viewer on property |
+| | `search-console` | `https://govconideators.example/` | ⬜ | **real site URL** |
+| | `bing-webmaster` | `https://govconideators.example/` | ⬜ | real site URL + key + verification |
+| | `linkedin-ads` | `500000006` | ⬜ | real account id + token |
+| | `hubspot` | — | ⬜ | `HUBSPOT_ACCESS_TOKEN` |
 
-Other sources per client (Google Ads, LinkedIn, Mailchimp, etc.) are placeholders
-until their credentials + real config are supplied — see the catalog below.
+The recurring gaps, in one glance:
+
+- **4 clients still on `*.example` Search Console / Bing site URLs** —
+  miami-federal, sigma-defense, winterscale, govcon-ideators. The placeholder
+  guard (`lib/connectors/placeholder.ts`) auto-serves demo data for these, so
+  nothing breaks; supply real URLs to light them up.
+- **All `google-ads` customer ids are `000-000-0000`** — a
+  `GOOGLE_ADS_DEVELOPER_TOKEN` plus each client's real customer id are needed
+  (the OAuth refresh token is already shared with GA4/SC).
+- **`bing-webmaster` is on all 9 clients** but stays demo until
+  `BING_WEBMASTER_API_KEY` is set and each site is verified in Bing Webmaster
+  Tools (fastest path: *Import from Google Search Console*).
+- **All `linkedin-ads` account ids are `5000000xx` fillers** and the API access
+  is gated/expensive — the recommended route for LinkedIn numbers is the
+  `gsheets` connector (see Recommendations).
 
 ---
 
@@ -98,13 +145,14 @@ live. "Cost/access" flags the ones with friction.
 | --- | --- | --- | --- |
 | Google Analytics 4 | `ga4` | Google OAuth / service acct | **Free** |
 | Search Console | `search-console` | Google OAuth / service acct | **Free** |
+| Google Sheets | `gsheets` | Google OAuth / service acct (`spreadsheets.readonly` scope) | **Free** — universal token-free ingestion |
 | Plausible | `plausible` | `PLAUSIBLE_API_KEY` | Paid / self-host |
 | Matomo | `matomo` | `MATOMO_TOKEN` (+ base url) | Free (self-host) |
 
 ### Advertising
 | Provider | `type` | Auth (env) | Cost / access |
 | --- | --- | --- | --- |
-| Google Ads | `google-ads` | OAuth refresh + `GOOGLE_ADS_DEVELOPER_TOKEN` | Free API, dev-token application |
+| Google Ads | `google-ads` | OAuth refresh + `GOOGLE_ADS_DEVELOPER_TOKEN` (API `v24` default; override with `GOOGLE_ADS_API_VERSION` when Google sunsets it) | Free API, dev-token application |
 | Meta Ads | `meta-ads` | `META_ACCESS_TOKEN` | Free API, app review |
 | LinkedIn Ads | `linkedin-ads` | `LINKEDIN_ACCESS_TOKEN` | **Expensive / gated** |
 | TikTok Ads | `tiktok-ads` | `TIKTOK_ACCESS_TOKEN` | Business API approval |
@@ -175,18 +223,108 @@ paid integrations for organic social. Strategy:
 3. **Avoid** scraping (ToS/brittle/IP-bans) and reseller/aggregator tokens
    (Phyllo/Ayrshare/Metricool) unless you already pay for the tool.
 
-> **Proposed, not yet built:** a `gsheets` connector (`config: { spreadsheetId,
-> tab, range }`) as the universal token-free ingestion path.
+> **Built:** the `gsheets` connector (`config: { spreadsheetId, tab?, range?,
+> label? }`) is the universal token-free ingestion path — see
+> [`lib/connectors/gsheets.ts`](./lib/connectors/gsheets.ts) for the expected
+> sheet shape (row 1 headers; a `date` column makes numeric columns a time
+> series, otherwise rows render as a breakdown table). It reads via the shared
+> Google credential: grant the `spreadsheets.readonly` scope when minting the
+> refresh token, and give the consenting account view access to the sheet.
 
 ### Advanced analytics (BI) — semantic layer
 For **cross-filtering, drill-downs, dynamic calculations, and NLQ** (branded UI,
 no viewer tokens), there's a **boring-semantic-layer + DuckDB** service in
 [`/semantic`](../semantic/README.md). The app queries it server-to-server via
 [`lib/semantic.ts`](./lib/semantic.ts) + the `/api/semantic` proxy
-(`SEMANTIC_API_URL` / `SEMANTIC_API_TOKEN`). Scaffolded + verified with demo
-data; next steps (real per-client extracts, cross-filter UI, Claude-powered NLQ)
-are in the semantic README. **Smart Narratives** already ship in-app
+(`SEMANTIC_API_URL` / `SEMANTIC_API_TOKEN`). **Smart Narratives** ship in-app
 (`lib/narrative.ts`).
+
+The write side is built too: **extractors** for GA4 (`semantic/extract_ga4.py`)
+and Google Ads (`semantic/extract_google_ads.py`) feed an idempotent
+**ingestion pipeline** (`ingest.py` → per-client Parquet lake → `rollups.py`;
+`pipeline.sh` chains extract→ingest→rollups on the VM) — see
+[`semantic/INGESTION.md`](../semantic/INGESTION.md). The lake's daily `ai`
+model also powers the dashboard's **AI Score trend** panel
+([`lib/aiTrend.ts`](./lib/aiTrend.ts)): a weekly client-scoped series rendered
+inside the GA4 section whenever rows exist, silently absent otherwise. For
+exposing the service beyond localhost, use the TLS + token kit in
+[`semantic/README.md` § Hardening](../semantic/README.md#hardening-tls--token--finding-s1).
+
+**Client scoping (server-enforced):** every `/api/semantic` query must name the
+requesting page's `client` slug (validated against `config/clients.ts`), and the
+server force-injects a `client = <slug>` filter — overwriting anything the
+browser sent — before the query reaches the semantic service
+(`runSemanticQuery` in [`lib/semantic.ts`](./lib/semantic.ts); pure policy
+helpers + tests in [`lib/explore.ts`](./lib/explore.ts)). Models without a
+`client` dimension are rejected (400) unless allowlisted in
+`SHARED_SEMANTIC_MODELS` (deny-by-default, currently empty). `GET
+/api/semantic/models` stays unscoped on purpose: it returns schema *names*, not
+client data. So the shared bearer token can never be used to read another
+client's rows, even with a hand-crafted request.
+
+**NLQ — "ask your dashboard" (built, needs `ANTHROPIC_API_KEY`):** the Explore
+page shows an **Ask** box when both the semantic service and `ANTHROPIC_API_KEY`
+are configured (`GET /api/nlq` → `{configured}`). `POST /api/nlq
+{client, question}` has Claude (`claude-sonnet-5`) translate the question into a
+semantic query against the live `/models` schemas, then **strictly validates**
+the result with zod (unknown models/fields rejected — LLM output is never
+trusted), forces the same `client = <slug>` filter as `/api/semantic`, executes
+via `runSemanticQuery`, and returns `{query, result, explanation}`. The UI fills
+the explore controls from the returned query (URL state) and shows the generated
+query for transparency. Fully branded/server-side (Path A): the Anthropic key
+never reaches the browser. Pure translation/validation logic + tests live in
+`app/api/nlq/translate.ts`.
+
+### AI referrals & the AI Score
+Every GA4 dashboard ships, **by default**, with AI-visibility panels — the
+GEO / answer-engine question agencies increasingly field ("how much is AI
+sending us?"). No extra config: it rides on the existing GA4 property.
+
+- **AI-referred sessions** — sessions whose GA4 *session source* is an AI
+  assistant (ChatGPT, Perplexity, Gemini, Copilot, Claude, Grok, DeepSeek,
+  Meta AI, Le Chat, You.com, Poe, Phind). Matched by host token in
+  [`lib/connectors/aiSources.ts`](./lib/connectors/aiSources.ts) — add a source
+  there as new engines appear.
+- **AI-referred pages** — which landing pages those assistants surface, and via
+  which engine.
+- **AI assistants** — the mix of answer engines driving traffic.
+- **AI Score (0–100)** — a transparent composite of five GA4-derived signals:
+
+  | Signal | Weight | Full marks at |
+  | --- | --- | --- |
+  | AI traffic share (AI ÷ all sessions) | 35% | ≥ 3% |
+  | Momentum (vs prior period) | 20% | ≥ +100% |
+  | Engagement quality (AI vs site engagement) | 15% | ≥ 2× site |
+  | Assistant diversity (distinct engines) | 15% | ≥ 5 |
+  | Page coverage (distinct AI-referred pages) | 15% | ≥ 20 |
+
+  Targets/weights are constants (`AI_SCORE_TARGETS`, `AI_SCORE_WEIGHTS`) — tune
+  as the AI-referral baseline shifts. Grades: A+ ≥85, A ≥70, B ≥55, C ≥40, else D.
+
+The AI-referred pulls use a **server-side GA4 source filter** (not client-side
+slicing) so low-volume AI rows are never truncated by a row cap — the counts,
+assistant list and page coverage are accurate.
+
+Search Console's **Keyword breakdown** panel (top queries with clicks, position,
+CTR and impressions) is likewise a default — it lights up once a real Search
+Console site URL + access are in place.
+
+### Crawl errors & backlinks
+- **Crawl errors / index health (Google, existing OAuth).** Every Search
+  Console section adds index-health panels from the **Sitemaps API** — index
+  coverage (indexed ÷ submitted), URLs *not indexed*, sitemap **errors** and
+  **warnings**, and a "sitemaps needing attention" table. No new credential.
+  > Note: Google **retired** the old aggregate Crawl Errors API; the modern API
+  > exposes crawl/index health via sitemaps + per-URL Inspection only. Sitemap
+  > errors/warnings + not-indexed are the honest, available Google signal.
+- **Crawl errors + backlinks (Bing Webmaster, free key).** Google has **no API
+  for backlinks** (the GSC "Links" report is UI-only), so the token-free home
+  for backlinks is **Bing Webmaster Tools** (`BING_WEBMASTER_API_KEY`). The
+  `bing-webmaster` connector adds **Backlinks** (total inbound links + top
+  linked pages via `GetLinkCounts`) and **Crawl errors / pages-in-index** (via
+  `GetCrawlStats`). Attached to **all 9 clients**; each stays demo until the
+  API key is set and that site is verified in Bing.
+  Paid alternatives for richer backlinks: Ahrefs, Majestic, Moz, Semrush.
 
 ### Auth patterns cheat-sheet
 When adding a provider, copy the closest existing one — see the table in
@@ -197,7 +335,10 @@ When adding a provider, copy the closest existing one — see the table in
 ## Keeping this doc updated
 
 Update this file when you:
-- connect a source (flip ⬜→✅ in the status table, note the real config value);
+- connect a source (flip ⬜→✅ in the status table, note the real config value,
+  and clear its "Still needed" cell);
+- add or remove a client, or add a source to one (add/remove its status rows —
+  the table mirrors `config/clients.ts` exactly);
 - change the Google auth method or scopes;
 - add a connector (add a catalog row);
 - make an integration decision worth remembering (add to Recommendations).
@@ -244,7 +385,10 @@ interface Connector<Config> {
 }
 ```
 
-`ctx` gives you `{ range: "7d"|"28d"|"90d", days: number }`.
+`ctx` gives you `{ range, days, start?, end? }` — when `start`/`end` bounds are
+present (custom ranges, comparison windows) a live connector **must** fetch
+exactly that window (`lib/connectors/dates.ts`), falling back to a
+trailing-`days` window only when they're absent.
 
 ### Panels (the only output that matters)
 

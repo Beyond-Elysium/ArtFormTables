@@ -16,10 +16,12 @@ per-channel .query(...).
 
 from __future__ import annotations
 
+import math
 import os
 
 import pandas as pd
 
+from build_blended import source_files
 from models import reload_models
 from seed_blended import PLATFORM_CHANNEL
 
@@ -30,12 +32,24 @@ MEASURES = ["impressions", "clicks", "spend", "conversions", "leads", "revenue",
             "cac", "roas", "ctr", "cpc", "conversion_rate", "cost_per_lead"]
 
 
+def _read_source(name: str, empty_cols: list[str]) -> pd.DataFrame:
+    """Union both lake layouts (demo data/<name>.parquet + per-client
+    data/<client>/<name>.parquet), same as build_blended.source_files."""
+    files = source_files(name)
+    if not files:
+        return pd.DataFrame(columns=empty_cols)
+    return pd.concat([pd.read_parquet(f) for f in files], ignore_index=True)
+
+
 def independent_totals() -> dict[str, float]:
     """Re-join the raw sources in pandas and compute each KPI from scratch."""
-    ad = pd.read_parquet(os.path.join(DATA_DIR, "ad_spend.parquet"))
+    ad = _read_source("ad_spend", ["date", "platform", "campaign",
+                                   "impressions", "clicks", "spend", "conversions"])
+    if ad.empty:
+        raise SystemExit("[verify-blended] no ad_spend data in the lake — nothing to verify")
     ad["channel"] = ad["platform"].map(PLATFORM_CHANNEL)
-    orders = pd.read_parquet(os.path.join(DATA_DIR, "orders.parquet"))
-    ga4 = pd.read_parquet(os.path.join(DATA_DIR, "ga4.parquet"))
+    orders = _read_source("orders", ["date", "channel", "orders", "revenue"])
+    ga4 = _read_source("ga4", ["date", "channel", "users", "sessions", "conversions"])
 
     channels = set(ad["channel"])  # blended universe = paid-media channels
     impressions = ad["impressions"].sum()
@@ -78,7 +92,12 @@ def main() -> None:
     all_ok = True
     for m in MEASURES:
         a, b = float(sem[m]), float(ind[m])
-        ok = abs(a - b) <= 1e-6 * max(1.0, abs(b))
+        # A live lake may lack a source (e.g. no orders): ratio KPIs degrade to
+        # inf/nan on BOTH sides — that's agreement, not a mismatch.
+        if not math.isfinite(a) and not math.isfinite(b):
+            ok = True
+        else:
+            ok = abs(a - b) <= 1e-6 * max(1.0, abs(b))
         all_ok = all_ok and ok
         print(f"{m:<16}{a:>18,.4f}{b:>18,.4f}   {'OK' if ok else 'MISMATCH'}")
     print("-" * 68)

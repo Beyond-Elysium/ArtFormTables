@@ -6,12 +6,23 @@
 import {
   addDays,
   differenceInCalendarDays,
+  endOfMonth,
   format,
   parseISO,
+  startOfMonth,
+  subMonths,
   subYears,
 } from "date-fns";
 
-export type RangePresetId = "7d" | "28d" | "90d" | "6mo" | "12mo" | "custom";
+export type RangePresetId =
+  | "7d"
+  | "28d"
+  | "90d"
+  | "tm"
+  | "lm"
+  | "6mo"
+  | "12mo"
+  | "custom";
 export type CompareMode = "none" | "previous" | "year";
 
 export interface RangePreset {
@@ -25,6 +36,9 @@ export const RANGE_PRESETS: RangePreset[] = [
   { id: "7d", label: "7 days", days: 7 },
   { id: "28d", label: "28 days", days: 28 },
   { id: "90d", label: "90 days", days: 90 },
+  // Calendar-month windows (agency reporting staples) — no fixed day count.
+  { id: "tm", label: "This month" },
+  { id: "lm", label: "Last month" },
   { id: "6mo", label: "6 months", days: 182 },
   { id: "12mo", label: "12 months", days: 365 },
   { id: "custom", label: "Custom" },
@@ -99,7 +113,13 @@ export function resolveRange(params: RangeParams): ResolvedRange {
   let end: string;
 
   const hasCustom = !!params.from && !!params.to && ISO_RE.test(params.from) && ISO_RE.test(params.to);
-  if (preset === "custom" || (hasCustom && !params.range)) {
+  if (preset === "tm" || preset === "lm") {
+    // Calendar-month windows, clamped to today ("This month" is month-to-date).
+    const anchor = preset === "tm" ? parseISO(today) : subMonths(parseISO(today), 1);
+    start = format(startOfMonth(anchor), ISO);
+    end = format(endOfMonth(anchor), ISO);
+    if (end > today) end = today;
+  } else if (preset === "custom" || (hasCustom && !params.range)) {
     if (hasCustom) {
       // Normalize order.
       start = params.from! <= params.to! ? params.from! : params.to!;
@@ -127,9 +147,19 @@ export function resolveRange(params: RangeParams): ResolvedRange {
 
   let compare: Window | undefined;
   if (compareMode === "previous") {
-    const cEnd = shift(start, -1);
-    const cStart = shift(cEnd, -(days - 1));
-    compare = { key: `${cStart}_${cEnd}`, start: cStart, end: cEnd, days };
+    if (preset === "tm" || preset === "lm") {
+      // "Prior period" for a calendar-month window = the previous calendar
+      // month in full (not a same-length day shift).
+      const prev = subMonths(parseISO(start), 1);
+      const cStart = format(startOfMonth(prev), ISO);
+      const cEnd = format(endOfMonth(prev), ISO);
+      const cDays = inclusiveDays(cStart, cEnd);
+      compare = { key: `${cStart}_${cEnd}`, start: cStart, end: cEnd, days: cDays };
+    } else {
+      const cEnd = shift(start, -1);
+      const cStart = shift(cEnd, -(days - 1));
+      compare = { key: `${cStart}_${cEnd}`, start: cStart, end: cEnd, days };
+    }
   } else if (compareMode === "year") {
     // subYears handles leap years correctly (vs a flat -365).
     const cStart = format(subYears(parseISO(start), 1), "yyyy-MM-dd");

@@ -1,13 +1,21 @@
 import {
   IconActivity,
+  IconBug,
   IconChartBar,
   IconClick,
   IconClock,
   IconCurrencyDollar,
   IconEye,
+  IconFiles,
+  IconLink,
+  IconListCheck,
   IconMail,
   IconPercentage,
+  IconPlaylistX,
+  IconRobot,
   IconShoppingCart,
+  IconSparkles,
+  IconTargetArrow,
   IconTicket,
   IconTrendingUp,
   IconUserPlus,
@@ -34,11 +42,45 @@ const ICONS: Record<string, Icon> = {
   click: IconClick,
   trending: IconTrendingUp,
   chart: IconChartBar,
+  sparkles: IconSparkles,
+  robot: IconRobot,
+  link: IconLink,
+  listCheck: IconListCheck,
+  listX: IconPlaylistX, // Tabler has no IconListX; PlaylistX is the closest list-with-x
+  bug: IconBug,
+  files: IconFiles,
+  target: IconTargetArrow,
+};
+
+/**
+ * Exact-label mappings (lowercased) checked before the heuristics — the AI/SEO
+ * and conversion KPIs would otherwise fall through to generic glyphs.
+ */
+const EXACT: Record<string, string> = {
+  "ai score": "sparkles",
+  "ai-referred sessions": "robot",
+  "ai referred sessions": "robot",
+  backlinks: "link",
+  "index coverage": "listCheck",
+  "not indexed": "listX",
+  "crawl errors": "bug",
+  "pages in index": "files",
+  "avg. session duration": "clock",
+  "avg session duration": "clock",
+  conversions: "target",
 };
 
 /** Heuristic: map a metric label to an icon key. */
 function keyForLabel(label: string): string {
-  const l = label.toLowerCase();
+  const l = label.toLowerCase().trim();
+  const exact = EXACT[l];
+  if (exact) return exact;
+  // AI/SEO family fallbacks (label variants like "AI-referred users").
+  if (/(^|\s)ai[- ]/.test(l) || l.startsWith("ai ")) return "sparkles";
+  if (/backlink/.test(l)) return "link";
+  if (/crawl/.test(l)) return "bug";
+  if (/(not indexed|noindex)/.test(l)) return "listX";
+  if (/(index|coverage)/.test(l)) return "listCheck";
   if (/(new|signup|sign-up|registration)/.test(l)) return "userPlus";
   if (/(rate|ctr|%|bounce|conversion|deliverability)/.test(l)) return "percentage";
   if (/(user|visitor|subscriber|follower|audience|member|contact)/.test(l)) return "users";

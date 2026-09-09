@@ -1,6 +1,13 @@
-import type { ConnectorResult, BreakdownPanel } from "@/lib/connectors/types";
+"use client";
+
+import type {
+  ConnectorResult,
+  BreakdownPanel,
+  TimeseriesPanel,
+} from "@/lib/connectors/types";
 import { formatValue } from "@/lib/format";
 import { readableTextColor } from "@/lib/contrast";
+import { breakdownCsv, csvFilename, timeseriesCsv } from "@/lib/csv";
 import { StatCard } from "@/components/StatCard";
 import { TimeseriesChart, DonutChart, BarChart, type Branding } from "@/components/Charts";
 
@@ -12,11 +19,14 @@ export function PanelSection({
   result,
   brand,
   deltaSuffix,
+  windowLabel,
 }: {
   result: ConnectorResult;
   brand: Branding;
   /** Trailing context for KPI deltas, e.g. "vs prior 30d". */
   deltaSuffix?: string;
+  /** Human label for the active date window (used in CSV export filenames). */
+  windowLabel?: string;
 }) {
   const stats = result.panels.filter((p) => p.kind === "stat");
   const rest = result.panels.filter((p) => p.kind !== "stat");
@@ -39,7 +49,7 @@ export function PanelSection({
 
       {result.error && (
         <div className="text-secondary small mb-2">
-          Live fetch unavailable — showing sample data.
+          Sample data shown while this source is being connected.
         </div>
       )}
 
@@ -73,12 +83,23 @@ export function PanelSection({
             if (p.kind === "timeseries") {
               return (
                 <div className="col-lg-8" key={i}>
-                  <div className="card h-100">
-                    <div className="card-header d-block">
-                      <h3 className="card-title mb-0">{p.title}</h3>
-                      {p.subtitle && (
-                        <div className="text-secondary small">{p.subtitle}</div>
-                      )}
+                  <div
+                    className="card h-100"
+                    role="group"
+                    aria-label={timeseriesAriaLabel(p)}
+                  >
+                    <div className="card-header d-flex align-items-start">
+                      <div>
+                        <h3 className="card-title mb-0">{p.title}</h3>
+                        {p.subtitle && (
+                          <div className="text-secondary small">{p.subtitle}</div>
+                        )}
+                      </div>
+                      <CsvButton
+                        panelTitle={p.title}
+                        filename={csvFilename(result.label, p.title, windowLabel)}
+                        buildCsv={() => timeseriesCsv(p.series)}
+                      />
                     </div>
                     <div className="card-body">
                       <TimeseriesChart series={p.series} brand={brand} />
@@ -87,13 +108,28 @@ export function PanelSection({
                 </div>
               );
             }
+            // Tables carry their own semantics; charts get a summary label.
+            const chartLabel = p.display === "table" ? undefined : breakdownAriaLabel(p);
             return (
               <div className="col-lg-4" key={i}>
-                <div className="card h-100">
-                  <div className="card-header d-block">
-                    <h3 className="card-title mb-0">{p.title}</h3>
-                    {p.subtitle && (
-                      <div className="text-secondary small">{p.subtitle}</div>
+                <div
+                  className="card h-100"
+                  role={chartLabel ? "group" : undefined}
+                  aria-label={chartLabel}
+                >
+                  <div className="card-header d-flex align-items-start">
+                    <div>
+                      <h3 className="card-title mb-0">{p.title}</h3>
+                      {p.subtitle && (
+                        <div className="text-secondary small">{p.subtitle}</div>
+                      )}
+                    </div>
+                    {p.display === "table" && (
+                      <CsvButton
+                        panelTitle={p.title}
+                        filename={csvFilename(result.label, p.title, windowLabel)}
+                        buildCsv={() => breakdownCsv(p.rows, p.valueLabel)}
+                      />
                     )}
                   </div>
                   {p.display === "table" ? (
@@ -115,6 +151,61 @@ export function PanelSection({
       )}
     </section>
   );
+}
+
+/**
+ * Small ghost "CSV" button in a panel card header: serializes the panel's data
+ * client-side (no server round-trip) and triggers a download. Hidden in print
+ * mode so it never appears in PDF reports.
+ */
+function CsvButton({
+  panelTitle,
+  filename,
+  buildCsv,
+}: {
+  panelTitle: string;
+  filename: string;
+  buildCsv: () => string;
+}) {
+  return (
+    <button
+      type="button"
+      className="btn btn-sm btn-ghost-secondary ms-auto d-print-none"
+      title="Download as CSV"
+      aria-label={`Download ${panelTitle} as CSV`}
+      onClick={() => downloadCsv(filename, buildCsv())}
+    >
+      CSV
+    </button>
+  );
+}
+
+/** Trigger a browser download of `csv` under `filename`. */
+function downloadCsv(filename: string, csv: string) {
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+/** Screen-reader summary for a timeseries chart card: title, series, points. */
+function timeseriesAriaLabel(p: TimeseriesPanel): string {
+  const names = p.series.map((s) => s.name).join(", ");
+  const points = p.series[0]?.points.length ?? 0;
+  return `${p.title}. Line chart of ${names} over ${points} data points.`;
+}
+
+/** Screen-reader summary for a bar/donut chart card: title, kind, item count. */
+function breakdownAriaLabel(p: BreakdownPanel): string {
+  const kind = p.display === "bar" ? "Bar" : "Donut";
+  const top = p.rows[0];
+  const topText = top ? ` Largest: ${top.label}.` : "";
+  return `${p.title}. ${kind} chart of ${p.rows.length} items.${topText}`;
 }
 
 function BreakdownTable({ panel }: { panel: BreakdownPanel }) {

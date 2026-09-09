@@ -4,6 +4,7 @@ import { IconChartHistogram } from "@tabler/icons-react";
 import { createSearchParamsCache } from "nuqs/server";
 import { getClientBySlug } from "@/config/clients";
 import { fetchClientData } from "@/lib/connectors";
+import { fetchAiTrendPanel } from "@/lib/aiTrend";
 import { resolveRange, formatWindow } from "@/lib/range";
 import { dashboardParsers } from "@/lib/searchParams";
 import { readableTextColor } from "@/lib/contrast";
@@ -23,8 +24,24 @@ export async function generateMetadata({
   params: { client: string };
 }): Promise<Metadata> {
   const client = getClientBySlug(params.client);
+  if (!client) return { title: "Dashboard not found" };
+  const title = `${client.name} · Performance`;
+  const description = "Performance dashboard · ArtForm";
   return {
-    title: client ? `${client.name} · Performance` : "Dashboard not found",
+    title,
+    description,
+    // Public-by-URL by design, but never search-indexable.
+    robots: { index: false, follow: false },
+    // Social unfurls carry only the client name — never metrics or data.
+    // No OG image on purpose: an image would need to be text-free to avoid
+    // leaking client data, and a link without one unfurls cleanly.
+    openGraph: {
+      title,
+      description,
+      siteName: "ArtForm Dashboards",
+      type: "website",
+    },
+    twitter: { card: "summary", title, description },
   };
 }
 
@@ -51,6 +68,8 @@ export default async function ClientDashboard({
   });
   // Print mode (used by the PDF renderer): show every source, hide UI chrome.
   const printMode = searchParams.print === "1" || searchParams.print === "true";
+  // Internal mode (?internal=1): reveal dev hints that clients must never see.
+  const internalMode = searchParams.internal === "1";
 
   // Build a report link that carries the currently-viewed range/comparison.
   const reportParams = new URLSearchParams();
@@ -62,6 +81,13 @@ export default async function ClientDashboard({
   const reportHref = `/api/report/${client.slug}${reportQs ? `?${reportQs}` : ""}`;
 
   const results = await fetchClientData(client, resolved);
+  // AI Score trend from the semantic lake (weekly, client-scoped): shown inside
+  // the GA4 section when the `ai` model has rows; silently absent otherwise.
+  const aiTrend = await fetchAiTrendPanel(client.slug, resolved.window).catch(() => null);
+  if (aiTrend) {
+    const ga4 = results.find((r) => r.sourceId.startsWith("ga4"));
+    (ga4 ?? results[0])?.panels.push(aiTrend);
+  }
   const brand = { ...DEFAULT_BRAND, ...client.brand };
   const anyMock = results.some((r) => r.isMock);
 
@@ -73,10 +99,16 @@ export default async function ClientDashboard({
       ? "vs prior year"
       : `vs prior ${resolved.window.days}d`;
   const narrative = buildNarrative(results, deltaSuffix);
-  const updated = new Date().toLocaleString("en-US", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
+  // Always label the refresh time explicitly as UTC (the server's timezone) so
+  // it never reads as a wrong local time. e.g. "Jul 19, 14:05 UTC".
+  const updated = `${new Date().toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "UTC",
+  })} UTC`;
 
   return (
     <div
@@ -160,9 +192,17 @@ export default async function ClientDashboard({
 
             {anyMock && (
               <div className="alert mock-banner mb-3" role="alert">
-                <strong>Demo data.</strong> One or more sources have no live
-                credentials configured — showing deterministic sample metrics. See{" "}
-                <code>app/README.md</code> to connect live data.
+                <strong>Sample data.</strong> Some of these metrics are
+                illustrative — shown while the source is being connected.
+                {internalMode && (
+                  <>
+                    {" "}
+                    <span className="text-secondary">
+                      (internal: missing live credentials — see{" "}
+                      <code>app/README.md</code>)
+                    </span>
+                  </>
+                )}
               </div>
             )}
 
@@ -170,6 +210,8 @@ export default async function ClientDashboard({
               results={results}
               brand={brand}
               deltaSuffix={deltaSuffix}
+              windowLabel={windowLabel}
+              views={client.views}
               showAll={printMode}
             />
 
