@@ -17,7 +17,8 @@
     "db:migrate": "prisma migrate dev",
     "db:validate": "prisma validate",
     "db:format": "prisma format",
-    "db:seed": "tsx scripts/seed-benchmarks.ts"
+    "db:seed": "tsx scripts/seed-benchmarks.ts",
+    "db:seed:demo": "tsx scripts/seed-demo.ts"
   },
   "dependencies": {
     "@artform/suite-ui": "workspace:*",

@@ -85,6 +85,51 @@ Import (both are now real, DB-backed pages) or PDF export. Stripe helpers
 no-op with a logged warning when unset, so billing can stay unconfigured
 until you're ready to test checkout.
 
+### See it as a demo
+
+A fresh database is empty — no scenarios, no campaign data, no benchmarks —
+so clicking through the wizard and importing a CSV by hand isn't a great way
+to show this off. `db:seed:demo` self-populates the app with realistic,
+clearly-fictional demo content in one command. Minimal path to a working
+click-through demo:
+
+1. Set up Clerk and a free Supabase/Neon Postgres database — see the Clerk
+   and `DATABASE_URL` rows in the table above.
+2. Create the tables:
+   ```sh
+   pnpm --filter @artform/arvo db:migrate
+   ```
+3. Run the app (`pnpm --filter @artform/arvo dev`) and sign up once through
+   `/sign-up` to create a real Clerk user — then grab that user's id, either
+   from the Clerk dashboard's **Users** list (click the user → copy the ID
+   at the top, `user_...`) or by logging `(await auth()).userId` from any
+   server component/route while signed in.
+4. Seed the demo data as that user:
+   ```sh
+   DEMO_USER_ID=user_xxx pnpm --filter @artform/arvo db:seed:demo
+   ```
+5. Refresh `/scenarios` (signed in as that same Clerk user). You'll see 5
+   scenarios spanning DoD/Civilian/SLED/IC sectors and every objective —
+   4 active, 1 archived (to show off the archive/filter UI) — each with
+   real Platform Scores, an Influence Score, and a Budget Allocation
+   produced by actually running `lib/scenario-engine.ts`, not hand-typed
+   numbers. Three of them have flight actuals recorded, so their Flight
+   Performance Tracker and Benchmark Gauges render immediately — with a
+   deliberate mix of green (over-performing) and red/yellow
+   (under-performing) results, not an all-green demo. `/campaign-data` has
+   18 imported-looking rows across 7 platforms and 5 sectors.
+
+Re-running `db:seed:demo` is safe — it upserts the same demo rows instead of
+duplicating them, so it's fine to run again after a schema change or to
+reassign the demo data to a different `DEMO_USER_ID`.
+
+**`prisma/seed-data/sample-benchmarks.csv` is illustrative, made-up sample
+data for this demo** — plausible GovCon marketing p25/p50/p75 numbers
+invented for this purpose, not ArtForm's real proprietary benchmark data
+(which, per the product spec, ArtForm provides separately before a real
+launch — see "To apply the database schema" below for pointing `db:seed` at
+that real export instead, and `prisma/README.md` for the CSV's columns).
+
 **To test Stripe webhooks locally**, install the [Stripe CLI](https://stripe.com/docs/stripe-cli)
 and run:
 
