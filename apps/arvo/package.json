@@ -1,0 +1,48 @@
+{
+  "name": "@artform/arvo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Arvo — GovCon campaign-benchmarking SaaS.",
+  "scripts": {
+    "dev": "next dev --port 3100",
+    "prebuild": "pnpm --filter @tabler/core run css",
+    "build": "next build",
+    "start": "next start --port 3100",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "clean": "shx rm -rf .next",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:validate": "prisma validate",
+    "db:format": "prisma format",
+    "db:seed": "tsx scripts/seed-benchmarks.ts"
+  },
+  "dependencies": {
+    "@artform/suite-ui": "workspace:*",
+    "@clerk/nextjs": "^6.39.6",
+    "@prisma/client": "6.19.3",
+    "@sparticuz/chromium": "^149.0.0",
+    "@tabler/core": "workspace:*",
+    "@tabler/icons-react": "^3.44.0",
+    "next": "14.2.15",
+    "papaparse": "^5.7.0",
+    "playwright-core": "^1.61.1",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "stripe": "^17.4.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/papaparse": "^5.5.2",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "prisma": "6.19.3",
+    "shx": "^0.4.0",
+    "tsx": "^4.23.13",
+    "typescript": "^5.5.0",
+    "vitest": "^4.1.9"
+  }
+}
