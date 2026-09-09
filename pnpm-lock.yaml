@@ -190,6 +190,9 @@ importers:
       '@prisma/client':
         specifier: 6.19.3
         version: 6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3)
+      '@sparticuz/chromium':
+        specifier: ^149.0.0
+        version: 149.0.0
       '@tabler/core':
         specifier: workspace:*
         version: link:../../core
@@ -202,6 +205,9 @@ importers:
       papaparse:
         specifier: ^5.7.0
         version: 5.7.0
+      playwright-core:
+        specifier: ^1.61.1
+        version: 1.61.1
       react:
         specifier: 18.3.1
         version: 18.3.1
