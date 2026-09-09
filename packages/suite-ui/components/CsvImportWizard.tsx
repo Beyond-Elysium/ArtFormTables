@@ -10,9 +10,9 @@ const STEPS: { key: Step; label: string }[] = [
   { key: "preview", label: "Preview & Confirm" },
 ];
 
-// Placeholder split — good enough for the mapping UI. Real CSV parsing
-// (quoted fields, escapes) is wired up by the consuming product with
-// Papa Parse before rows reach onComplete in production flows.
+// Fallback split for consumers that don't supply `parseFile` — no quoted-
+// field/escape handling. Products that need that (comma-in-value fields
+// etc.) pass a real parser (e.g. Papa Parse) via the `parseFile` prop.
 function naiveParse(text: string): { headers: string[]; rows: string[][] } {
   const lines = text.split(/\r?\n/).filter((l) => l.length > 0);
   const [headerLine, ...rest] = lines;
@@ -21,37 +21,52 @@ function naiveParse(text: string): { headers: string[]; rows: string[][] } {
   return { headers, rows };
 }
 
+function defaultParse(file: File): Promise<{ headers: string[]; rows: string[][] }> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(naiveParse(String(reader.result ?? "")));
+    reader.onerror = () => reject(reader.error ?? new Error("Could not read file"));
+    reader.readAsText(file);
+  });
+}
+
 export function CsvImportWizard({
   expectedColumns,
   onComplete,
+  parseFile,
 }: {
   expectedColumns: string[];
   onComplete: (rows: Record<string, string>[]) => void;
+  /** Override how a File is turned into headers/rows, e.g. with Papa Parse. */
+  parseFile?: (file: File) => Promise<{ headers: string[]; rows: string[][] }>;
 }) {
   const [step, setStep] = useState<Step>("upload");
   const [fileName, setFileName] = useState<string | null>(null);
   const [headers, setHeaders] = useState<string[]>([]);
   const [rawRows, setRawRows] = useState<string[][]>([]);
   const [mapping, setMapping] = useState<Record<string, string>>({});
+  const [parseError, setParseError] = useState<string | null>(null);
 
   const stepIndex = STEPS.findIndex((s) => s.key === step);
 
   function handleFile(file: File) {
     setFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = () => {
-      const { headers: parsedHeaders, rows } = naiveParse(String(reader.result ?? ""));
-      setHeaders(parsedHeaders);
-      setRawRows(rows);
-      const guessed: Record<string, string> = {};
-      for (const col of expectedColumns) {
-        const match = parsedHeaders.find((h) => h.toLowerCase() === col.toLowerCase());
-        if (match) guessed[col] = match;
-      }
-      setMapping(guessed);
-      setStep("map");
-    };
-    reader.readAsText(file);
+    setParseError(null);
+    (parseFile ?? defaultParse)(file)
+      .then(({ headers: parsedHeaders, rows }) => {
+        setHeaders(parsedHeaders);
+        setRawRows(rows);
+        const guessed: Record<string, string> = {};
+        for (const col of expectedColumns) {
+          const match = parsedHeaders.find((h) => h.toLowerCase() === col.toLowerCase());
+          if (match) guessed[col] = match;
+        }
+        setMapping(guessed);
+        setStep("map");
+      })
+      .catch((err) => {
+        setParseError(err instanceof Error ? err.message : "Could not parse file");
+      });
   }
 
   const mappedRows = useMemo(() => {
@@ -97,6 +112,11 @@ export function CsvImportWizard({
               }}
             />
             {fileName && <div className="text-secondary small mt-2">Selected: {fileName}</div>}
+            {parseError && (
+              <div className="alert alert-danger mt-2" role="alert">
+                {parseError}
+              </div>
+            )}
           </div>
         )}
 
