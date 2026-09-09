@@ -147,6 +147,26 @@ pnpm --filter @artform/arvo db:migrate   # creates the tables
 pnpm --filter @artform/arvo db:seed path/to/benchmarks.csv   # ArtForm-provided p25/p50/p75 data
 ```
 
+## Deploying to Vercel
+
+Arvo is its own Vercel project, separate from the main ArtForm Dashboards
+project and separate from Vantage — same pattern as `app/`'s own deploy (see
+`app/DEPLOY.md`).
+
+1. **Import this repo** into Vercel as a new project.
+2. **Root Directory:** set to `apps/arvo`. (`apps/arvo/vercel.json` pins the
+   framework/build/install commands; `postinstall` runs `prisma generate`
+   automatically, which Vercel's build otherwise skips.)
+3. **Environment variables:** add every row from the table above (Clerk,
+   `DATABASE_URL`, Stripe, etc.) in the Vercel project's settings.
+4. **Domain:** add a domain or use the `*.vercel.app` one Vercel assigns —
+   either way, note the resulting URL.
+5. Deploy.
+6. **Wire it into the Suite card:** in the separate **ArtForm Dashboards**
+   Vercel project (rooted at `app/`), set `ARVO_APP_URL` to the URL from step
+   4, and redeploy that project. The Suite card on `/artform` will then link
+   to the real deployment instead of `http://localhost:3100`.
+
 See `prisma/README.md` for the seed CSV's expected columns.
 
 ### Running the tests

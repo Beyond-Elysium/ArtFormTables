@@ -108,4 +108,23 @@ pnpm --filter @artform/vantage build
 pnpm --filter @artform/vantage db:migrate
 ```
 
+## Deploying to Vercel
+
+Same pattern as Arvo and the main ArtForm Dashboards project — its own
+separate Vercel project, not a path under another one.
+
+1. **Import this repo** into Vercel as a new project.
+2. **Root Directory:** set to `apps/vantage`. (`apps/vantage/vercel.json`
+   pins the framework/build/install commands and registers the daily
+   `/api/cron/sync` cron job; `postinstall` runs `prisma generate`
+   automatically.)
+3. **Environment variables:** add every row from the table above (Clerk,
+   `DATABASE_URL`, `SAM_GOV_API_KEY`, `CRON_SECRET`, etc.).
+4. **Domain:** add a domain or use the `*.vercel.app` one Vercel assigns —
+   note the resulting URL.
+5. Deploy.
+6. **Wire it into the Suite card:** in the **ArtForm Dashboards** Vercel
+   project (rooted at `app/`), set `VANTAGE_APP_URL` to the URL from step 4,
+   and redeploy that project.
+
 See `prisma/README.md` for details.

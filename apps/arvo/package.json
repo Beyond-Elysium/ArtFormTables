@@ -13,6 +13,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "clean": "shx rm -rf .next",
+    "postinstall": "prisma generate",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:validate": "prisma validate",
