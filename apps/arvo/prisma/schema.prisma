@@ -1,0 +1,205 @@
+// Arvo — GovCon campaign-benchmarking SaaS
+//
+// This is the first database in the ArtForm monorepo (the existing `app/`
+// product is config-file based — see app/config/clients.ts). No prior
+// SQL/migration convention exists to inherit, so this schema follows
+// Prisma's standard, well-lit path: camelCase field names in generated
+// client code, mapped to snake_case columns/tables via @map/@@map.
+//
+// Auth/users and workspaces are NOT modeled here — Clerk owns user identity
+// and workspace membership lives outside this pass. `userId`/`workspaceId`
+// below are plain indexed String columns (Clerk ids are not necessarily
+// uuids), with no FK constraint.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- Enums --------------------------------------------------------------
+
+/// Shared between Scenario.objective and BenchmarkRollup.objective so a
+/// scenario's objective always lines up with the benchmark slice it scores
+/// against.
+enum CampaignObjective {
+  awareness
+  consideration
+  lead_generation
+  recruitment
+
+  @@map("campaign_objective")
+}
+
+/// Shared between Scenario.sector and BenchmarkRollup.sector, same reasoning
+/// as CampaignObjective above.
+enum GovconSector {
+  dod
+  ic
+  civilian
+  sled
+  higher_ed
+
+  @@map("govcon_sector")
+}
+
+enum ScenarioStatus {
+  active
+  archived
+
+  @@map("scenario_status")
+}
+
+enum BenchmarkMetric {
+  ctr
+  cpl
+  cpm
+  conversion_rate
+
+  @@map("benchmark_metric")
+}
+
+// --- Models ---------------------------------------------------------------
+
+/// A saved media-plan scenario: the inputs a planner chose (objective,
+/// sector, personas, budget, flight dates, platform constraints) plus the
+/// computed outputs (scores, allocations) and, once flighted, the actuals.
+model Scenario {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// Clerk user id. No `users` table exists in this database — Clerk is the
+  /// source of truth for identity — so this is a plain indexed string, not
+  /// a foreign key.
+  userId String @map("user_id")
+
+  /// Workspace/org id. Workspaces aren't modeled in this pass either, so
+  /// same treatment as userId: indexed, no FK.
+  workspaceId String @map("workspace_id")
+
+  name String
+
+  objective CampaignObjective
+  sector    GovconSector
+
+  /// Target job titles, e.g. ["Program Manager", "Contracting Officer"].
+  personas String[]
+
+  /// Total planned budget.
+  budget Decimal @db.Decimal(14, 2)
+
+  flightStart DateTime @map("flight_start") @db.Date
+  flightEnd   DateTime @map("flight_end") @db.Date
+
+  excludedPlatforms String[] @map("excluded_platforms")
+  requiredPlatforms String[] @map("required_platforms")
+
+  /// Platform -> score (0-100).
+  platformScores Json @map("platform_scores")
+
+  /// Overall influence score (0-100).
+  influenceScore Float @map("influence_score")
+
+  /// Breakdown of how the influence score was derived (per-factor detail).
+  influenceBreakdown Json @map("influence_breakdown")
+
+  /// Recommended/chosen spend split, keyed by platform.
+  budgetAllocations Json @map("budget_allocations")
+
+  /// Actuals recorded once the flight has run (impressions/clicks/spend by
+  /// platform, etc.) — shaped freely since this evolves with reporting needs.
+  flightActuals Json @map("flight_actuals")
+
+  status ScenarioStatus @default(active)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([userId])
+  @@index([workspaceId])
+  @@map("scenarios")
+}
+
+/// A single imported campaign's performance row (one platform export line),
+/// used both to power reporting and to roll up into BenchmarkRollup.
+model CampaignData {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// Clerk user id — see Scenario.userId for why this isn't a FK.
+  userId String @map("user_id")
+
+  /// Workspace/org id — see Scenario.workspaceId.
+  workspaceId String @map("workspace_id")
+
+  platform     String
+  campaignName String @map("campaign_name")
+
+  startDate DateTime @map("start_date") @db.Date
+  endDate   DateTime @map("end_date") @db.Date
+
+  impressions Int
+  clicks      Int
+  conversions Int
+  spend       Decimal @db.Decimal(14, 2)
+
+  /// Computed at write time by app code (not DB-generated columns).
+  ctr Float
+  cpl Float
+  cpm Float
+
+  /// Freeform (not the enum) — imported rows may carry values outside the
+  /// scenario enums (e.g. a platform's own campaign taxonomy), so these stay
+  /// plain strings rather than CampaignObjective/GovconSector.
+  sector    String
+  objective String
+
+  importedAt DateTime @default(now()) @map("imported_at") @db.Timestamptz
+
+  @@index([userId])
+  @@index([workspaceId])
+  @@index([platform])
+  @@map("campaign_data")
+}
+
+/// Percentile benchmarks per platform/sector/objective/metric/period,
+/// refreshed by scripts/seed-benchmarks.ts. The compound unique constraint
+/// below is the natural upsert key.
+model BenchmarkRollup {
+  id String @id @default(uuid()) @db.Uuid
+
+  platform  String
+  sector    GovconSector
+  objective CampaignObjective
+  metric    BenchmarkMetric
+
+  p25 Float
+  p50 Float
+  p75 Float
+
+  sampleSize Int    @map("sample_size")
+  /// Free-text period label, e.g. "Q2 2026".
+  period     String
+
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([platform, sector, objective, metric, period])
+  @@map("benchmark_rollups")
+}
+
+/// Singleton-ish config row(s) letting ArtForm admins tune how the
+/// influence score blends its four factors. Weights are expected to sum to
+/// 1.0; that isn't enforced at the DB level, only by app-side validation.
+model ScoringWeightsConfig {
+  id String @id @default(uuid()) @db.Uuid
+
+  audienceFitWeight        Float @default(0.30) @map("audience_fit_weight")
+  benchmarkPositionWeight  Float @default(0.30) @map("benchmark_position_weight")
+  costEfficiencyWeight     Float @default(0.20) @map("cost_efficiency_weight")
+  objectiveAlignmentWeight Float @default(0.20) @map("objective_alignment_weight")
+
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("scoring_weights_config")
+}
