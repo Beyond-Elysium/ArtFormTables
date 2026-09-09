@@ -90,13 +90,18 @@ model Opportunity {
 
   title     String
   agency    String
-  subAgency String @map("sub_agency")
+  /// Nullable: SAM.gov's `subTier` field is frequently absent on the feed.
+  subAgency String? @map("sub_agency")
 
-  naicsCode       String @map("naics_code")
-  contractVehicle String @map("contract_vehicle")
+  /// Nullable: SAM.gov's NAICS field is sometimes absent on the feed.
+  naicsCode String? @map("naics_code")
+  /// Nullable: the SAM.gov Opportunities feed doesn't carry contract-vehicle
+  /// data — this is filled in by a user after reviewing the solicitation.
+  contractVehicle String? @map("contract_vehicle")
 
-  estimatedValueMin Decimal @map("estimated_value_min") @db.Decimal(14, 2)
-  estimatedValueMax Decimal @map("estimated_value_max") @db.Decimal(14, 2)
+  /// Nullable, same reason as contractVehicle — not in the SAM.gov feed.
+  estimatedValueMin Decimal? @map("estimated_value_min") @db.Decimal(14, 2)
+  estimatedValueMax Decimal? @map("estimated_value_max") @db.Decimal(14, 2)
 
   solicitationType SolicitationType  @map("solicitation_type")
   status           OpportunityStatus @default(tracking)
@@ -219,21 +224,27 @@ model Alert {
 model CompetitorActivity {
   id String @id @default(uuid()) @db.Uuid
 
+  /// USASpending's own award id. Paired with workspaceId as the natural key
+  /// the daily sync upserts on, so re-running an overlapping date window
+  /// never duplicates a row.
+  awardId String @map("award_id")
+
   workspaceId String @map("workspace_id")
 
   competitorName String @map("competitor_name")
   agency         String
 
-  awardAmount Decimal  @map("award_amount") @db.Decimal(14, 2)
-  awardDate   DateTime @map("award_date") @db.Date
+  /// Nullable: USASpending occasionally omits amount/date on partial records.
+  awardAmount Decimal?  @map("award_amount") @db.Decimal(14, 2)
+  awardDate   DateTime? @map("award_date") @db.Date
 
-  contractDescription String  @map("contract_description") @db.Text
-  naicsCode           String  @map("naics_code")
+  contractDescription String? @map("contract_description") @db.Text
+  naicsCode           String? @map("naics_code")
   fpdsUrl             String? @map("fpds_url")
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  @@index([workspaceId])
+  @@unique([workspaceId, awardId])
   @@index([competitorName])
   @@map("competitor_activity")
 }
