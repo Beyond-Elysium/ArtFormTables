@@ -9,8 +9,10 @@ Built on the ArtForm-branded [`@tabler/core`](../core) design system + Next.js.
 
 > **Just want to use it?** → [DEPLOY.md](./DEPLOY.md) — run it, configure a
 > client, connect real data, and ship it on one domain.
-> **Adding a client?** → [ONBOARDING.md](./ONBOARDING.md) — the end-to-end
-> checklist (registry → grants → env → semantic sync → verify).
+> **Adding a client?** → [ONBOARDING.md](./ONBOARDING.md) — the SOP, plus the
+> full list of available connectors.
+> **Editing an existing client?** → [config/EDITING.md](./config/EDITING.md) —
+> every field, and what each connector takes in `config`.
 > **Connections, auth, provider catalog & recommendations?** →
 > [CONNECTORS.md](./CONNECTORS.md) (the hub; authoring a new provider is a
 > section there, alongside [`lib/connectors/TEMPLATE.ts`](./lib/connectors/TEMPLATE.ts)).
@@ -32,9 +34,9 @@ interface Connector<Config> {
 ```
 
 A connector's only job is to turn its own API response into normalized
-**panels** — `stat` (KPI card), `timeseries` (chart), or `breakdown`
-(donut / bar / table). The dashboard renders panels generically, so **adding a
-new provider never touches the UI**.
+**panels** — `stat` (KPI card), `timeseries` (chart), `breakdown`
+(donut / bar / table), or `map` (choropleth, world or US states). The dashboard
+renders panels generically, so **adding a new provider never touches the UI**.
 
 ```
 lib/connectors/
@@ -44,6 +46,7 @@ lib/connectors/
   mock.ts           ← deterministic demo-data helpers
   ga4.ts            ← Google Analytics 4    (service account)
   searchConsole.ts  ← Google Search Console (service account)
+  gsheets.ts        ← Google Sheets         (shared Google auth, universal ingestion)
   googleAds.ts      ← Google Ads            (OAuth + developer token)
   bingWebmaster.ts  ← Bing Webmaster Tools  (API key)
   metaAds.ts        ← Meta Ads (FB/IG)      (access token)
@@ -76,9 +79,12 @@ lib/connectors/
   amplitude.ts      ← Amplitude             (HTTP Basic)
   activecampaign.ts ← ActiveCampaign        (Api-Token)
   airtable.ts       ← Airtable              (bearer)
+  microsoftAds.ts   ← Microsoft Advertising (OAuth + developer token, SOAP reporting)
+  nocodb.ts         ← NocoDB                (bearer, open-source Airtable alternative)
+  pagespeed.ts      ← PageSpeed Insights    (API key, Lighthouse scores + Core Web Vitals)
 ```
 
-All thirty-four ship with a live REST path **and** a deterministic mock
+All thirty-eight ship with a live REST path **and** a deterministic mock
 fallback, so the dashboard renders fully with no credentials and each source
 flips to live the moment its credentials + config are present. Categories span
 Analytics, Search, Advertising, Email, E-commerce, Payments, Video, CRM,
@@ -179,6 +185,9 @@ Set credentials per provider (see `.env.example`):
 | Amplitude | API key + secret (Basic) | `AMPLITUDE_API_KEY`, `AMPLITUDE_SECRET_KEY` |
 | ActiveCampaign | Api-Token | `ACTIVECAMPAIGN_API_URL`, `ACTIVECAMPAIGN_API_TOKEN` |
 | Airtable | Access token | `AIRTABLE_API_KEY`, `baseId`/`tableName` in config |
+| Microsoft Advertising | OAuth2 + developer token | `MICROSOFT_ADS_*`, `accountId` in config |
+| NocoDB | Personal API token | `NOCODB_API_TOKEN`, `NOCODB_BASE_URL`, `tableId` in config |
+| PageSpeed Insights | API key (free) | `PAGESPEED_API_KEY`, `url` in config |
 
 GA4 and Search Console share one Google service account: enable the
 **Google Analytics Data API** and **Search Console API** in the GCP project,

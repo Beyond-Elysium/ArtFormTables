@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filterForView, matchesView } from "./views";
+import { filterForView, groupViews, matchesView } from "./views";
 
 const sources = [
   { sourceId: "ga4-0", type: "ga4", label: "Main" },
@@ -53,5 +53,45 @@ describe("filterForView", () => {
     const visible = filterForView(sources, view);
     expect(visible).toHaveLength(1);
     expect(visible[0].label).toBe("CISR/IRI");
+  });
+});
+
+describe("groupViews", () => {
+  it("buckets views with no group as ungrouped, in original order", () => {
+    const views = [
+      { name: "CISR/IRI", types: ["ga4"] },
+      { name: "Other", types: ["ga4"] },
+    ];
+    const { groups, ungrouped } = groupViews(views);
+    expect(groups).toEqual([]);
+    expect(ungrouped.map((v) => v.name)).toEqual(["CISR/IRI", "Other"]);
+  });
+
+  it("buckets same-group views together in first-seen group order", () => {
+    const views = [
+      { name: "CCC", types: ["ga4"], group: "Programs" },
+      { name: "Solo", types: ["ga4"] },
+      { name: "Census", types: ["ga4"], group: "Programs" },
+      { name: "Defense", types: ["ga4"], group: "Programs" },
+    ];
+    const { groups, ungrouped } = groupViews(views);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].name).toBe("Programs");
+    expect(groups[0].views.map((v) => v.name)).toEqual(["CCC", "Census", "Defense"]);
+    expect(ungrouped.map((v) => v.name)).toEqual(["Solo"]);
+  });
+
+  it("preserves multiple distinct groups in first-seen order", () => {
+    const views = [
+      { name: "A", types: ["ga4"], group: "Beta" },
+      { name: "B", types: ["ga4"], group: "Alpha" },
+      { name: "C", types: ["ga4"], group: "Beta" },
+    ];
+    const { groups } = groupViews(views);
+    expect(groups.map((g) => g.name)).toEqual(["Beta", "Alpha"]);
+  });
+
+  it("returns no groups for an empty view list", () => {
+    expect(groupViews([])).toEqual({ groups: [], ungrouped: [] });
   });
 });

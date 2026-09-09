@@ -50,6 +50,9 @@ import { zoomConnector } from "./zoom";
 import { amplitudeConnector } from "./amplitude";
 import { activeCampaignConnector } from "./activecampaign";
 import { airtableConnector } from "./airtable";
+import { microsoftAdsConnector } from "./microsoftAds";
+import { nocodbConnector } from "./nocodb";
+import { pagespeedConnector } from "./pagespeed";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const connectors: Record<string, Connector<any>> = {
@@ -88,6 +91,9 @@ export const connectors: Record<string, Connector<any>> = {
   [amplitudeConnector.type]: amplitudeConnector,
   [activeCampaignConnector.type]: activeCampaignConnector,
   [airtableConnector.type]: airtableConnector,
+  [microsoftAdsConnector.type]: microsoftAdsConnector,
+  [nocodbConnector.type]: nocodbConnector,
+  [pagespeedConnector.type]: pagespeedConnector,
 };
 
 export function connectorFor(type: string): Connector | undefined {

@@ -43,11 +43,20 @@ supports two methods — **OAuth is preferred when present**.
 in Playground, gear → "Use your own OAuth credentials" (paste id/secret) → enter
 both scopes → Authorize → Exchange for tokens → copy the refresh token.
 
-Scopes (grant **both** so Search Console works too):
+Scopes — grant **all four in one consent**. The refresh token carries only the
+scopes granted at the moment it was minted, so a token created for one service
+leaves the others silently on demo data; adding a scope later means re-minting:
 ```
-https://www.googleapis.com/auth/analytics.readonly
-https://www.googleapis.com/auth/webmasters.readonly
+https://www.googleapis.com/auth/analytics.readonly     (GA4)
+https://www.googleapis.com/auth/webmasters.readonly    (Search Console)
+https://www.googleapis.com/auth/spreadsheets.readonly  (Google Sheets)
+https://www.googleapis.com/auth/adwords                (Google Ads)
 ```
+
+> Google Ads reuses these same `GOOGLE_OAUTH_*` credentials (see
+> `googleAds.ts` — the `GOOGLE_ADS_CLIENT_ID`/`_SECRET`/`_OAUTH_REFRESH_TOKEN`
+> vars are optional overrides for using a *different* client). It still needs
+> its own `GOOGLE_ADS_DEVELOPER_TOKEN` on top of the `adwords` scope.
 
 > ⚠️ Set the OAuth **consent screen to "In production"** — in "Testing" the
 > refresh token expires after 7 days and sources silently fall back to demo.
@@ -146,6 +155,7 @@ live. "Cost/access" flags the ones with friction.
 | Google Analytics 4 | `ga4` | Google OAuth / service acct | **Free** |
 | Search Console | `search-console` | Google OAuth / service acct | **Free** |
 | Google Sheets | `gsheets` | Google OAuth / service acct (`spreadsheets.readonly` scope) | **Free** — universal token-free ingestion |
+| PageSpeed Insights | `pagespeed` | `PAGESPEED_API_KEY` | **Free** — no OAuth, no site verification; ~10–30s per run |
 | Plausible | `plausible` | `PLAUSIBLE_API_KEY` | Paid / self-host |
 | Matomo | `matomo` | `MATOMO_TOKEN` (+ base url) | Free (self-host) |
 
@@ -155,6 +165,7 @@ live. "Cost/access" flags the ones with friction.
 | Google Ads | `google-ads` | OAuth refresh + `GOOGLE_ADS_DEVELOPER_TOKEN` (API `v24` default; override with `GOOGLE_ADS_API_VERSION` when Google sunsets it) | Free API, dev-token application |
 | Meta Ads | `meta-ads` | `META_ACCESS_TOKEN` | Free API, app review |
 | LinkedIn Ads | `linkedin-ads` | `LINKEDIN_ACCESS_TOKEN` | **Expensive / gated** |
+| Microsoft Advertising | `microsoft-ads` | OAuth refresh + `MICROSOFT_ADS_DEVELOPER_TOKEN` | **Gated** — developer token application against an account with ad-spend history |
 | TikTok Ads | `tiktok-ads` | `TIKTOK_ACCESS_TOKEN` | Business API approval |
 | Pinterest Ads | `pinterest-ads` | `PINTEREST_ACCESS_TOKEN` | Free API, app review |
 | Snapchat Ads | `snapchat-ads` | `SNAPCHAT_ACCESS_TOKEN` | Free API, app review |
@@ -195,6 +206,7 @@ live. "Cost/access" flags the ones with friction.
 | Zoom | `zoom` | `ZOOM_ACCOUNT_ID` / `_CLIENT_ID` / `_CLIENT_SECRET` |
 | Twilio | `twilio` | `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` |
 | Airtable | `airtable` | `AIRTABLE_API_KEY` |
+| NocoDB | `nocodb` | `NOCODB_API_TOKEN` (+ `NOCODB_BASE_URL`) — open-source, self-hosted Airtable alternative |
 | Typeform | `typeform` | `TYPEFORM_ACCESS_TOKEN` |
 | YouTube | `youtube` | `YOUTUBE_API_KEY` — **Free** |
 | Bing Webmaster | `bing-webmaster` | `BING_WEBMASTER_API_KEY` |
@@ -325,6 +337,18 @@ Console site URL + access are in place.
   `GetCrawlStats`). Attached to **all 9 clients**; each stays demo until the
   API key is set and that site is verified in Bing.
   Paid alternatives for richer backlinks: Ahrefs, Majestic, Moz, Semrush.
+- **Technical SEO / page speed (PageSpeed Insights, free key).** The
+  `pagespeed` connector covers the health side that Search Console and Bing
+  don't: Lighthouse **Performance / SEO / Accessibility / Best-practices**
+  scores, **Core Web Vitals** (real-user CrUX data when the URL has enough
+  traffic, lab audits otherwise), and the ranked **opportunities** worth
+  fixing. No OAuth and no per-site verification — it measures any public URL.
+  > Two caveats: it is **point-in-time** (Lighthouse measures the page now, so
+  > there's no history and no period-over-period delta — persisting scores
+  > into the semantic layer is what would make it a trend), and a run takes
+  > **~10–30s**, so a cold load of a client carrying it is bounded by that.
+  > It's wired to `artform` only for now; copy the source line to other
+  > clients once that trade is agreed.
 
 ### Auth patterns cheat-sheet
 When adding a provider, copy the closest existing one — see the table in
@@ -401,7 +425,17 @@ trailing-`days` window only when they're absent.
 
 // Ranked list. display: donut | bar | table
 { kind: "breakdown", title, display, rows: [{ label, value, sublabel? }], valueFormat? }
+
+// Choropleth map. scope: "world" (ISO 3166-1 alpha-2 codes: US, GB)
+//                      | "us"   (ISO 3166-2 codes: US-VA, US-CA)
+{ kind: "map", title, scope, rows: [{ code, label, value }], valueLabel?, valueFormat? }
 ```
+
+A map's `rows[].code` **must** use its scope's code space, or the region simply
+won't shade. GA4's `countryId` dimension already returns alpha-2; its `region`
+dimension returns state *names*, so `lib/connectors/geo.ts` maps those to
+`US-XX`. Colour/bucketing lives in `components/mapScale.ts` — jsvectormap has
+no continuous scale, so values are bucketed into named ordinal steps.
 
 - `percent` expects a **0..1 ratio** (it multiplies by 100).
 - `invertDelta: true` makes an increase render red (use for cost, errors, avg

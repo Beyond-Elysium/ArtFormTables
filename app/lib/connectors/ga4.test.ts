@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { aiPanels, conversionPanels, ga4Connector } from "./ga4";
+import { aiPanels, conversionPanels, ga4Connector, geoPanels } from "./ga4";
 import { computeAiScore } from "./aiSources";
-import type { BreakdownPanel, TimeseriesPanel } from "./types";
+import type { BreakdownPanel, MapPanel, TimeseriesPanel } from "./types";
 
 // With no Google credentials present the connector serves mock data; assert the
 // default AI insight panels ride along so every GA4 dashboard shows them.
@@ -130,5 +130,126 @@ describe("aiPanels empty state", () => {
     }
     // No empty pages/assistants breakdowns ride along.
     expect(panels.some((p) => p.kind === "breakdown")).toBe(false);
+  });
+});
+
+describe("ga4 pagePathPrefix scoping", () => {
+  it("renders the full panel set when scoped to a page path", async () => {
+    const res = await ga4Connector.fetch(
+      { propertyId: "302350399", pagePathPrefix: "/federal-government/civilian/census-support-services", aiInsights: false },
+      { range: "28d", days: 28 },
+    );
+    expect(res.isMock).toBe(true);
+    const statLabels = res.panels.filter((p) => p.kind === "stat").map((p) => p.label);
+    expect(statLabels).toContain("Users");
+    expect(statLabels).toContain("Sessions");
+  });
+
+  it("different pagePathPrefix values produce different mock demo data (distinct tabs, not duplicates)", async () => {
+    const a = await ga4Connector.fetch(
+      { propertyId: "302350399", pagePathPrefix: "/federal-government/fed-defense", aiInsights: false },
+      { range: "28d", days: 28 },
+    );
+    const b = await ga4Connector.fetch(
+      { propertyId: "302350399", pagePathPrefix: "/federal-government/civilian/federal-financial", aiInsights: false },
+      { range: "28d", days: 28 },
+    );
+    const usersA = a.panels.find((p) => p.kind === "stat" && p.label === "Users");
+    const usersB = b.panels.find((p) => p.kind === "stat" && p.label === "Users");
+    expect(usersA?.kind).toBe("stat");
+    expect(usersB?.kind).toBe("stat");
+    if (usersA?.kind === "stat" && usersB?.kind === "stat") {
+      expect(usersA.value).not.toBe(usersB.value);
+    }
+  });
+
+  it("scopes by pageTitleContains when no URL path is known, and it differs from the unscoped default", async () => {
+    const scoped = await ga4Connector.fetch(
+      { propertyId: "302350399", pageTitleContains: "Omnichannel Contact Center", aiInsights: false },
+      { range: "28d", days: 28 },
+    );
+    const unscoped = await ga4Connector.fetch({ propertyId: "302350399", aiInsights: false }, { range: "28d", days: 28 });
+    expect(scoped.isMock).toBe(true);
+    const usersScoped = scoped.panels.find((p) => p.kind === "stat" && p.label === "Users");
+    const usersUnscoped = unscoped.panels.find((p) => p.kind === "stat" && p.label === "Users");
+    if (usersScoped?.kind === "stat" && usersUnscoped?.kind === "stat") {
+      expect(usersScoped.value).not.toBe(usersUnscoped.value);
+    }
+  });
+
+  it("pagePathPrefix and pageTitleContains combine (and each alone still works)", async () => {
+    const both = await ga4Connector.fetch(
+      { propertyId: "302350399", pagePathPrefix: "/services", pageTitleContains: "Contact Center", aiInsights: false },
+      { range: "28d", days: 28 },
+    );
+    const pathOnly = await ga4Connector.fetch(
+      { propertyId: "302350399", pagePathPrefix: "/services", aiInsights: false },
+      { range: "28d", days: 28 },
+    );
+    expect(both.isMock).toBe(true);
+    const usersBoth = both.panels.find((p) => p.kind === "stat" && p.label === "Users");
+    const usersPathOnly = pathOnly.panels.find((p) => p.kind === "stat" && p.label === "Users");
+    if (usersBoth?.kind === "stat" && usersPathOnly?.kind === "stat") {
+      expect(usersBoth.value).not.toBe(usersPathOnly.value);
+    }
+  });
+});
+
+describe("ga4 geography", () => {
+  const mapOf = (panels: { kind: string }[]) =>
+    panels.find((p) => p.kind === "map") as MapPanel | undefined;
+
+  it("mock output includes a world map by default", async () => {
+    const res = await ga4Connector.fetch({ propertyId: "310586485" }, { range: "28d", days: 28 });
+    const map = mapOf(res.panels);
+    expect(map).toBeTruthy();
+    expect(map!.scope).toBe("world");
+    expect(map!.title).toBe("Sessions by country");
+    // World rows must key on ISO 3166-1 alpha-2 — the world map's code space.
+    expect(map!.rows.every((r) => /^[A-Z]{2}$/.test(r.code))).toBe(true);
+  });
+
+  it("geoScope 'us' produces a state map with ISO 3166-2 codes", async () => {
+    const res = await ga4Connector.fetch(
+      { propertyId: "302350399", geoScope: "us" },
+      { range: "28d", days: 28 },
+    );
+    const map = mapOf(res.panels);
+    expect(map).toBeTruthy();
+    expect(map!.scope).toBe("us");
+    expect(map!.title).toBe("Sessions by state");
+    expect(map!.rows.every((r) => /^US-[A-Z]{2}$/.test(r.code))).toBe(true);
+  });
+
+  it("geoScope 'none' omits the map", async () => {
+    const res = await ga4Connector.fetch(
+      { propertyId: "310586485", geoScope: "none" },
+      { range: "28d", days: 28 },
+    );
+    expect(mapOf(res.panels)).toBeUndefined();
+  });
+
+  // The campaign-scoped sources set aiInsights:false; the map must survive
+  // that early return, since those views are exactly where geography is read.
+  it("still emits the map when the AI block is switched off", async () => {
+    const res = await ga4Connector.fetch(
+      { propertyId: "302350399", geoScope: "us", aiInsights: false },
+      { range: "28d", days: 28 },
+    );
+    expect(mapOf(res.panels)).toBeTruthy();
+    expect(res.panels.some((p) => p.kind === "stat" && p.label === "AI Score")).toBe(false);
+  });
+
+  it("geoPanels returns nothing rather than an empty map", () => {
+    expect(geoPanels([], "world")).toEqual([]);
+  });
+
+  it("geoPanels carries a formatted value label for the legend", () => {
+    const [panel] = geoPanels([{ code: "US", label: "United States", value: 10 }], "us");
+    expect(panel.kind).toBe("map");
+    if (panel.kind === "map") {
+      expect(panel.valueLabel).toBe("Sessions");
+      expect(panel.valueFormat).toBe("compact");
+    }
   });
 });
