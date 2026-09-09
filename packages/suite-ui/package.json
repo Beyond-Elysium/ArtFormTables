@@ -1,0 +1,28 @@
+{
+  "name": "@artform/suite-ui",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared Tabler-based visual layer for the ArtForm Intelligence Suite products (Arvo, Vantage, Orbit, Pulse)",
+  "main": "index.ts",
+  "types": "index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "apexcharts": "^4.3.0",
+    "react-apexcharts": "1.7.0"
+  },
+  "peerDependencies": {
+    "@tabler/core": "workspace:*",
+    "next": "^14.2.15",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "next": "14.2.15",
+    "typescript": "^5.5.0"
+  }
+}
