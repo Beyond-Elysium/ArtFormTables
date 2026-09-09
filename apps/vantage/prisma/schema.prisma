@@ -9,6 +9,11 @@
 
 generator client {
   provider = "prisma-client-js"
+  // Arvo and Vantage pin the identical @prisma/client version, so pnpm
+  // hoists both to the same node_modules location — without a distinct
+  // output path here, generating one app's client silently overwrites the
+  // other's types. A per-app output avoids that collision entirely.
+  output   = "../generated/prisma-client"
 }
 
 datasource db {

@@ -27,7 +27,7 @@ import {
   GovconSector,
   CampaignObjective,
   BenchmarkMetric,
-} from "@prisma/client";
+} from "@/generated/prisma-client";
 
 // Mirrors BenchmarkRollup's fields. Enum values are validated against the
 // same enums Prisma generates from schema.prisma, so this can't drift out of
