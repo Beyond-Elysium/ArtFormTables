@@ -13,6 +13,16 @@ export default function ScenarioResultsPage({
       <PageHeader
         title="Scenario Results"
         subtitle={`Scenario ${params.id}`}
+        action={
+          <a
+            href={`/api/report/${params.id}`}
+            className="btn btn-primary"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Download PDF
+          </a>
+        }
       />
       <div className="card">
         <div className="card-body">
