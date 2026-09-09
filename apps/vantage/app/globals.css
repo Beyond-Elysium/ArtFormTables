@@ -1,0 +1,23 @@
+/* App-level tweaks on top of the branded @tabler/core + @artform/suite-ui design system. */
+
+:root {
+  --tblr-font-sans-serif: "DM Sans", system-ui, -apple-system, "Segoe UI", Roboto,
+    sans-serif;
+}
+
+body {
+  background: var(--tblr-body-bg, #f6f7f9);
+  font-family: "DM Sans", var(--tblr-font-sans-serif);
+}
+
+.page-title,
+.h1,
+.h2,
+.h3,
+h1,
+h2,
+h3 {
+  font-family: "Barlow Condensed", var(--tblr-font-sans-serif);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
