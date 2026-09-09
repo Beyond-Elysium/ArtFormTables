@@ -21,10 +21,14 @@ system via the shared [`@artform/suite-ui`](../../packages/suite-ui) package
 | Auth (Clerk) | Wired |
 | Database (Prisma schema + seed script) | Wired, no live DB yet |
 | Billing (Stripe tiers/checkout/webhook) | Wired, no live Stripe account yet |
-| Scoring engines (Platform Score, Influence Score, budget allocation) | Not started |
-| Scenario wizard + saved/compare/archive (CRUD) | Not started (stub UI only) |
-| CSV import → database | Not started (wizard UI only, no persistence) |
-| PDF report export | Not started |
+| Scoring engines (Platform Score, Influence Score, budget allocation, benchmark comparison) | Done — pure functions, 28 unit tests, `lib/scoring/` |
+| CSV import → database | Done — real parsing, validation, bulk insert, live Campaign Data table |
+| PDF report export | Done — `/api/report/[id]`, not yet runtime-tested against real Chromium |
+| Scenario wizard + saved/compare/archive (CRUD) | Not started — the scoring engines and PDF export above are built but nothing calls them yet; `/scenarios/new` is still a static stub |
+
+Everything marked "Done" type-checks (`pnpm --filter @artform/arvo typecheck`)
+and, where applicable, passes its tests (`pnpm --filter @artform/arvo test`)
+and a real `next build`.
 
 ## Routes
 
@@ -66,11 +70,13 @@ starting point — it has the exact variable names).
 | `STRIPE_WEBHOOK_SECRET` | Let Stripe tell Arvo when a subscription changes | Only exists once you register a webhook endpoint — see below. |
 | `STRIPE_PRICE_ID_PRACTITIONER` / `_TEAM` / `_AGENCY` | Know which Stripe Price to check out for each tier | [dashboard.stripe.com](https://dashboard.stripe.com) → **Product catalog** → create 3 recurring monthly products ($299 / $599 / $1,499, matching `lib/billing/tiers.ts`) → copy each one's Price ID (starts `price_...`). |
 | `NEXT_PUBLIC_APP_URL` | Build correct redirect URLs after checkout | Already defaults to `http://localhost:3100` in `.env.example` — only change it for a deployed environment. |
+| `CHROMIUM_EXECUTABLE_PATH` | Render PDF reports (`/api/report/[id]`) when running locally | Optional. Point it at a local Chromium/Chrome binary path. Leave unset on Vercel — it falls back automatically to the bundled `@sparticuz/chromium`. |
 
-**Minimum to run the app at all:** just the two Clerk keys. Everything else
-degrades gracefully (Stripe helpers no-op with a logged warning when unset;
-DB-backed pages will start failing once that work lands, but nothing crashes
-at build time).
+**Minimum to run the app and click through every page:** just the two Clerk
+keys. `DATABASE_URL` is required the moment you touch Campaign Data or
+Import (both are now real, DB-backed pages) or PDF export. Stripe helpers
+no-op with a logged warning when unset, so billing can stay unconfigured
+until you're ready to test checkout.
 
 **To test Stripe webhooks locally**, install the [Stripe CLI](https://stripe.com/docs/stripe-cli)
 and run:
@@ -90,3 +96,12 @@ pnpm --filter @artform/arvo db:seed path/to/benchmarks.csv   # ArtForm-provided 
 ```
 
 See `prisma/README.md` for the seed CSV's expected columns.
+
+### Running the tests
+
+The scoring engines (`lib/scoring/`) are pure functions with no external
+dependencies — their tests run without any of the keys above:
+
+```sh
+pnpm --filter @artform/arvo test
+```
