@@ -1,0 +1,31 @@
+{
+  "name": "@artform/arvo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Arvo — GovCon campaign-benchmarking SaaS.",
+  "scripts": {
+    "dev": "next dev --port 3100",
+    "prebuild": "pnpm --filter @tabler/core run css",
+    "build": "next build",
+    "start": "next start --port 3100",
+    "lint": "next lint",
+    "clean": "shx rm -rf .next"
+  },
+  "dependencies": {
+    "@artform/suite-ui": "workspace:*",
+    "@clerk/nextjs": "^6.39.6",
+    "@tabler/core": "workspace:*",
+    "@tabler/icons-react": "^3.44.0",
+    "next": "14.2.15",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "shx": "^0.4.0",
+    "typescript": "^5.5.0"
+  }
+}
