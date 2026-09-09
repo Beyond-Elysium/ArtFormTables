@@ -9,6 +9,24 @@ const nextConfig = {
   // ESLint toolchain isn't wired up for this package yet; type-checking still runs.
   eslint: { ignoreDuringBuilds: true },
 
+  // Dashboards are unlisted-URL public: never indexable, and sensible security
+  // headers everywhere. The PDF renderer (headless Chromium loading ?print=1
+  // pages same-origin, top-level) is unaffected by any of these — X-Frame-Options
+  // only restricts framing, and robots headers don't apply to direct loads.
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Robots-Tag", value: "noindex, nofollow" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+        ],
+      },
+    ];
+  },
+
   experimental: {
     // Server-only packages that must never be bundled (native/dynamic requires).
     serverComponentsExternalPackages: [

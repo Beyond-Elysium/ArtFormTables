@@ -1,0 +1,48 @@
+{
+  "dimensionHeaders": [
+    { "name": "date" },
+    { "name": "sessionDefaultChannelGroup" }
+  ],
+  "metricHeaders": [
+    { "name": "sessions", "type": "TYPE_INTEGER" },
+    { "name": "totalUsers", "type": "TYPE_INTEGER" },
+    { "name": "screenPageViews", "type": "TYPE_INTEGER" },
+    { "name": "keyEvents", "type": "TYPE_INTEGER" },
+    { "name": "engagementRate", "type": "TYPE_FLOAT" }
+  ],
+  "rows": [
+    {
+      "dimensionValues": [{ "value": "20260701" }, { "value": "Organic Search" }],
+      "metricValues": [
+        { "value": "120" },
+        { "value": "95" },
+        { "value": "340" },
+        { "value": "6" },
+        { "value": "0.55" }
+      ]
+    },
+    {
+      "dimensionValues": [{ "value": "20260701" }, { "value": "Direct" }],
+      "metricValues": [
+        { "value": "80" },
+        { "value": "70" },
+        { "value": "150" },
+        { "value": "2" },
+        { "value": "0.4125" }
+      ]
+    },
+    {
+      "dimensionValues": [{ "value": "20260702" }, { "value": "Organic Search" }],
+      "metricValues": [
+        { "value": "130" },
+        { "value": "101" },
+        { "value": "355" },
+        { "value": "7" },
+        { "value": "0.6" }
+      ]
+    }
+  ],
+  "rowCount": 3,
+  "metadata": { "currencyCode": "USD", "timeZone": "America/New_York" },
+  "kind": "analyticsData#runReport"
+}

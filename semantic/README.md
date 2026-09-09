@@ -39,6 +39,10 @@ SEMANTIC_API_URL=http://localhost:8899
 SEMANTIC_API_TOKEN=dev
 ```
 
+The app binds to `SEMANTIC_BIND_HOST` (default `127.0.0.1`) when started as
+`python app.py`; in production it stays on localhost behind a TLS proxy — see
+**Hardening** below. Starting it bound to anything else prints a loud warning.
+
 ## API
 
 | Route | Purpose |
@@ -100,6 +104,109 @@ Runs anywhere that hosts a container (Fly.io, Render, Railway, Cloud Run, a VM) 
 **not** Vercel serverless (DuckDB needs a persistent process). Then set
 `SEMANTIC_API_URL` + `SEMANTIC_API_TOKEN` in the Next project env. A `Dockerfile`
 is included.
+
+## Hardening (TLS + token) — finding S1
+
+The access model is **TLS + bearer token**: Caddy terminates HTTPS with
+automatic certificates and proxies to the app on localhost; the token is the
+only credential, and it only ever travels encrypted. (An IP allowlist is *not*
+part of the model — Vercel egress IPs aren't fixed — so the token must be
+treated as the sole secret and rotated when exposed.)
+
+```
+internet ──HTTPS──▶ Caddy :443 (auto-TLS) ──HTTP──▶ app :8899 (127.0.0.1 only)
+```
+
+### 1. DNS
+
+Create an **A record** pointing the service hostname at the VM:
+
+```
+semantic.artformagency.com.   A   <VM public IP>
+```
+
+### 2. Install Caddy on the VM (Debian/Ubuntu)
+
+```sh
+sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https curl
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' \
+  | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' \
+  | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+sudo apt update && sudo apt install -y caddy      # installs + enables caddy.service
+```
+
+Deploy the config (from this repo's `semantic/Caddyfile`):
+
+```sh
+sudo cp Caddyfile /etc/caddy/Caddyfile
+sudo caddy validate --config /etc/caddy/Caddyfile
+sudo systemctl reload caddy
+```
+
+Open ports 80 + 443 in the VM's firewall / cloud security group (80 is needed
+for the ACME challenge), and **close 8899 to the outside** — the app now binds
+localhost, but defense-in-depth is free.
+
+### 3. Bind the app to localhost
+
+Run the service with the default `SEMANTIC_BIND_HOST=127.0.0.1` (e.g.
+`python app.py`, or `uvicorn app:app --host 127.0.0.1 --port 8899`). A systemd
+unit for the app looks like:
+
+```ini
+# /etc/systemd/system/semantic.service
+[Unit]
+Description=ArtForm semantic layer
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/artform/semantic
+Environment=SEMANTIC_API_TOKEN=<token>
+Environment=SEMANTIC_BIND_HOST=127.0.0.1
+ExecStart=/opt/artform/semantic/.venv/bin/python app.py
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```sh
+sudo systemctl daemon-reload && sudo systemctl enable --now semantic
+```
+
+### 4. Verify
+
+```sh
+curl https://semantic.artformagency.com/health          # TLS + liveness
+curl -s -o /dev/null -w '%{http_code}\n' \
+  -X POST https://semantic.artformagency.com/query      # 401 (auth enforced)
+```
+
+Then set the Vercel env `SEMANTIC_API_URL=https://semantic.artformagency.com`.
+
+### Token rotation (zero-downtime order of operations)
+
+Rotate whenever the token may have been exposed (it was once shared in chat —
+rotate it as part of this hardening). The safe order exploits the fact that a
+brief token mismatch only degrades the app to its fallback views, never breaks
+it:
+
+1. **Generate** a new token (on any machine):
+   ```sh
+   openssl rand -hex 32
+   ```
+2. **VM first**: update `SEMANTIC_API_TOKEN` in the service env
+   (`/etc/systemd/system/semantic.service` or the env file), then
+   `sudo systemctl daemon-reload && sudo systemctl restart semantic`.
+3. **Vercel second**: update the `SEMANTIC_API_TOKEN` env var in the Next
+   project and redeploy (env changes need a redeploy to take effect).
+4. **Verify** end-to-end: load a dashboard's Explore page, or
+   `curl -H "Authorization: Bearer <new>" https://semantic.artformagency.com/health`.
+
+Between steps 2 and 3 the app's semantic queries return 401 and the UI
+degrades gracefully; there is no window where the old token still works
+against the service.
 
 ## Roadmap
 

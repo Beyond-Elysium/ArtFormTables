@@ -1,0 +1,182 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ArtForm client registry",
+  "description": "Which client dashboards exist and what data feeds them. Generated from config/clients.ts — edit the zod schema there, then run `pnpm schema`.",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "slug": {
+        "type": "string",
+        "pattern": "^[a-z0-9-]+$",
+        "description": "URL for this dashboard: \"maximus\" serves /maximus. Changing it breaks existing links."
+      },
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Display name in the dashboard header."
+      },
+      "sources": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Which connector feeds this section, e.g. \"ga4\", \"search-console\", \"linkedin-ads\".",
+              "enum": [
+                "activecampaign",
+                "airtable",
+                "amplitude",
+                "bing-webmaster",
+                "calendly",
+                "cloudflare",
+                "ga4",
+                "github",
+                "google-ads",
+                "gsheets",
+                "hubspot",
+                "intercom",
+                "klaviyo",
+                "linear",
+                "linkedin-ads",
+                "mailchimp",
+                "matomo",
+                "meta-ads",
+                "microsoft-ads",
+                "nocodb",
+                "pagespeed",
+                "paypal",
+                "pinterest-ads",
+                "plausible",
+                "posthog",
+                "search-console",
+                "sendgrid",
+                "sentry",
+                "shopify",
+                "snapchat-ads",
+                "square",
+                "stripe",
+                "tiktok-ads",
+                "twilio",
+                "typeform",
+                "youtube",
+                "zendesk",
+                "zoom"
+              ]
+            },
+            "id": {
+              "type": "string",
+              "pattern": "^[a-z0-9-]+$"
+            },
+            "label": {
+              "description": "Overrides the section heading, e.g. \"Census — Web\".",
+              "type": "string"
+            },
+            "config": {
+              "default": {},
+              "description": "Connector-specific settings. GA4: propertyId, pagePathPrefix, pageTitleContains, geoScope, aiInsights. Search Console/Bing: siteUrl. Google Ads: customerId, campaignNameFilter, hideSpend. LinkedIn: accountId, campaignIds, hideSpend. Microsoft Ads: accountId, campaignFilter, hideSpend. PageSpeed: url, strategy. NocoDB: tableId. HubSpot: tokenEnv.",
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {}
+            },
+            "notes": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
+      },
+      "brand": {
+        "type": "object",
+        "properties": {
+          "primary": {
+            "description": "Primary action colour (#rrggbb). Buttons, links, active tabs. Defaults to ArtForm blue.",
+            "type": "string",
+            "pattern": "^#[0-9a-fA-F]{6}$"
+          },
+          "accent": {
+            "description": "Accent colour (#rrggbb). Charts and highlights. Defaults to ArtForm pink.",
+            "type": "string",
+            "pattern": "^#[0-9a-fA-F]{6}$"
+          },
+          "logo": {
+            "description": "Logo image URL shown in the navbar. Falls back to the client name.",
+            "type": "string",
+            "format": "uri"
+          }
+        }
+      },
+      "views": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Tab label, e.g. \"Census\"."
+            },
+            "sourceIds": {
+              "description": "Source ids this tab shows. Must match a source's id, or its positional <type>-<index> fallback.",
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "types": {
+              "description": "Include every source of these connector types, e.g. [\"ga4\"].",
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "group": {
+              "description": "Views sharing a group collapse into one dropdown tab, e.g. \"Programs\".",
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "name"
+          ]
+        }
+      },
+      "report": {
+        "type": "object",
+        "properties": {
+          "recipients": {
+            "default": [],
+            "description": "Who receives the weekly PDF report.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "email",
+              "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+            }
+          },
+          "enabled": {
+            "default": false,
+            "description": "Include this client in the scheduled report cron.",
+            "type": "boolean"
+          }
+        }
+      },
+      "notes": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "slug",
+      "name",
+      "sources"
+    ]
+  }
+}

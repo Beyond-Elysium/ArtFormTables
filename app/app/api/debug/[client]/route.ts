@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getClientBySlug } from "@/config/clients";
-import { fetchClientData } from "@/lib/connectors";
+import { fetchClientDataUncached } from "@/lib/connectors";
 import { resolveRange } from "@/lib/range";
 import {
   googleAuthMethod,
@@ -45,7 +45,9 @@ export async function GET(req: NextRequest, { params }: { params: { client: stri
     }
   }
 
-  const results = await fetchClientData(client, resolveRange({}));
+  // Uncached on purpose: diagnostics must show the real provider state, not a
+  // (up to 1h stale) cached window.
+  const results = await fetchClientDataUncached(client, resolveRange({}));
   const sources = results.map((r) => ({
     sourceId: r.sourceId,
     label: r.label,

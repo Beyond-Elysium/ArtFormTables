@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { clients } from "@/config/clients";
 import { connectorFor } from "@/lib/connectors";
@@ -5,12 +6,64 @@ import { connectorFor } from "@/lib/connectors";
 const DEFAULT_ACCENT = "#426fb6";
 const HEADER_BG = "#333333";
 
+// The root page never belongs in a search index either way.
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
+
 /**
- * Root landing page — the client index. Each client dashboard lives at /<slug>.
- * Styled to match the dashboard design system (dark header, square cards,
- * ArtForm palette).
+ * Root landing page.
+ *
+ * Privacy mode (default): the full client index is a public directory of the
+ * agency's roster, so it renders only when explicitly enabled — either
+ * LANDING_INDEX=true in the environment (internal/preview deployments) or a
+ * one-off ?token=<CRON_SECRET> URL. Everyone else sees a minimal branded
+ * splash with no client list.
  */
-export default function Home() {
+export default function Home({
+  searchParams = {},
+}: {
+  searchParams?: Record<string, string | string[] | undefined>;
+}) {
+  const envEnabled = process.env.LANDING_INDEX === "true";
+  const secret = process.env.CRON_SECRET;
+  const tokenEnabled = Boolean(
+    secret && typeof searchParams.token === "string" && searchParams.token === secret,
+  );
+  if (!envEnabled && !tokenEnabled) return <Splash />;
+  return <ClientIndex />;
+}
+
+/** Minimal branded splash — no client roster, nothing to enumerate. */
+function Splash() {
+  return (
+    <div
+      className="page page-center"
+      style={{ background: HEADER_BG, minHeight: "100vh" }}
+    >
+      <div className="container container-tight py-4 text-center">
+        <div
+          className="af-header-title"
+          style={{ fontSize: "2.5rem", display: "inline-block" }}
+        >
+          ArtForm
+        </div>
+        <div
+          style={{
+            width: 72,
+            height: 4,
+            background: "#e41679",
+            margin: "0.75rem auto 1rem",
+          }}
+        />
+        <p className="af-header-sub mb-0">Dashboards · Powered by ArtForm</p>
+      </div>
+    </div>
+  );
+}
+
+/** The internal client index (previous root page). */
+function ClientIndex() {
   return (
     <div className="page">
       <header

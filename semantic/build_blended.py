@@ -25,6 +25,7 @@ ad_spend is the base (defines the paid-media universe); orders + ga4 LEFT JOIN i
 
 from __future__ import annotations
 
+import glob
 import os
 
 import duckdb
@@ -40,11 +41,41 @@ def _platform_map_values() -> str:
     return ", ".join(f"('{p}', '{c}')" for p, c in PLATFORM_CHANNEL.items())
 
 
+def source_files(name: str) -> list[str]:
+    """Both lake layouts: legacy/demo data/<name>.parquet + per-client
+    data/<client>/<name>.parquet (what the live extractors write)."""
+    return sorted(
+        glob.glob(os.path.join(DATA_DIR, f"{name}.parquet"))
+        + glob.glob(os.path.join(DATA_DIR, "*", f"{name}.parquet"))
+    )
+
+
+def _read(files: list[str]) -> str:
+    # union_by_name: per-client files carry a `client` column, demo files don't.
+    lst = ", ".join("'" + f.replace("'", "''") + "'" for f in files)
+    return f"read_parquet([{lst}], union_by_name=true)"
+
+
+# Zero-row fallbacks so the blend still builds when a source has no data yet
+# (e.g. a live lake with ad spend + GA4 but no orders source).
+_EMPTY_ORDERS = ("SELECT '' AS date, '' AS channel, 0 AS orders, 0.0 AS revenue WHERE 1 = 0")
+_EMPTY_GA4 = ("SELECT '' AS date, '' AS channel, 0 AS users, 0 AS sessions, 0 AS conversions WHERE 1 = 0")
+
+
 def build() -> None:
-    ad = os.path.join(DATA_DIR, "ad_spend.parquet")
-    orders = os.path.join(DATA_DIR, "orders.parquet")
-    ga4 = os.path.join(DATA_DIR, "ga4.parquet")
+    ad_files = source_files("ad_spend")
+    orders_files = source_files("orders")
+    ga4_files = source_files("ga4")
     out = os.path.join(DATA_DIR, "blended.parquet")
+
+    if not ad_files:
+        # ad_spend defines the paid-media universe; without it there is nothing
+        # to blend. Exit 0 so pipeline.sh stays green before Ads access lands.
+        print("[blended] no ad_spend data in the lake — skipping blended build")
+        return
+
+    orders_src = _read(orders_files) if orders_files else f"({_EMPTY_ORDERS})"
+    ga4_src = _read(ga4_files) if ga4_files else f"({_EMPTY_GA4})"
 
     con = duckdb.connect()
     sql = f"""
@@ -56,7 +87,7 @@ def build() -> None:
                SUM(a.clicks)      AS clicks,
                SUM(a.spend)       AS spend,
                SUM(a.conversions) AS conversions
-        FROM read_parquet('{ad}') a
+        FROM {_read(ad_files)} a
         JOIN plat_map m USING (platform)
         GROUP BY 1, 2
       ),
@@ -64,7 +95,7 @@ def build() -> None:
         SELECT date, channel,
                SUM(orders)  AS orders,
                SUM(revenue) AS revenue
-        FROM read_parquet('{orders}')
+        FROM {orders_src}
         GROUP BY 1, 2
       ),
       ga AS (
@@ -72,7 +103,7 @@ def build() -> None:
                SUM(users)       AS users,
                SUM(sessions)    AS sessions,
                SUM(conversions) AS leads
-        FROM read_parquet('{ga4}')
+        FROM {ga4_src}
         GROUP BY 1, 2
       )
       SELECT ad.date, ad.channel,
