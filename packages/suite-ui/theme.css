@@ -1,0 +1,15 @@
+/*
+ * @artform/suite-ui theme
+ *
+ * Placeholder scaffold. This package is being built out in parallel in a
+ * separate worktree — this stub exists only so `apps/arvo` (and future
+ * standalone products) have a real `@artform/suite-ui/theme.css` import to
+ * point at while that work lands. Replace/merge with the real theme when the
+ * suite-ui package is ready.
+ */
+
+:root {
+  --arvo-navy: #0b1f3a;
+  --arvo-signal: #ff5a1f;
+  --arvo-slate: #4b5768;
+}
