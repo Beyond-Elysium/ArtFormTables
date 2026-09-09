@@ -4,7 +4,7 @@
 // influence_breakdown. Pure function over plain inputs so it's testable
 // without a DB — app/api/scenarios/route.ts does the fetching/writing.
 
-import type { BenchmarkMetric, CampaignObjective, GovconSector } from "@prisma/client";
+import type { BenchmarkMetric, CampaignObjective, GovconSector } from "@/generated/prisma-client";
 import {
   calculatePlatformScore,
   allocateBudget,

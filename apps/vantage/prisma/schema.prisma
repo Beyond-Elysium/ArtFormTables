@@ -1,0 +1,255 @@
+// Vantage — GovCon market-intelligence SaaS
+//
+// Same conventions as apps/arvo/prisma/schema.prisma: camelCase field names
+// in generated client code, mapped to snake_case columns/tables via
+// @map/@@map. Clerk owns user identity and workspace membership lives
+// outside this pass, so `workspaceId` below is a plain indexed String
+// column (Clerk/workspace ids are not necessarily uuids), with no FK
+// constraint to a `users` table.
+
+generator client {
+  provider = "prisma-client-js"
+  // Arvo and Vantage pin the identical @prisma/client version, so pnpm
+  // hoists both to the same node_modules location — without a distinct
+  // output path here, generating one app's client silently overwrites the
+  // other's types. A per-app output avoids that collision entirely.
+  output   = "../generated/prisma-client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- Enums --------------------------------------------------------------
+
+/// The source spec truncated this list after "solicitation, a..." — the
+/// four values it implies (through award_notice) plus the rest of
+/// SAM.gov's real `type` field values, per the sync job's own mapping
+/// table (apps/vantage/lib/sync/sam-gov.ts) built against SAM.gov's
+/// documented API response. `other` is the sync job's fallback for any
+/// value not in this list, so it never fails to import an opportunity
+/// over an unrecognized type.
+enum SolicitationType {
+  pre_solicitation
+  sources_sought
+  solicitation
+  award_notice
+  combined_synopsis_solicitation
+  special_notice
+  other
+
+  @@map("solicitation_type")
+}
+
+enum OpportunityStatus {
+  tracking
+  active
+  submitted
+  awarded
+  cancelled
+
+  @@map("opportunity_status")
+}
+
+enum RelationshipStatus {
+  cold
+  warm
+  engaged
+  meeting_booked
+  advocate
+
+  @@map("relationship_status")
+}
+
+/// The source spec truncated this list after "budget_document," —
+/// `competitor_award` is the obvious missing value given the Competitive
+/// Landscape feature (CompetitorActivity below) described elsewhere in the
+/// spec.
+enum AlertType {
+  new_opportunity
+  amendment
+  qa_period
+  budget_document
+  competitor_award
+
+  @@map("alert_type")
+}
+
+// --- Models ---------------------------------------------------------------
+
+/// A tracked GovCon opportunity, sourced from SAM.gov (see samOpportunityId,
+/// the natural external key the sync job upserts on) and enriched with
+/// fit-scoring and pursuit-tracking fields.
+model Opportunity {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// SAM.gov's own id for this opportunity — the natural external key the
+  /// sync job matches on when upserting. Unique so `upsert()` can target it.
+  samOpportunityId String @unique @map("sam_opportunity_id")
+
+  /// Workspace id. No `workspaces` table exists in this database — Clerk
+  /// (plus whatever org layer sits on top of it) is the source of truth for
+  /// identity — so this is a plain indexed string, not a foreign key.
+  workspaceId String @map("workspace_id")
+
+  title     String
+  agency    String
+  /// Nullable: SAM.gov's `subTier` field is frequently absent on the feed.
+  subAgency String? @map("sub_agency")
+
+  /// Nullable: SAM.gov's NAICS field is sometimes absent on the feed.
+  naicsCode String? @map("naics_code")
+  /// Nullable: the SAM.gov Opportunities feed doesn't carry contract-vehicle
+  /// data — this is filled in by a user after reviewing the solicitation.
+  contractVehicle String? @map("contract_vehicle")
+
+  /// Nullable, same reason as contractVehicle — not in the SAM.gov feed.
+  estimatedValueMin Decimal? @map("estimated_value_min") @db.Decimal(14, 2)
+  estimatedValueMax Decimal? @map("estimated_value_max") @db.Decimal(14, 2)
+
+  solicitationType SolicitationType  @map("solicitation_type")
+  status           OpportunityStatus @default(tracking)
+
+  /// Lifecycle milestone dates. All nullable — a given opportunity may not
+  /// have hit every stage yet.
+  rfiDate           DateTime? @map("rfi_date") @db.Date
+  draftRfpDate      DateTime? @map("draft_rfp_date") @db.Date
+  finalRfpDate      DateTime? @map("final_rfp_date") @db.Date
+  proposalDueDate   DateTime? @map("proposal_due_date") @db.Date
+  awardExpectedDate DateTime? @map("award_expected_date") @db.Date
+
+  incumbent        String?
+  knownCompetitors String[] @map("known_competitors")
+
+  /// 0-100. Nullable until the fit-scoring engine runs.
+  fitScore          Int?  @map("fit_score")
+  fitScoreBreakdown Json? @map("fit_score_breakdown")
+
+  notes  String? @db.Text
+  samUrl String  @map("sam_url")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  contacts Contact[]
+  alerts   Alert[]
+
+  @@index([workspaceId])
+  @@index([status])
+  @@map("opportunities")
+}
+
+/// Per-workspace tuning of how the fit score blends its five factors.
+/// Weights are expected to sum to 1.0; that isn't enforced at the DB level,
+/// only by app-side validation (same convention as Arvo's
+/// ScoringWeightsConfig).
+model FitScoreConfig {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// One config per workspace.
+  workspaceId String @unique @map("workspace_id")
+
+  /// The spec doesn't give defaults for Vantage's fit score (unlike Arvo's
+  /// influence score) — an even 0.2 split across the five factors is used
+  /// as the starting point.
+  naicsWeight              Float @default(0.2) @map("naics_weight")
+  agencyRelationshipWeight Float @default(0.2) @map("agency_relationship_weight")
+  marketingPresenceWeight  Float @default(0.2) @map("marketing_presence_weight")
+  contractVehicleWeight    Float @default(0.2) @map("contract_vehicle_weight")
+  dealSizeWeight           Float @default(0.2) @map("deal_size_weight")
+
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("fit_score_config")
+}
+
+/// A relationship-tracking contact, optionally tied to a specific
+/// opportunity (a contact can also exist independent of any one
+/// opportunity, e.g. a standing agency relationship).
+model Contact {
+  id String @id @default(uuid()) @db.Uuid
+
+  opportunityId String?      @map("opportunity_id") @db.Uuid
+  opportunity   Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+
+  workspaceId String @map("workspace_id")
+
+  name         String
+  title        String
+  organization String
+
+  linkedinUrl String? @map("linkedin_url")
+  email       String?
+  phone       String?
+
+  relationshipStatus RelationshipStatus @default(cold) @map("relationship_status")
+
+  lastTouchpointDate   DateTime? @map("last_touchpoint_date") @db.Date
+  lastTouchpointMethod String?   @map("last_touchpoint_method")
+
+  notes            String? @db.Text
+  hubspotContactId String? @map("hubspot_contact_id")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([workspaceId])
+  @@index([opportunityId])
+  @@map("contacts")
+}
+
+/// A triggered notification surfaced to a workspace (new opportunity found,
+/// amendment posted, Q&A period opened, budget document spotted, or a
+/// competitor award recorded).
+model Alert {
+  id String @id @default(uuid()) @db.Uuid
+
+  workspaceId String @map("workspace_id")
+
+  opportunityId String?      @map("opportunity_id") @db.Uuid
+  opportunity   Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+
+  alertType AlertType @map("alert_type")
+  title     String
+  body      String    @db.Text
+  sourceUrl String?   @map("source_url")
+
+  isRead Boolean @default(false) @map("is_read")
+
+  triggeredAt DateTime @default(now()) @map("triggered_at") @db.Timestamptz
+
+  @@index([workspaceId])
+  @@index([isRead, workspaceId])
+  @@index([opportunityId])
+  @@map("alerts")
+}
+
+/// A recorded competitor contract award, powering the Competitive Landscape
+/// feature. Sourced from USASpending/FPDS.
+model CompetitorActivity {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// USASpending's own award id. Paired with workspaceId as the natural key
+  /// the daily sync upserts on, so re-running an overlapping date window
+  /// never duplicates a row.
+  awardId String @map("award_id")
+
+  workspaceId String @map("workspace_id")
+
+  competitorName String @map("competitor_name")
+  agency         String
+
+  /// Nullable: USASpending occasionally omits amount/date on partial records.
+  awardAmount Decimal?  @map("award_amount") @db.Decimal(14, 2)
+  awardDate   DateTime? @map("award_date") @db.Date
+
+  contractDescription String? @map("contract_description") @db.Text
+  naicsCode           String? @map("naics_code")
+  fpdsUrl             String? @map("fpds_url")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@unique([workspaceId, awardId])
+  @@index([competitorName])
+  @@map("competitor_activity")
+}

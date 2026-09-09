@@ -37,5 +37,6 @@ demo/
 dist/
 packages-zip/
 .env
+*.tsbuildinfo
 # Claude Code local dir + transient agent worktrees (never commit these)
 .claude/

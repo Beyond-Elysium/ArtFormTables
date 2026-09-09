@@ -1,0 +1,30 @@
+{
+  "limit": 100,
+  "results": [
+    {
+      "internal_id": 90210001,
+      "Award ID": "W912DY-26-C-0042",
+      "Recipient Name": "ACME FEDERAL SOLUTIONS LLC",
+      "Award Amount": 4823110.5,
+      "Start Date": "2026-08-04",
+      "Awarding Agency": "Department of Defense",
+      "NAICS Code": "541511",
+      "Description": "ENTERPRISE IT SUPPORT AND HELP DESK SERVICES"
+    },
+    {
+      "internal_id": 90210002,
+      "Award ID": "47QTCA26D0007",
+      "Recipient Name": "BLUE RIDGE CONSULTING GROUP INC",
+      "Award Amount": 1250000,
+      "Start Date": "2026-08-11",
+      "Awarding Agency": "General Services Administration",
+      "NAICS Code": "541512",
+      "Description": "CLOUD MIGRATION ADVISORY SERVICES"
+    }
+  ],
+  "page_metadata": {
+    "page": 1,
+    "hasNext": false
+  },
+  "messages": []
+}

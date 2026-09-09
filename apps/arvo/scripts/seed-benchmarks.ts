@@ -12,6 +12,10 @@
  * BenchmarkRollup) before being upserted on the model's natural key
  * (platform, sector, objective, metric, period) — re-running the script
  * with a refreshed export is always safe.
+ *
+ * The core CSV -> upsert logic lives in `seedFromCsv`, exported so
+ * scripts/seed-demo.ts can reuse it against the bundled sample data instead
+ * of duplicating this parsing/upsert logic.
  */
 
 import { readFileSync } from "node:fs";
@@ -23,9 +27,7 @@ import {
   GovconSector,
   CampaignObjective,
   BenchmarkMetric,
-} from "@prisma/client";
-
-const prisma = new PrismaClient();
+} from "@/generated/prisma-client";
 
 // Mirrors BenchmarkRollup's fields. Enum values are validated against the
 // same enums Prisma generates from schema.prisma, so this can't drift out of
@@ -51,18 +53,22 @@ const rowSchema = z.object({
 
 type Row = z.infer<typeof rowSchema>;
 
-async function main() {
-  const csvPath = resolve(process.cwd(), process.argv[2] ?? "./benchmarks.csv");
+export interface SeedFromCsvResult {
+  csvPath: string;
+  rowsRead: number;
+  upserted: number;
+  skipped: number;
+}
 
-  let raw: string;
-  try {
-    raw = readFileSync(csvPath, "utf-8");
-  } catch (err) {
-    console.error(`Could not read CSV at ${csvPath}`);
-    console.error(err instanceof Error ? err.message : err);
-    process.exitCode = 1;
-    return;
-  }
+/**
+ * Parses `csvPath` and upserts every valid row into BenchmarkRollup via
+ * `prisma`. Invalid rows (bad enum value, missing/non-numeric fields) are
+ * logged and skipped rather than aborting the whole run. Throws only if the
+ * file itself can't be read.
+ */
+export async function seedFromCsv(csvPath: string, prisma: PrismaClient): Promise<SeedFromCsvResult> {
+  const resolvedPath = resolve(process.cwd(), csvPath);
+  const raw = readFileSync(resolvedPath, "utf-8");
 
   const parsed = Papa.parse<Record<string, string>>(raw, {
     header: true,
@@ -135,18 +141,38 @@ async function main() {
     }
   }
 
-  console.log("");
-  console.log(`Benchmark seed complete: ${csvPath}`);
-  console.log(`  rows read:      ${rowsRead}`);
-  console.log(`  upserted:       ${upserted}`);
-  console.log(`  skipped/invalid: ${skipped}`);
+  return { csvPath: resolvedPath, rowsRead, upserted, skipped };
 }
 
-main()
-  .catch((err) => {
+async function main() {
+  const prisma = new PrismaClient();
+  const csvPath = process.argv[2] ?? "./benchmarks.csv";
+
+  let result: SeedFromCsvResult;
+  try {
+    result = await seedFromCsv(csvPath, prisma);
+  } catch (err) {
+    console.error(`Could not read CSV at ${resolve(process.cwd(), csvPath)}`);
+    console.error(err instanceof Error ? err.message : err);
+    process.exitCode = 1;
+    await prisma.$disconnect();
+    return;
+  }
+
+  console.log("");
+  console.log(`Benchmark seed complete: ${result.csvPath}`);
+  console.log(`  rows read:      ${result.rowsRead}`);
+  console.log(`  upserted:       ${result.upserted}`);
+  console.log(`  skipped/invalid: ${result.skipped}`);
+
+  await prisma.$disconnect();
+}
+
+// Only run the CLI entrypoint when this file is executed directly (not when
+// imported by scripts/seed-demo.ts for its `seedFromCsv` re-use).
+if (require.main === module) {
+  main().catch((err) => {
     console.error("Fatal error running seed-benchmarks:", err);
     process.exitCode = 1;
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
   });
+}
