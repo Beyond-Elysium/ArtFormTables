@@ -11,6 +11,8 @@ import { buildNarrative } from "@/lib/narrative";
 import { DashboardControls } from "@/components/DashboardControls";
 import { DashboardBody } from "@/components/DashboardBody";
 import { NarrativeCard } from "@/components/NarrativeCard";
+import { SuiteCard } from "@/components/SuiteCard";
+import { SUITE_PRODUCTS } from "@/config/suite";
 
 // Cache provider responses for an hour to respect API quotas.
 export const revalidate = 3600;
@@ -155,6 +157,8 @@ export default async function ClientDashboard({
                 {results.length} data source{results.length === 1 ? "" : "s"}
               </div>
             </div>
+
+            {client.slug === "artform" && <SuiteCard products={SUITE_PRODUCTS} />}
 
             <NarrativeCard narrative={narrative} brand={brand} />
 
