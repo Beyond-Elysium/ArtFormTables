@@ -27,7 +27,7 @@ export default async function ScenariosPage() {
       <PageHeader
         title="Saved Scenarios"
         action={
-          <Link href="/scenarios/new" className="btn btn-primary">
+          <Link href="/arvo/scenarios/new" className="btn btn-primary">
             New Scenario
           </Link>
         }
@@ -43,7 +43,7 @@ export default async function ScenariosPage() {
               Run a benchmark scenario to see how a planned campaign is likely to perform before it launches.
             </p>
             <div className="empty-action">
-              <Link href="/scenarios/new" className="btn btn-primary">
+              <Link href="/arvo/scenarios/new" className="btn btn-primary">
                 New Scenario
               </Link>
             </div>

@@ -36,7 +36,7 @@ export default async function CompareScenariosPage({ searchParams }: { searchPar
       <PageHeader
         title="Compare Scenarios"
         action={
-          <Link href="/scenarios" className="btn btn-outline-secondary">
+          <Link href="/arvo/scenarios" className="btn btn-outline-secondary">
             Back to Scenarios
           </Link>
         }

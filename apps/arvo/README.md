@@ -53,15 +53,15 @@ Score or Influence Score as real signal rather than a placeholder.
 
 ## Getting it running
 
-From the repo root:
+From the repo root (served through the main dashboard app):
 
 ```sh
 pnpm install
 cp apps/arvo/.env.example apps/arvo/.env.local   # then fill in the keys below
-pnpm --filter @artform/arvo dev
+pnpm --filter @artform/dashboards dev
 ```
 
-The dev server runs on **http://localhost:3100**.
+Arvo is available at **http://localhost:3000/arvo**.
 
 ### What you need, and where to get it
 

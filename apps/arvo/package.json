@@ -4,10 +4,10 @@
   "private": true,
   "description": "Arvo — GovCon campaign-benchmarking SaaS.",
   "scripts": {
-    "dev": "next dev --port 3100",
+    "dev": "pnpm --filter @artform/dashboards dev",
     "prebuild": "pnpm --filter @tabler/core run css",
-    "build": "next build",
-    "start": "next start --port 3100",
+    "build": "echo \"Arvo is served from @artform/dashboards at /arvo\"",
+    "start": "echo \"Arvo is served from @artform/dashboards at /arvo\"",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
