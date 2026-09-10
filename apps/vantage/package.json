@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "next dev --port 3200",
     "prebuild": "pnpm --filter @tabler/core run css && prisma generate",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start --port 3200",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
