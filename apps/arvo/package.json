@@ -5,7 +5,7 @@
   "description": "Arvo — GovCon campaign-benchmarking SaaS.",
   "scripts": {
     "dev": "next dev --port 3100",
-    "prebuild": "pnpm --filter @tabler/core run css",
+    "prebuild": "pnpm --filter @tabler/core run css && prisma generate",
     "build": "next build",
     "start": "next start --port 3100",
     "lint": "next lint",
