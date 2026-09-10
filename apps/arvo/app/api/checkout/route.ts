@@ -16,7 +16,7 @@ function priceIdFor(tierId: TierId): string | undefined {
 }
 
 function appUrl(): string {
-  return process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  return process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000/arvo";
 }
 
 /** POST { tierId } — creates a Stripe Checkout Session for the signed-in user. */

@@ -3,7 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { serializeScenario } from "@/lib/scenario-serialize";
-import type { Prisma } from "@/generated/prisma-client";
+import type { Prisma } from "@prisma/client";
 
 export const runtime = "nodejs";
 

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { League_Spartan, Fira_Sans, Montserrat } from "next/font/google";
+import { ClerkProvider } from "@clerk/nextjs";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 // Branded ArtForm design system (compiled from core/scss/tabler.scss).
 import "@tabler/core/dist/css/tabler.min.css";
@@ -43,7 +44,9 @@ export default function RootLayout({
       className={`${leagueSpartan.variable} ${firaSans.variable} ${montserrat.variable}`}
     >
       <body>
-        <NuqsAdapter>{children}</NuqsAdapter>
+        <ClerkProvider>
+          <NuqsAdapter>{children}</NuqsAdapter>
+        </ClerkProvider>
       </body>
     </html>
   );

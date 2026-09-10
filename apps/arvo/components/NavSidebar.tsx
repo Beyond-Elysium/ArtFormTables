@@ -37,7 +37,7 @@ export function NavSidebar() {
         >
           <span className="navbar-toggler-icon" />
         </button>
-        <Link href="/" className="navbar-brand navbar-brand-autodark">
+        <Link href="/arvo" className="navbar-brand navbar-brand-autodark">
           Arvo
         </Link>
         <div className="collapse navbar-collapse" id="sidebar-menu">
@@ -45,7 +45,9 @@ export function NavSidebar() {
             {navItems.map((item) => {
               const Icon = ICONS[item.icon];
               const active =
-                item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+                item.href === "/arvo"
+                  ? pathname === "/arvo"
+                  : pathname.startsWith(item.href);
               return (
                 <li key={item.href} className={`nav-item${active ? " active" : ""}`}>
                   <Link className="nav-link" href={item.href}>

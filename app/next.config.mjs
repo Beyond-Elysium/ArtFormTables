@@ -8,6 +8,7 @@ const nextConfig = {
   reactStrictMode: true,
   // ESLint toolchain isn't wired up for this package yet; type-checking still runs.
   eslint: { ignoreDuringBuilds: true },
+  transpilePackages: ["@artform/suite-ui"],
 
   // Dashboards are unlisted-URL public: never indexable, and sensible security
   // headers everywhere. The PDF renderer (headless Chromium loading ?print=1
@@ -28,6 +29,7 @@ const nextConfig = {
   },
 
   experimental: {
+    externalDir: true,
     // Server-only packages that must never be bundled (native/dynamic requires).
     serverComponentsExternalPackages: [
       "@google-analytics/data",
@@ -45,6 +47,9 @@ const nextConfig = {
     // (not the app/node_modules symlink) so Vercel can package the files —
     // tracing through the symlink yields an invalid serverless function.
     outputFileTracingIncludes: {
+      "/arvo/api/report/[id]": [
+        "../node_modules/.pnpm/@sparticuz+chromium@*/node_modules/@sparticuz/chromium/bin/**",
+      ],
       "/api/report/[client]": [
         "../node_modules/.pnpm/@sparticuz+chromium@*/node_modules/@sparticuz/chromium/bin/**",
       ],

@@ -22,7 +22,7 @@
 
 import { createHash } from "node:crypto";
 import { resolve } from "node:path";
-import { PrismaClient, GovconSector, CampaignObjective, ScenarioStatus } from "@/generated/prisma-client";
+import { PrismaClient, GovconSector, CampaignObjective, ScenarioStatus } from "@prisma/client";
 import { seedFromCsv } from "./seed-benchmarks";
 import { computeScenarioScores } from "@/lib/scenario-engine";
 import { computeDerivedMetrics } from "@/lib/import/campaign-data-row";

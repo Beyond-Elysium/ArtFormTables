@@ -52,7 +52,7 @@ export default async function ScenarioResultsPage({ params }: { params: { id: st
         subtitle={`${objectiveLabels[scenario.objective]} · ${sectorLabels[scenario.sector]}`}
         action={
           <div className="d-flex gap-2">
-            <Link href="/scenarios" className="btn btn-outline-secondary">
+            <Link href="/arvo/scenarios" className="btn btn-outline-secondary">
               Back to Scenarios
             </Link>
             <a href={`/api/report/${scenario.id}`} className="btn btn-primary" target="_blank" rel="noopener noreferrer">

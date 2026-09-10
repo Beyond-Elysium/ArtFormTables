@@ -5,10 +5,10 @@ export type NavItem = {
 };
 
 export const navItems: NavItem[] = [
-  { href: "/", label: "Dashboard", icon: "dashboard" },
-  { href: "/scenarios", label: "Saved Scenarios", icon: "scenarios" },
-  { href: "/campaign-data", label: "Campaign Data", icon: "campaign-data" },
-  { href: "/import", label: "Import Data", icon: "import" },
-  { href: "/integrations", label: "Integrations", icon: "integrations" },
-  { href: "/settings", label: "Settings", icon: "settings" },
+  { href: "/arvo", label: "Dashboard", icon: "dashboard" },
+  { href: "/arvo/scenarios", label: "Saved Scenarios", icon: "scenarios" },
+  { href: "/arvo/campaign-data", label: "Campaign Data", icon: "campaign-data" },
+  { href: "/arvo/import", label: "Import Data", icon: "import" },
+  { href: "/arvo/integrations", label: "Integrations", icon: "integrations" },
+  { href: "/arvo/settings", label: "Settings", icon: "settings" },
 ];

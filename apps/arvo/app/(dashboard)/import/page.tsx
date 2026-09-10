@@ -52,7 +52,7 @@ export default function ImportPage() {
     setSubmitting(true);
     setOutcome(null);
     try {
-      const res = await fetch("/api/import", {
+      const res = await fetch("/arvo/api/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ rows }),

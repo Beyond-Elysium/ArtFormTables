@@ -116,7 +116,7 @@ export default function NewScenarioPage() {
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch("/api/scenarios", {
+      const res = await fetch("/arvo/api/scenarios", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

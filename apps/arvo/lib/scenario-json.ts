@@ -5,7 +5,7 @@
 // app/scenarios/[id]/print/page.tsx already renders, since that page defines
 // what these columns look like.
 
-import type { Prisma } from "@/generated/prisma-client";
+import type { Prisma } from "@prisma/client";
 
 export function asScoreRecord(value: Prisma.JsonValue | null | undefined): Record<string, number> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
