@@ -5,7 +5,7 @@
   "description": "Arvo — GovCon campaign-benchmarking SaaS.",
   "scripts": {
     "dev": "pnpm --filter @artform/dashboards dev",
-    "prebuild": "pnpm --filter @tabler/core run css",
+    "prebuild": "pnpm --filter @tabler/core run css && pnpm --filter @artform/arvo db:generate",
     "build": "echo \"Arvo is served from @artform/dashboards at /arvo\"",
     "start": "echo \"Arvo is served from @artform/dashboards at /arvo\"",
     "lint": "next lint",
@@ -41,7 +41,7 @@
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "prisma": "6.19.3",
-    "shx": "^0.4.0",
+    "shx": "^4.0.0",
     "tsx": "^4.23.13",
     "typescript": "^5.5.0",
     "vitest": "^4.1.9"
