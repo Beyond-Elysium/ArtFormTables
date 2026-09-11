@@ -5,7 +5,7 @@
   "description": "Vantage — GovCon market opportunity intelligence SaaS.",
   "scripts": {
     "dev": "next dev --port 3200",
-    "prebuild": "pnpm --filter @tabler/core run css",
+    "prebuild": "pnpm --filter @tabler/core run css && pnpm run db:generate",
     "build": "next build",
     "start": "next start --port 3200",
     "lint": "next lint",
