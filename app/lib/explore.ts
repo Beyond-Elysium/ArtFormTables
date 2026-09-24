@@ -136,8 +136,14 @@ export function decodeFilters(raw: string | null | undefined): ExploreFilter[] {
     if (!part) continue;
     const idx = part.indexOf(KV);
     if (idx < 0) continue;
-    const field = decodeURIComponent(part.slice(0, idx));
-    const value = decodeURIComponent(part.slice(idx + 1));
+    let field = "";
+    let value = "";
+    try {
+      field = decodeURIComponent(part.slice(0, idx));
+      value = decodeURIComponent(part.slice(idx + 1));
+    } catch {
+      continue;
+    }
     if (field) out.push({ field, value });
   }
   return out;

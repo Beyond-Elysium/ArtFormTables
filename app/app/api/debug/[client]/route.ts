@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getClientBySlug } from "@/config/clients";
 import { fetchClientDataUncached } from "@/lib/connectors";
 import { resolveRange } from "@/lib/range";
+import { requireSharedSecret } from "@/lib/routeAuth";
 import {
   googleAuthMethod,
   hasOAuth,
@@ -16,14 +17,11 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
 export async function GET(req: NextRequest, { params }: { params: { client: string } }) {
-  // If a secret is configured, require it; otherwise leave open (dev).
-  const secret = process.env.CRON_SECRET ?? process.env.REPORT_TOKEN;
-  if (secret) {
-    const token = req.nextUrl.searchParams.get("token");
-    if (token !== secret && req.headers.get("authorization") !== `Bearer ${secret}`) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
-  }
+  const authError = requireSharedSecret(req, {
+    env: ["CRON_SECRET", "REPORT_TOKEN"],
+    allowDevQueryToken: true,
+  });
+  if (authError) return authError;
 
   const client = getClientBySlug(params.client);
   if (!client) return NextResponse.json({ error: "unknown client" }, { status: 404 });

@@ -1,33 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { clients } from "@/config/clients";
+import { dashboardBaseUrl } from "@/lib/baseUrl";
 import { renderDashboardPdf } from "@/lib/report/render";
 import { sendReportEmail } from "@/lib/report/email";
 import { resolveRange, formatWindow } from "@/lib/range";
+import { requireSharedSecret } from "@/lib/routeAuth";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
-
-function baseUrl(req: NextRequest): string {
-  const host = req.headers.get("host") ?? "localhost:3000";
-  const proto =
-    req.headers.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
-  return `${proto}://${host}`;
-}
 
 /**
  * Scheduled report run. Renders + emails every client with `report.enabled`.
  * Auth: a CRON_SECRET bearer token, or Vercel's `x-vercel-cron` header.
  */
 export async function GET(req: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-  const isVercelCron = req.headers.get("x-vercel-cron") !== null;
-  if (secret && req.headers.get("authorization") !== `Bearer ${secret}` && !isVercelCron) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+  const authError = requireSharedSecret(req, {
+    env: ["CRON_SECRET"],
+    allowVercelCron: true,
+  });
+  if (authError) return authError;
 
   const targets = clients.filter((c) => c.report?.enabled && c.report.recipients.length > 0);
-  const base = baseUrl(req);
+  const base = dashboardBaseUrl();
   const periodLabel = formatWindow(resolveRange({}).window);
 
   const results: Array<{ slug: string; sent: boolean; reason?: string; id?: string }> = [];

@@ -55,7 +55,12 @@ export default async function ScenarioResultsPage({ params }: { params: { id: st
             <Link href="/arvo/scenarios" className="btn btn-outline-secondary">
               Back to Scenarios
             </Link>
-            <a href={`/api/report/${scenario.id}`} className="btn btn-primary" target="_blank" rel="noopener noreferrer">
+            <a
+              href={`/arvo/api/report/${scenario.id}`}
+              className="btn btn-primary"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               Download PDF
             </a>
           </div>

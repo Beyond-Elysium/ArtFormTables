@@ -60,7 +60,7 @@ export default async function CompareScenariosPage({ searchParams }: { searchPar
                     <th>Metric</th>
                     {ordered.map((s) => (
                       <th key={s.id}>
-                        <Link href={`/scenarios/${s.id}`}>{s.name}</Link>
+                        <Link href={`/arvo/scenarios/${s.id}`}>{s.name}</Link>
                       </th>
                     ))}
                   </tr>

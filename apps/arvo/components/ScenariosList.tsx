@@ -54,7 +54,7 @@ export function ScenariosList({ scenarios }: { scenarios: ScenarioListItem[] }) 
   async function archive(id: string) {
     setArchiving(id);
     try {
-      const res = await fetch(`/api/scenarios/${id}`, {
+      const res = await fetch(`/arvo/api/scenarios/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "archived" }),
@@ -68,7 +68,7 @@ export function ScenariosList({ scenarios }: { scenarios: ScenarioListItem[] }) 
   }
 
   function compare() {
-    router.push(`/scenarios/compare?ids=${Array.from(selected).join(",")}`);
+    router.push(`/arvo/scenarios/compare?ids=${Array.from(selected).join(",")}`);
   }
 
   return (
@@ -124,7 +124,7 @@ export function ScenariosList({ scenarios }: { scenarios: ScenarioListItem[] }) 
                   />
                 </td>
                 <td>
-                  <Link href={`/scenarios/${s.id}`}>{s.name}</Link>
+                  <Link href={`/arvo/scenarios/${s.id}`}>{s.name}</Link>
                 </td>
                 <td>{objectiveLabels[s.objective]}</td>
                 <td>{sectorLabels[s.sector]}</td>

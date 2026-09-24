@@ -26,9 +26,11 @@ export default function Home({
   searchParams?: Record<string, string | string[] | undefined>;
 }) {
   const envEnabled = process.env.LANDING_INDEX === "true";
-  const secret = process.env.CRON_SECRET;
   const tokenEnabled = Boolean(
-    secret && typeof searchParams.token === "string" && searchParams.token === secret,
+    process.env.NODE_ENV === "development" &&
+      process.env.CRON_SECRET &&
+      typeof searchParams.token === "string" &&
+      searchParams.token === process.env.CRON_SECRET,
   );
   if (!envEnabled && !tokenEnabled) return <Splash />;
   return <ClientIndex />;
