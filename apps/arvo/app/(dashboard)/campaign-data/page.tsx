@@ -1,5 +1,6 @@
 import { IconDatabase } from "@tabler/icons-react";
 import { auth } from "@clerk/nextjs/server";
+import type { CampaignData } from "@prisma/client";
 import { PageHeader } from "@/components/PageHeader";
 import { db } from "@/lib/db";
 
@@ -11,7 +12,7 @@ const percentFormat = new Intl.NumberFormat("en-US", { style: "percent", minimum
 export default async function CampaignDataPage() {
   const { userId } = await auth();
 
-  const rows = userId
+  const rows: CampaignData[] = userId
     ? await db.campaignData.findMany({
         where: { userId },
         orderBy: { importedAt: "desc" },
