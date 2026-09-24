@@ -54,7 +54,7 @@ export function FlightPerformanceTracker({ scenarioId, platforms, initial }: Pro
       if (values.conversions !== "") row.conversions = Number(values.conversions);
       if (values.spend !== "") row.spend = Number(values.spend);
 
-      const res = await fetch(`/api/scenarios/${scenarioId}`, {
+      const res = await fetch(`/arvo/api/scenarios/${scenarioId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ flightActuals: { [platform]: row } }),

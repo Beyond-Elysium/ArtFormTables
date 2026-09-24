@@ -1,20 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getClientBySlug } from "@/config/clients";
+import { dashboardBaseUrl } from "@/lib/baseUrl";
 import { renderDashboardPdf } from "@/lib/report/render";
 import { sendReportEmail } from "@/lib/report/email";
 import { resolveRange, formatWindow } from "@/lib/range";
+import { requireSharedSecret } from "@/lib/routeAuth";
 
 // Headless Chromium needs the Node runtime; allow up to a minute.
 export const runtime = "nodejs";
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
-
-function baseUrl(req: NextRequest): string {
-  const host = req.headers.get("host") ?? "localhost:3000";
-  const proto =
-    req.headers.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
-  return `${proto}://${host}`;
-}
 
 function context(req: NextRequest, slug: string) {
   const sp = req.nextUrl.searchParams;
@@ -30,8 +25,9 @@ function context(req: NextRequest, slug: string) {
     compare: sp.get("compare") ?? undefined,
   });
   forward.set("print", "1");
-  const printUrl = `${baseUrl(req)}/${slug}?${forward.toString()}`;
-  return { printUrl, periodLabel: formatWindow(resolved.window) };
+  const base = dashboardBaseUrl();
+  const printUrl = `${base}/${slug}?${forward.toString()}`;
+  return { base, printUrl, periodLabel: formatWindow(resolved.window) };
 }
 
 /** GET — render and download the dashboard as a PDF. */
@@ -54,12 +50,10 @@ export async function GET(req: NextRequest, { params }: { params: { client: stri
   }
 }
 
-/** POST — render and email the report to recipients (auth required if a token is set). */
+/** POST — render and email the report to recipients (auth required). */
 export async function POST(req: NextRequest, { params }: { params: { client: string } }) {
-  const token = process.env.REPORT_TOKEN ?? process.env.CRON_SECRET;
-  if (token && req.headers.get("authorization") !== `Bearer ${token}`) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+  const authError = requireSharedSecret(req, { env: ["REPORT_TOKEN", "CRON_SECRET"] });
+  if (authError) return authError;
 
   const client = getClientBySlug(params.client);
   if (!client) return NextResponse.json({ error: "unknown client" }, { status: 404 });
@@ -67,7 +61,7 @@ export async function POST(req: NextRequest, { params }: { params: { client: str
   const body = (await req.json().catch(() => ({}))) as { to?: string[] };
   const to = body.to ?? client.report?.recipients ?? [];
 
-  const { printUrl, periodLabel } = context(req, client.slug);
+  const { base, printUrl, periodLabel } = context(req, client.slug);
   try {
     const pdf = await renderDashboardPdf(printUrl);
     const result = await sendReportEmail({
@@ -76,7 +70,7 @@ export async function POST(req: NextRequest, { params }: { params: { client: str
       to,
       periodLabel,
       sourceCount: client.sources.length,
-      dashboardUrl: `${baseUrl(req)}/${client.slug}`,
+      dashboardUrl: `${base}/${client.slug}`,
       accent: client.brand?.accent,
       pdf,
     });

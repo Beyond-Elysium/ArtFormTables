@@ -139,7 +139,7 @@ export default function NewScenarioPage() {
         setError(message);
         return;
       }
-      router.push(`/scenarios/${body.id}`);
+      router.push(`/arvo/scenarios/${body.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create scenario");
     } finally {

@@ -85,7 +85,12 @@ export function DashboardBody({
 
   // Restore the active view from the URL hash after mount (SSR-safe).
   useEffect(() => {
-    const h = decodeURIComponent(window.location.hash.slice(1));
+    let h = "";
+    try {
+      h = decodeURIComponent(window.location.hash.slice(1));
+    } catch {
+      return;
+    }
     if (!h) return;
     const match = contentNames.find((t) => slugifyTab(t) === h);
     if (match) setActive(match);
