@@ -41,7 +41,7 @@
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "prisma": "6.19.3",
-    "shx": "^4.0.0",
+    "shx": "^0.4.0",
     "tsx": "^4.23.13",
     "typescript": "^5.5.0",
     "vitest": "^4.1.9"
